@@ -30,13 +30,13 @@ export function AppSidebarHeader({ breadcrumbs = [] }: { breadcrumbs?: Breadcrum
 
             {/* Right: Monday + New Item, Theme & Notifications */}
             <div className="flex items-center gap-2 md:gap-3">
-                {/* Monday.com + New Item Button */}
+                {/* Monday.com New Item Button */}
                 <Link
                     href="/kanban"
                     className="flex items-center gap-1.5 rounded-full bg-[#0073ea] px-3.5 py-1.5 text-xs font-semibold text-white shadow-xs transition-all hover:bg-[#0060c0]"
                 >
                     <Plus className="h-3.5 w-3.5 text-white" />
-                    <span>+ New Item</span>
+                    <span>New Item</span>
                 </Link>
 
                 {/* Eduplex Soft Pastel Automations Chip */}

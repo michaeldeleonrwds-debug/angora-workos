@@ -162,7 +162,7 @@ export default function Dashboard({
                             className="flex h-10 items-center gap-1.5 rounded-xl bg-[#0073ea] px-4 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#0060c0]"
                         >
                             <Link href="/kanban">
-                                <Plus className="h-4 w-4 text-white" />+ New Task
+                                <Plus className="h-4 w-4 text-white" />New Task
                             </Link>
                         </Button>
                         <Button
