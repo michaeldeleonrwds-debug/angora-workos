@@ -34,6 +34,7 @@ export interface BoardColumn {
     key: string;
     title: string;
     type: string;
+    scope?: 'task' | 'subtask';
     config?: any;
     position: number;
     is_visible: boolean;
@@ -236,6 +237,9 @@ export interface KanbanBoard {
     columns: KanbanColumn[];
     groups: BoardGroup[];
     board_columns?: BoardColumn[];
+    boardColumns?: BoardColumn[];
+    subitem_columns?: BoardColumn[];
+    subitemColumns?: BoardColumn[];
     views?: BoardView[];
     tasks?: Task[];
     automations?: BoardAutomation[];

@@ -60,6 +60,22 @@ class KanbanBoard extends Model
 
     public function boardColumns()
     {
+        return $this->hasMany(BoardColumn::class, 'board_id')
+            ->where(function ($q) {
+                $q->where('scope', 'task')->orWhereNull('scope');
+            })
+            ->orderBy('position');
+    }
+
+    public function subitemColumns()
+    {
+        return $this->hasMany(BoardColumn::class, 'board_id')
+            ->where('scope', 'subtask')
+            ->orderBy('position');
+    }
+
+    public function allBoardColumns()
+    {
         return $this->hasMany(BoardColumn::class, 'board_id')->orderBy('position');
     }
 

@@ -527,10 +527,97 @@ class AngoraWorkOsDemoSeeder extends Seeder
                 [
                     'title' => $bc['title'],
                     'type' => $bc['type'],
+                    'scope' => 'task',
                     'width' => $bc['width'],
                     'position' => $bc['position'],
                     'is_visible' => true,
                     'config' => $bc['config'] ?? null,
+                ]
+            );
+        }
+
+        // 5b. Configured Independent Subtask Columns
+        $subitemColumns = [
+            [
+                'key' => 'sub_designer',
+                'title' => 'Designer',
+                'type' => 'people',
+                'width' => 150,
+                'position' => 0,
+            ],
+            [
+                'key' => 'sub_deadline',
+                'title' => 'Deadline',
+                'type' => 'date',
+                'width' => 130,
+                'position' => 1,
+            ],
+            [
+                'key' => 'sub_status',
+                'title' => 'Status',
+                'type' => 'status',
+                'width' => 140,
+                'position' => 2,
+                'config' => [
+                    'status_options' => [
+                        ['label' => 'New Task', 'color' => '#0086C0'],
+                        ['label' => 'Working on it', 'color' => '#FDAB3D'],
+                        ['label' => 'For Review', 'color' => '#A25DDC'],
+                        ['label' => 'Needs Revision', 'color' => '#FF642E'],
+                        ['label' => 'Done', 'color' => '#00C875'],
+                    ],
+                ],
+            ],
+            [
+                'key' => 'sub_task_type',
+                'title' => 'Task Type',
+                'type' => 'dropdown',
+                'width' => 160,
+                'position' => 3,
+                'config' => [
+                    'options' => [
+                        'Design Phase',
+                        'Copywriting & Content',
+                        'Build / Asset Export',
+                        'QA & Review',
+                        'Revision',
+                    ],
+                ],
+            ],
+            [
+                'key' => 'sub_internal_revision',
+                'title' => 'Internal Revision',
+                'type' => 'text',
+                'width' => 140,
+                'position' => 4,
+            ],
+            [
+                'key' => 'sub_client_revision',
+                'title' => 'Client Revision',
+                'type' => 'text',
+                'width' => 140,
+                'position' => 5,
+            ],
+            [
+                'key' => 'sub_client_requests',
+                'title' => 'Client Requests',
+                'type' => 'text',
+                'width' => 180,
+                'position' => 6,
+            ],
+        ];
+
+        foreach ($subitemColumns as $sc) {
+            BoardColumn::firstOrCreate(
+                ['board_id' => $board->id, 'key' => $sc['key']],
+                [
+                    'title' => $sc['title'],
+                    'type' => $sc['type'],
+                    'scope' => 'subtask',
+                    'width' => $sc['width'],
+                    'position' => $sc['position'],
+                    'is_visible' => true,
+                    'config' => $sc['config'] ?? null,
                 ]
             );
         }
@@ -668,8 +755,26 @@ class AngoraWorkOsDemoSeeder extends Seeder
                 'service' => 'Web Banner Set',
                 'simul' => 5,
                 'subitems' => [
-                    ['title' => 'Google Display Ads (300x250, 728x90, 160x600)', 'designer_id' => $leoId, 'status' => 'New Task'],
-                    ['title' => 'Facebook & Instagram Story Creative Sizes', 'designer_id' => $leoId, 'status' => 'New Task'],
+                    [
+                        'title' => 'Google Display Ads (300x250, 728x90, 160x600)',
+                        'designer_id' => $leoId,
+                        'status' => 'New Task',
+                        'deadline' => $now->copy()->addDays(3)->toDateString(),
+                        'task_type' => 'Design Phase',
+                        'internal_revision' => 'Round 1 Initial Layout',
+                        'client_revision' => 'Pending First Batch',
+                        'client_requests' => 'Export at 2x retina display and keep file sizes under 150KB per spec.',
+                    ],
+                    [
+                        'title' => 'Facebook & Instagram Story Creative Sizes',
+                        'designer_id' => [$leoId, $chloeId],
+                        'status' => 'New Task',
+                        'deadline' => $now->copy()->addDays(4)->toDateString(),
+                        'task_type' => 'Build / Asset Export',
+                        'internal_revision' => 'Pending Review',
+                        'client_revision' => '-',
+                        'client_requests' => 'Adhere strictly to 9:16 safe zones for CTAs.',
+                    ],
                 ],
             ],
             [
@@ -741,8 +846,26 @@ class AngoraWorkOsDemoSeeder extends Seeder
                 'service' => 'Static Graphic',
                 'simul' => 3,
                 'subitems' => [
-                    ['title' => 'Front & isometric 3D render composition', 'designer_id' => $leoId, 'status' => 'Done'],
-                    ['title' => 'Packaging shadow masking and color grading', 'designer_id' => $leoId, 'status' => 'Working on it'],
+                    [
+                        'title' => 'Front & isometric 3D render composition',
+                        'designer_id' => $leoId,
+                        'status' => 'Done',
+                        'deadline' => $now->copy()->subDays(1)->toDateString(),
+                        'task_type' => 'Design Phase',
+                        'internal_revision' => 'Approved by Art Director',
+                        'client_revision' => 'No edits required',
+                        'client_requests' => 'Make lighting dramatic with warm highlights.',
+                    ],
+                    [
+                        'title' => 'Packaging shadow masking and color grading',
+                        'designer_id' => [$leoId, $samId],
+                        'status' => 'Working on it',
+                        'deadline' => $now->copy()->addDays(1)->toDateString(),
+                        'task_type' => 'QA & Review',
+                        'internal_revision' => 'Shadow opacity adjustment in progress',
+                        'client_revision' => 'Batch 2 requested softer shadow falloff',
+                        'client_requests' => 'Use transparent PNG backgrounds.',
+                    ],
                 ],
             ],
             [
@@ -814,8 +937,26 @@ class AngoraWorkOsDemoSeeder extends Seeder
                 'service' => 'Motion / Video Editing',
                 'simul' => 2,
                 'subitems' => [
-                    ['title' => 'Voiceover audio normalization and sound mix', 'designer_id' => $mayaId, 'status' => 'Done'],
-                    ['title' => 'Color grading in Rec709', 'designer_id' => $mayaId, 'status' => 'For Review'],
+                    [
+                        'title' => 'Voiceover audio normalization and sound mix',
+                        'designer_id' => $mayaId,
+                        'status' => 'Done',
+                        'deadline' => $now->copy()->subDays(1)->toDateString(),
+                        'task_type' => 'Build / Asset Export',
+                        'internal_revision' => 'LUFS matched at -14dB',
+                        'client_revision' => 'Client approved audio master',
+                        'client_requests' => 'Include clean instrumental background bed.',
+                    ],
+                    [
+                        'title' => 'Color grading in Rec709',
+                        'designer_id' => [$mayaId, $chloeId],
+                        'status' => 'For Review',
+                        'deadline' => $now->copy()->toDateString(),
+                        'task_type' => 'Revision',
+                        'internal_revision' => 'Version 2 with boosted saturation',
+                        'client_revision' => 'Awaiting AM signoff before sending to brand team',
+                        'client_requests' => 'Match hero product cyan hue to pantone guide.',
+                    ],
                 ],
             ],
             [
@@ -1055,6 +1196,11 @@ class AngoraWorkOsDemoSeeder extends Seeder
                     $subStatusCol = $statusMap[$sData['status']] ?? $statusMap['New Task'];
                     $subIsDone = $sData['status'] === 'Done';
 
+                    $subDesigners = is_array($sData['designer_id'])
+                        ? $sData['designer_id']
+                        : ($sData['designer_id'] ? [$sData['designer_id']] : []);
+                    $subPrimary = $subDesigners[0] ?? null;
+
                     $sub = KanbanTask::firstOrCreate(
                         [
                             'board_id' => $board->id,
@@ -1064,12 +1210,41 @@ class AngoraWorkOsDemoSeeder extends Seeder
                         [
                             'group_id' => $group->id,
                             'column_id' => $subStatusCol->id,
-                            'assigned_to' => $sData['designer_id'] ?? null,
-                            'progress' => $subIsDone ? 100 : 0,
+                            'assigned_to' => $subPrimary,
+                            'due_date' => $sData['deadline'] ?? null,
+                            'due_time' => isset($sData['deadline']) ? '17:00:00' : null,
+                            'progress' => $subIsDone ? 100 : ($sData['status'] === 'Working on it' ? 50 : ($sData['status'] === 'For Review' ? 85 : 0)),
                             'completed_at' => $subIsDone ? $now : null,
+                            'custom_values' => [
+                                'designer_ids' => $subDesigners,
+                                'sub_designer' => $subDesigners,
+                                'person' => $subDesigners,
+                                'sub_deadline' => $sData['deadline'] ?? null,
+                                'sub_status' => $sData['status'] ?? 'New Task',
+                                'sub_task_type' => $sData['task_type'] ?? 'Design Phase',
+                                'sub_internal_revision' => $sData['internal_revision'] ?? '',
+                                'sub_client_revision' => $sData['client_revision'] ?? '',
+                                'sub_client_requests' => $sData['client_requests'] ?? '',
+                            ],
                             'created_by' => $admin->id,
                         ]
                     );
+
+                    $sub->update([
+                        'assigned_to' => $subPrimary,
+                        'due_date' => $sData['deadline'] ?? $sub->due_date,
+                        'custom_values' => array_merge($sub->custom_values ?? [], [
+                            'designer_ids' => $subDesigners,
+                            'sub_designer' => $subDesigners,
+                            'person' => $subDesigners,
+                            'sub_deadline' => $sData['deadline'] ?? $sub->due_date,
+                            'sub_status' => $sData['status'] ?? 'New Task',
+                            'sub_task_type' => $sData['task_type'] ?? 'Design Phase',
+                            'sub_internal_revision' => $sData['internal_revision'] ?? '',
+                            'sub_client_revision' => $sData['client_revision'] ?? '',
+                            'sub_client_requests' => $sData['client_requests'] ?? '',
+                        ]),
+                    ]);
 
                     TaskActivityService::log(
                         task: $task,

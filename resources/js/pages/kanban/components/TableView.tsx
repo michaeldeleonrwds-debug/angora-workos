@@ -7,6 +7,7 @@ import { router } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { BoardColumn, KanbanBoard, Task, User } from '../types';
+import AddColumnModal from './AddColumnModal';
 import TableRow from './TableRow';
 
 interface TableViewProps {
@@ -38,6 +39,7 @@ export default function TableView({
     // Column Management Modal States
     const [renameColumn, setRenameColumn] = useState<BoardColumn | null>(null);
     const [renameTitleInput, setRenameTitleInput] = useState('');
+    const [isAddSubtaskColumnOpen, setIsAddSubtaskColumnOpen] = useState(false);
 
     const toggleCollapse = (groupId: number) => {
         setCollapsedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
@@ -133,7 +135,8 @@ export default function TableView({
     };
 
     const groups = board.groups || [];
-    const boardColumns = board.board_columns || [];
+    const boardColumns = board.board_columns || board.boardColumns || [];
+    const subitemColumns = board.subitem_columns || board.subitemColumns || [];
     const statusColumns = board.columns || [];
     const visibleColumns = boardColumns.filter((c) => c.is_visible);
 
@@ -433,11 +436,13 @@ export default function TableView({
                                             task={task}
                                             group={group}
                                             boardColumns={visibleColumns}
+                                            subitemColumns={subitemColumns}
                                             statusColumns={statusColumns}
                                             groups={groups}
                                             users={users}
                                             mirroredValues={mirroredValues[task.id] || {}}
                                             onSelectTask={onSelectTask}
+                                            onAddSubtaskColumn={() => setIsAddSubtaskColumnOpen(true)}
                                         />
                                     ))}
 
@@ -558,6 +563,14 @@ export default function TableView({
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* Add Subtask Dynamic Column Modal */}
+            <AddColumnModal
+                board={board}
+                isOpen={isAddSubtaskColumnOpen}
+                onClose={() => setIsAddSubtaskColumnOpen(false)}
+                scope="subtask"
+            />
         </div>
     );
 }

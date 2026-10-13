@@ -14,6 +14,7 @@ class BoardColumn extends Model
         'key',
         'title',
         'type',
+        'scope',
         'config',
         'position',
         'is_visible',
@@ -26,6 +27,18 @@ class BoardColumn extends Model
         'position' => 'integer',
         'width' => 'integer',
     ];
+
+    public function scopeForTasks($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('scope', 'task')->orWhereNull('scope');
+        });
+    }
+
+    public function scopeForSubtasks($query)
+    {
+        return $query->where('scope', 'subtask');
+    }
 
     public function board()
     {

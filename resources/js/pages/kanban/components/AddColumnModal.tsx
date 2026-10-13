@@ -11,6 +11,7 @@ interface AddColumnModalProps {
     board: KanbanBoard;
     isOpen: boolean;
     onClose: () => void;
+    scope?: 'task' | 'subtask';
 }
 
 import { FileText } from 'lucide-react';
@@ -33,7 +34,7 @@ const COLUMN_TYPES = [
     { type: 'long_text', title: 'Long Text', icon: FileText, desc: 'Multi-line notes and details' },
 ];
 
-export default function AddColumnModal({ board, isOpen, onClose }: AddColumnModalProps) {
+export default function AddColumnModal({ board, isOpen, onClose, scope = 'task' }: AddColumnModalProps) {
     const [title, setTitle] = useState('');
     const [selectedType, setSelectedType] = useState('status');
     const [optionsString, setOptionsString] = useState('Option A, Option B, Option C');
@@ -69,6 +70,7 @@ export default function AddColumnModal({ board, isOpen, onClose }: AddColumnModa
             {
                 title: title.trim(),
                 type: selectedType,
+                scope,
                 width: 150,
                 config: Object.keys(config).length > 0 ? config : null,
             },
@@ -87,7 +89,7 @@ export default function AddColumnModal({ board, isOpen, onClose }: AddColumnModa
             <DialogContent className="rounded-2xl sm:max-w-lg">
                 <form onSubmit={handleAdd}>
                     <DialogHeader>
-                        <DialogTitle>Add Dynamic Column</DialogTitle>
+                        <DialogTitle>{scope === 'subtask' ? 'Add Subtask Dynamic Column' : 'Add Dynamic Column'}</DialogTitle>
                     </DialogHeader>
 
                     <div className="space-y-4 py-4">

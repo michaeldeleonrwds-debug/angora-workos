@@ -123,6 +123,9 @@ class KanbanController extends Controller
             'boardColumns' => function ($q) {
                 $q->orderBy('position');
             },
+            'subitemColumns' => function ($q) {
+                $q->orderBy('position');
+            },
             'views' => function ($q) {
                 $q->orderBy('position');
             },
@@ -177,6 +180,7 @@ class KanbanController extends Controller
                 'groups.tasks.outgoingRelationships.targetTask.column',
                 'groups.tasks.outgoingRelationships.targetTask.assignee',
                 'boardColumns',
+                'subitemColumns',
                 'views',
                 'members.user',
                 'users',
@@ -275,9 +279,46 @@ class KanbanController extends Controller
                     'key' => $col['key'],
                     'title' => $col['title'],
                     'type' => $col['type'],
+                    'scope' => 'task',
                     'position' => $col['position'],
                     'width' => $col['width'],
                     'is_visible' => true,
+                ]);
+            }
+        }
+
+        // 2b. Ensure dynamic subtask columns exist
+        if ($board->subitemColumns()->count() === 0) {
+            $defaultSubCols = [
+                ['key' => 'sub_designer', 'title' => 'Designer', 'type' => 'people', 'position' => 0, 'width' => 150, 'config' => null],
+                ['key' => 'sub_deadline', 'title' => 'Deadline', 'type' => 'date', 'position' => 1, 'width' => 130, 'config' => null],
+                ['key' => 'sub_status', 'title' => 'Status', 'type' => 'status', 'position' => 2, 'width' => 140, 'config' => null],
+                [
+                    'key' => 'sub_task_type',
+                    'title' => 'Task Type',
+                    'type' => 'dropdown',
+                    'position' => 3,
+                    'width' => 150,
+                    'config' => [
+                        'options' => ['Design Phase', 'Build / Backend', 'QA & Review', 'Revision'],
+                    ],
+                ],
+                ['key' => 'sub_internal_revision', 'title' => 'Internal Revision', 'type' => 'text', 'position' => 4, 'width' => 140, 'config' => null],
+                ['key' => 'sub_client_revision', 'title' => 'Client Revision', 'type' => 'text', 'position' => 5, 'width' => 140, 'config' => null],
+                ['key' => 'sub_client_requests', 'title' => 'Client Requests', 'type' => 'text', 'position' => 6, 'width' => 180, 'config' => null],
+            ];
+
+            foreach ($defaultSubCols as $col) {
+                BoardColumn::create([
+                    'board_id' => $board->id,
+                    'key' => $col['key'],
+                    'title' => $col['title'],
+                    'type' => $col['type'],
+                    'scope' => 'subtask',
+                    'position' => $col['position'],
+                    'width' => $col['width'],
+                    'is_visible' => true,
+                    'config' => $col['config'],
                 ]);
             }
         }
@@ -407,12 +448,13 @@ class KanbanController extends Controller
             ]);
         }
 
-        foreach ($board->boardColumns as $bc) {
+        foreach ($board->allBoardColumns as $bc) {
             BoardColumn::create([
                 'board_id' => $newBoard->id,
                 'key' => $bc->key,
                 'title' => $bc->title,
                 'type' => $bc->type,
+                'scope' => $bc->scope ?? 'task',
                 'config' => $bc->config,
                 'position' => $bc->position,
                 'width' => $bc->width,
@@ -625,20 +667,25 @@ class KanbanController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'type' => 'required|string|in:text,long_text,status,priority,people,date,timeline,number,checkbox,dropdown,tags,rating,progress,link,formula,connect_boards,mirror',
+            'scope' => 'nullable|string|in:task,subtask',
             'config' => 'nullable|array',
             'width' => 'nullable|integer',
         ]);
 
-        $key = 'col_' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', $validated['title'])) . '_' . uniqid();
+        $scope = $validated['scope'] ?? 'task';
+        $prefix = $scope === 'subtask' ? 'sub_' : 'col_';
+        $key = $prefix . strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', $validated['title'])) . '_' . uniqid();
+        $position = $scope === 'subtask' ? $board->subitemColumns()->count() : $board->boardColumns()->count();
 
         BoardColumn::create([
             'board_id' => $board->id,
             'key' => $key,
             'title' => $validated['title'],
             'type' => $validated['type'],
+            'scope' => $scope,
             'config' => $validated['config'] ?? null,
             'width' => $validated['width'] ?? 150,
-            'position' => $board->boardColumns()->count(),
+            'position' => $position,
         ]);
 
         return back()->with('success', 'Column added');
@@ -962,7 +1009,7 @@ class KanbanController extends Controller
 
         // Custom column mutations logging (e.g. Account Manager, Service Type, Client Deadline, etc.)
         if (isset($validated['custom_values']) && is_array($validated['custom_values'])) {
-            $boardCols = $task->board?->boardColumns->keyBy('key') ?? collect();
+            $boardCols = $task->board?->allBoardColumns->keyBy('key') ?? collect();
             foreach ($validated['custom_values'] as $cKey => $cVal) {
                 $oldVal = ($task->custom_values ?? [])[$cKey] ?? null;
                 if ($oldVal !== $cVal) {

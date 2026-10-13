@@ -12,22 +12,26 @@ interface TableRowProps {
     task: Task;
     group: BoardGroup;
     boardColumns: BoardColumn[];
+    subitemColumns?: BoardColumn[];
     statusColumns: KanbanColumn[];
     groups: BoardGroup[];
     users: User[];
     mirroredValues?: Record<string, any>;
     onSelectTask: (task: Task) => void;
+    onAddSubtaskColumn?: () => void;
 }
 
 export default function TableRow({
     task,
     group,
     boardColumns = [],
+    subitemColumns = [],
     statusColumns = [],
     groups = [],
     users = [],
     mirroredValues = {},
     onSelectTask,
+    onAddSubtaskColumn,
 }: TableRowProps) {
     const [isSubitemsOpen, setIsSubitemsOpen] = useState(false);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -718,8 +722,19 @@ export default function TableRow({
                 <ConnectBoardsModal task={task} column={activeConnectColumn} isOpen={true} onClose={() => setActiveConnectColumn(null)} />
             )}
 
-            {/* Subitems Indented Section */}
-            {isSubitemsOpen && <SubitemTable parentTask={task} subitems={subitems} columns={statusColumns} users={users} />}
+            {/* Subitems Nested Section */}
+            {isSubitemsOpen && (
+                <SubitemTable
+                    parentTask={task}
+                    subitems={subitems}
+                    columns={statusColumns}
+                    subitemColumns={subitemColumns}
+                    users={users}
+                    groupColor={group.color}
+                    onSelectTask={onSelectTask}
+                    onAddSubtaskColumn={onAddSubtaskColumn}
+                />
+            )}
         </>
     );
 }
