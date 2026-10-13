@@ -34,35 +34,37 @@ class BoardRelationshipController extends Controller
         $query = $request->query('query', '');
 
         // Fetch accessible target boards
-        $boardsQuery = KanbanBoard::select('id', 'title', 'workspace_id', 'department');
-        if (!$user->isSuperAdmin() && !$user->hasPermission('kanban.view')) {
-            abort(403, 'Unauthorized.');
-        }
+        $boardsQuery = KanbanBoard::with('workspace')->select('id', 'title', 'workspace_id', 'department', 'visibility', 'created_by');
 
-        $accessibleBoards = $boardsQuery->get();
+        $accessibleBoards = $boardsQuery->get()->filter(function ($b) use ($user) {
+            return $user->can('view', $b);
+        })->values();
 
         $items = collect();
         if ($targetBoardId) {
-            $itemsQuery = KanbanTask::where('board_id', $targetBoardId)
-                ->with(['column:id,title,color', 'assignee:id,name']);
+            $targetBoard = $accessibleBoards->firstWhere('id', (int) $targetBoardId);
+            if ($targetBoard) {
+                $itemsQuery = KanbanTask::where('board_id', $targetBoardId)
+                    ->with(['column:id,title,color', 'assignee:id,name']);
 
-            if ($query) {
-                $itemsQuery->where('title', 'like', "%{$query}%");
+                if ($query) {
+                    $itemsQuery->where('title', 'like', "%{$query}%");
+                }
+
+                $items = $itemsQuery->latest()->take(30)->get()->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'title' => $item->title,
+                        'board_id' => $item->board_id,
+                        'status' => $item->column?->title,
+                        'status_color' => $item->column?->color,
+                        'priority' => $item->priority,
+                        'assignee' => $item->assignee?->name,
+                        'due_date' => $item->due_date,
+                        'progress' => $item->progress,
+                    ];
+                });
             }
-
-            $items = $itemsQuery->latest()->take(30)->get()->map(function ($item) {
-                return [
-                    'id' => $item->id,
-                    'title' => $item->title,
-                    'board_id' => $item->board_id,
-                    'status' => $item->column?->title,
-                    'status_color' => $item->column?->color,
-                    'priority' => $item->priority,
-                    'assignee' => $item->assignee?->name,
-                    'due_date' => $item->due_date,
-                    'progress' => $item->progress,
-                ];
-            });
         }
 
         return response()->json([
@@ -85,6 +87,8 @@ class BoardRelationshipController extends Controller
         ]);
 
         $sourceTask = KanbanTask::findOrFail($validated['source_task_id']);
+        \Illuminate\Support\Facades\Gate::authorize('update', $sourceTask);
+
         $sourceBoardId = $sourceTask->board_id;
         $relationType = $validated['relation_type'] ?? 'one_way';
         $columnKey = $validated['column_key'] ?? 'connected_boards';
@@ -98,6 +102,9 @@ class BoardRelationshipController extends Controller
             }
 
             $targetTask = KanbanTask::findOrFail($targetTaskId);
+            if (!auth()->user()->can('view', $targetTask)) {
+                continue;
+            }
 
             // 1. Create primary relationship: source -> target
             $rel = BoardItemRelationship::firstOrCreate(
@@ -117,7 +124,7 @@ class BoardRelationshipController extends Controller
             $createdRels[] = $rel;
 
             // 2. If bidirectional (two_way), create reciprocal relation: target -> source
-            if ($relationType === 'two_way') {
+            if ($relationType === 'two_way' && auth()->user()->can('update', $targetTask)) {
                 BoardItemRelationship::firstOrCreate(
                     [
                         'source_task_id' => $targetTask->id,
@@ -159,6 +166,11 @@ class BoardRelationshipController extends Controller
         $targetTaskId = $relationship->target_task_id;
         $columnKey = $relationship->column_key;
         $isTwoWay = $relationship->relation_type === 'two_way';
+
+        $sourceTask = KanbanTask::find($sourceTaskId);
+        if ($sourceTask) {
+            \Illuminate\Support\Facades\Gate::authorize('update', $sourceTask);
+        }
 
         $relationship->delete();
 

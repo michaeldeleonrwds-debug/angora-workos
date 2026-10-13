@@ -20,6 +20,7 @@ use App\Models\Workspace;
 use App\Services\AutomationEngineService;
 use App\Services\CrossBoardService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -37,14 +38,25 @@ class KanbanController extends Controller
     {
         $user = auth()->user();
 
-        // 1. Get or create default workspace if none exist
-        $workspaces = Workspace::with([
+        // 1. Get workspaces accessible by current user
+        $workspacesQuery = Workspace::with([
             'boards' => function ($q) {
                 $q->orderBy('title');
             },
             'members.user',
             'owner',
-        ])->get();
+        ]);
+
+        if (!$user->isSuperAdmin()) {
+            $workspacesQuery->where(function ($q) use ($user) {
+                $q->where('owner_id', $user->id)
+                    ->orWhereHas('members', function ($mq) use ($user) {
+                        $mq->where('user_id', $user->id);
+                    });
+            });
+        }
+
+        $workspaces = $workspacesQuery->get();
 
         if ($workspaces->isEmpty()) {
             $workspace = Workspace::create([
@@ -52,14 +64,19 @@ class KanbanController extends Controller
                 'description' => 'Default enterprise workspace',
                 'owner_id' => $user->id,
             ]);
-            $workspaces = Workspace::with(['boards', 'members.user', 'owner'])->get();
+            \App\Models\WorkspaceMember::create([
+                'workspace_id' => $workspace->id,
+                'user_id' => $user->id,
+                'role' => 'owner',
+            ]);
+            $workspaces = Workspace::with(['boards', 'members.user', 'owner'])->where('id', $workspace->id)->get();
         }
 
         // 2. Resolve Active Workspace & Board
         $workspaceId = $request->query('workspace');
         $boardId = $request->query('board');
 
-        $activeWorkspace = $workspaceId ? Workspace::find($workspaceId) : $workspaces->first();
+        $activeWorkspace = $workspaceId ? $workspaces->firstWhere('id', (int) $workspaceId) : $workspaces->first();
         if (!$activeWorkspace) {
             $activeWorkspace = $workspaces->first();
         }
@@ -107,7 +124,10 @@ class KanbanController extends Controller
             'workspace',
         ]);
 
-        $boards = $boardsQuery->get();
+        $workspaceIds = $workspaces->pluck('id')->toArray();
+        $boards = $boardsQuery->whereIn('workspace_id', $workspaceIds)->get()->filter(function ($b) use ($user) {
+            return $user->can('view', $b);
+        })->values();
 
         // Target active board
         $activeBoard = null;
@@ -161,7 +181,7 @@ class KanbanController extends Controller
         $selectedTaskId = $request->query('item');
         $selectedTask = null;
         if ($selectedTaskId) {
-            $selectedTask = KanbanTask::with([
+            $taskCandidate = KanbanTask::with([
                 'assignee',
                 'column',
                 'group',
@@ -177,6 +197,10 @@ class KanbanController extends Controller
                 'outgoingRelationships.targetTask.column',
                 'outgoingRelationships.targetTask.assignee',
             ])->find($selectedTaskId);
+
+            if ($taskCandidate && $user->can('view', $taskCandidate)) {
+                $selectedTask = $taskCandidate;
+            }
         }
 
         // Resolve Mirror column values for all tasks on the active board
@@ -290,6 +314,9 @@ class KanbanController extends Controller
             'visibility' => 'nullable|in:public,private,shareable',
         ]);
 
+        $workspace = Workspace::findOrFail($validated['workspace_id']);
+        Gate::authorize('create', [KanbanBoard::class, $workspace]);
+
         $board = KanbanBoard::create([
             'workspace_id' => $validated['workspace_id'],
             'title' => $validated['title'],
@@ -322,6 +349,8 @@ class KanbanController extends Controller
 
     public function updateBoard(Request $request, KanbanBoard $board)
     {
+        Gate::authorize('update', $board);
+
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string|max:1000',
@@ -338,6 +367,8 @@ class KanbanController extends Controller
 
     public function duplicateBoard(KanbanBoard $board)
     {
+        Gate::authorize('duplicate', $board);
+
         $newBoard = KanbanBoard::create([
             'workspace_id' => $board->workspace_id,
             'title' => $board->title . ' (Copy)',
@@ -396,6 +427,8 @@ class KanbanController extends Controller
 
     public function deleteBoard(KanbanBoard $board)
     {
+        Gate::authorize('delete', $board);
+
         $workspaceId = $board->workspace_id;
         $board->delete();
 
@@ -406,6 +439,8 @@ class KanbanController extends Controller
     // --- Workflow Stages (Kanban Columns) Management ---
     public function storeWorkflowStage(Request $request, KanbanBoard $board)
     {
+        Gate::authorize('update', $board);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'color' => 'nullable|string|max:20',
@@ -423,6 +458,11 @@ class KanbanController extends Controller
 
     public function updateWorkflowStage(Request $request, KanbanColumn $column)
     {
+        $board = $column->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'color' => 'nullable|string|max:20',
@@ -435,6 +475,11 @@ class KanbanController extends Controller
 
     public function deleteWorkflowStage(KanbanColumn $column)
     {
+        $board = $column->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $boardId = $column->board_id;
         $fallback = KanbanColumn::where('board_id', $boardId)->where('id', '!=', $column->id)->first();
         if ($fallback) {
@@ -447,6 +492,8 @@ class KanbanController extends Controller
 
     public function reorderWorkflowStages(Request $request, KanbanBoard $board)
     {
+        Gate::authorize('update', $board);
+
         $validated = $request->validate([
             'stage_ids' => 'required|array',
             'stage_ids.*' => 'exists:kanban_columns,id',
@@ -462,6 +509,8 @@ class KanbanController extends Controller
     // --- Groups Management ---
     public function storeGroup(Request $request, KanbanBoard $board)
     {
+        Gate::authorize('update', $board);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'color' => 'nullable|string|max:20',
@@ -479,6 +528,11 @@ class KanbanController extends Controller
 
     public function updateGroup(Request $request, BoardGroup $group)
     {
+        $board = $group->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'color' => 'nullable|string|max:20',
@@ -491,6 +545,11 @@ class KanbanController extends Controller
 
     public function deleteGroup(BoardGroup $group)
     {
+        $board = $group->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $boardId = $group->board_id;
         $otherGroup = BoardGroup::where('board_id', $boardId)->where('id', '!=', $group->id)->first();
         if ($otherGroup) {
@@ -504,6 +563,8 @@ class KanbanController extends Controller
     // --- Dynamic Columns Management ---
     public function storeBoardColumn(Request $request, KanbanBoard $board)
     {
+        Gate::authorize('update', $board);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'type' => 'required|string|in:text,status,priority,people,date,timeline,number,checkbox,dropdown,tags,rating,progress,link,formula',
@@ -528,6 +589,11 @@ class KanbanController extends Controller
 
     public function updateBoardColumn(Request $request, BoardColumn $column)
     {
+        $board = $column->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'is_visible' => 'nullable|boolean',
@@ -542,12 +608,19 @@ class KanbanController extends Controller
 
     public function deleteBoardColumn(BoardColumn $column)
     {
+        $board = $column->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $column->delete();
         return back()->with('success', 'Column deleted');
     }
 
     public function reorderBoardColumns(Request $request, KanbanBoard $board)
     {
+        Gate::authorize('update', $board);
+
         $validated = $request->validate([
             'column_ids' => 'required|array',
             'column_ids.*' => 'exists:board_columns,id',
@@ -562,6 +635,8 @@ class KanbanController extends Controller
 
     public function toggleBoardFavorite(KanbanBoard $board)
     {
+        Gate::authorize('view', $board);
+
         $board->update(['is_favorite' => !$board->is_favorite]);
         return back()->with('success', 'Board updated');
     }
@@ -587,6 +662,7 @@ class KanbanController extends Controller
         ]);
 
         $board = KanbanBoard::findOrFail($validated['board_id']);
+        Gate::authorize('view', $board);
 
         $columnId = $validated['column_id'] ?? null;
         if (!$columnId) {
@@ -647,6 +723,8 @@ class KanbanController extends Controller
 
     public function updateTask(Request $request, KanbanTask $task)
     {
+        Gate::authorize('update', $task);
+
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string',
@@ -709,6 +787,8 @@ class KanbanController extends Controller
 
     public function updateTaskColumn(Request $request, KanbanTask $task)
     {
+        Gate::authorize('update', $task);
+
         $validated = $request->validate([
             'column_id' => 'required|exists:kanban_columns,id',
             'position' => 'nullable|integer',
@@ -765,11 +845,14 @@ class KanbanController extends Controller
         ]);
 
         foreach ($validated['task_ids'] as $idx => $id) {
-            $data = ['position' => $idx];
-            if (isset($validated['column_id'])) {
-                $data['column_id'] = $validated['column_id'];
+            $task = KanbanTask::find($id);
+            if ($task && auth()->user()->can('update', $task)) {
+                $data = ['position' => $idx];
+                if (isset($validated['column_id'])) {
+                    $data['column_id'] = $validated['column_id'];
+                }
+                $task->update($data);
             }
-            KanbanTask::where('id', $id)->update($data);
         }
 
         return back()->with('success', 'Tasks reordered');
@@ -777,6 +860,8 @@ class KanbanController extends Controller
 
     public function updateTaskGroup(Request $request, KanbanTask $task)
     {
+        Gate::authorize('update', $task);
+
         $validated = $request->validate([
             'group_id' => 'required|exists:board_groups,id',
             'position' => 'nullable|integer',
@@ -793,6 +878,8 @@ class KanbanController extends Controller
 
     public function storeSubitem(Request $request, KanbanTask $task)
     {
+        Gate::authorize('update', $task);
+
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'assigned_to' => 'nullable|exists:users,id',
@@ -832,6 +919,8 @@ class KanbanController extends Controller
 
     public function deleteTask(KanbanTask $task)
     {
+        Gate::authorize('delete', $task);
+
         $taskTitle = $task->title;
         $parentId = $task->parent_id;
 
@@ -856,6 +945,8 @@ class KanbanController extends Controller
     // --- Comments, Threaded Replies & Reactions ---
     public function storeComment(Request $request, KanbanTask $task)
     {
+        Gate::authorize('view', $task);
+
         $validated = $request->validate([
             'message' => 'required|string',
             'parent_id' => 'nullable|exists:kanban_comments,id',
@@ -875,15 +966,19 @@ class KanbanController extends Controller
 
     public function deleteComment(KanbanComment $comment)
     {
-        if ($comment->user_id === auth()->id() || auth()->user()->role === 'super_admin') {
-            $comment->delete();
-            return back()->with('success', 'Comment deleted');
-        }
-        return back()->with('error', 'Unauthorized');
+        Gate::authorize('delete', $comment);
+
+        $comment->delete();
+        return back()->with('success', 'Comment deleted');
     }
 
     public function toggleCommentReaction(Request $request, KanbanComment $comment)
     {
+        $task = $comment->task;
+        if ($task) {
+            Gate::authorize('view', $task);
+        }
+
         $validated = $request->validate([
             'emoji' => 'required|string|max:10',
         ]);
@@ -913,6 +1008,8 @@ class KanbanController extends Controller
     // --- Attachments ---
     public function storeAttachment(Request $request, KanbanTask $task)
     {
+        Gate::authorize('view', $task);
+
         $request->validate([
             'file' => 'required|file|max:20480', // 20MB limit
         ]);
@@ -943,24 +1040,18 @@ class KanbanController extends Controller
 
     public function deleteAttachment(KanbanAttachment $attachment)
     {
-        if ($attachment->user_id === auth()->id() || auth()->user()->role === 'super_admin') {
-            if (Storage::disk('public')->exists($attachment->file_path)) {
-                Storage::disk('public')->delete($attachment->file_path);
-            }
-            $attachment->delete();
-            return back()->with('success', 'Attachment deleted');
+        Gate::authorize('delete', $attachment);
+
+        if (Storage::disk('public')->exists($attachment->file_path)) {
+            Storage::disk('public')->delete($attachment->file_path);
         }
-        return back()->with('error', 'Unauthorized');
+        $attachment->delete();
+        return back()->with('success', 'Attachment deleted');
     }
 
     public function downloadAttachment(KanbanAttachment $attachment)
     {
-        $user = auth()->user();
-        if ($user->role === 'external_user') {
-            abort(403, 'External users are not authorized to download internal task attachments.');
-        }
-
-        abort_unless($user->hasPermission('kanban.view') || $user->isSuperAdmin(), 403, 'Unauthorized');
+        Gate::authorize('view', $attachment);
 
         if (!$attachment->file_path || !Storage::disk('public')->exists($attachment->file_path)) {
             abort(404, 'Attachment file not found on storage.');
@@ -972,6 +1063,8 @@ class KanbanController extends Controller
     // --- Views Management (Table, Kanban, Calendar, Timeline, Gantt, Workload, Chart, Files, Gallery) ---
     public function storeView(Request $request, KanbanBoard $board)
     {
+        Gate::authorize('view', $board);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|in:table,kanban,calendar,timeline,gantt,workload,chart,files,gallery',
@@ -992,6 +1085,11 @@ class KanbanController extends Controller
 
     public function updateView(Request $request, BoardView $view)
     {
+        $board = $view->board;
+        if ($board) {
+            Gate::authorize('view', $board);
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'type' => 'sometimes|in:table,kanban,calendar,timeline,gantt,workload,chart,files,gallery',
@@ -1015,6 +1113,11 @@ class KanbanController extends Controller
 
     public function deleteView(BoardView $view)
     {
+        $board = $view->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $boardId = $view->board_id;
         if (BoardView::where('board_id', $boardId)->count() <= 1) {
             return back()->with('error', 'Cannot delete the only view on the board');
@@ -1033,6 +1136,8 @@ class KanbanController extends Controller
 
     public function reorderViews(Request $request, KanbanBoard $board)
     {
+        Gate::authorize('view', $board);
+
         $validated = $request->validate([
             'view_ids' => 'required|array',
             'view_ids.*' => 'exists:board_views,id',
@@ -1048,6 +1153,8 @@ class KanbanController extends Controller
     // --- Task Dependencies (Gantt & Sequencing with Cycle Detection) ---
     public function storeDependency(Request $request, KanbanTask $task)
     {
+        Gate::authorize('update', $task);
+
         $validated = $request->validate([
             'depends_on_task_id' => 'required|exists:kanban_tasks,id|different:task_id',
             'dependency_type' => 'nullable|string|in:finish_to_start,start_to_start,finish_to_finish,start_to_finish',
@@ -1079,12 +1186,19 @@ class KanbanController extends Controller
 
     public function deleteDependency(TaskDependency $dependency)
     {
+        $task = $dependency->task;
+        if ($task) {
+            Gate::authorize('update', $task);
+        }
+
         $dependency->delete();
         return back()->with('success', 'Dependency removed');
     }
 
     public function updateTaskSchedule(Request $request, KanbanTask $task)
     {
+        Gate::authorize('update', $task);
+
         $validated = $request->validate([
             'start_date' => 'nullable|date',
             'due_date' => 'nullable|date',
@@ -1119,6 +1233,8 @@ class KanbanController extends Controller
     // --- Automation Engine Endpoints ---
     public function storeAutomation(Request $request, KanbanBoard $board)
     {
+        Gate::authorize('update', $board);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
@@ -1154,6 +1270,11 @@ class KanbanController extends Controller
 
     public function updateAutomation(Request $request, BoardAutomation $automation)
     {
+        $board = $automation->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
             'description' => 'nullable|string|max:1000',
@@ -1171,6 +1292,11 @@ class KanbanController extends Controller
 
     public function toggleAutomation(BoardAutomation $automation)
     {
+        $board = $automation->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $automation->update(['is_active' => !$automation->is_active]);
         $statusStr = $automation->is_active ? 'enabled' : 'disabled';
         return back()->with('success', "Automation {$statusStr}");
@@ -1178,6 +1304,11 @@ class KanbanController extends Controller
 
     public function duplicateAutomation(BoardAutomation $automation)
     {
+        $board = $automation->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $clone = $automation->replicate();
         $clone->name = "{$automation->name} (Copy)";
         $clone->created_by = auth()->id();
@@ -1190,12 +1321,21 @@ class KanbanController extends Controller
 
     public function deleteAutomation(BoardAutomation $automation)
     {
+        $board = $automation->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
         $automation->delete();
         return back()->with('success', 'Automation rule deleted');
     }
 
     public function testAutomation(Request $request, BoardAutomation $automation)
     {
+        $board = $automation->board;
+        if ($board) {
+            Gate::authorize('view', $board);
+        }
         $task = KanbanTask::where('board_id', $automation->board_id)->first();
         if (!$task) {
             return back()->with('error', 'No tasks available on this board to test automation against');

@@ -11,11 +11,14 @@ use App\Models\KanbanColumn;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class WorkspaceController extends Controller
 {
     public function store(Request $request)
     {
+        Gate::authorize('create', Workspace::class);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
@@ -95,6 +98,8 @@ class WorkspaceController extends Controller
 
     public function update(Request $request, Workspace $workspace)
     {
+        Gate::authorize('update', $workspace);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
@@ -117,12 +122,16 @@ class WorkspaceController extends Controller
 
     public function toggleFavorite(Workspace $workspace)
     {
+        Gate::authorize('view', $workspace);
+
         $workspace->update(['is_favorite' => !$workspace->is_favorite]);
         return back()->with('success', 'Workspace updated');
     }
 
     public function addMember(Request $request, Workspace $workspace)
     {
+        Gate::authorize('manageMembers', $workspace);
+
         $validated = $request->validate([
             'user_id' => 'required|exists:users,id',
             'role' => 'required|in:admin,member,viewer',
@@ -138,6 +147,8 @@ class WorkspaceController extends Controller
 
     public function removeMember(Workspace $workspace, WorkspaceMember $member)
     {
+        Gate::authorize('manageMembers', $workspace);
+
         if ($member->workspace_id === $workspace->id && $member->role !== 'owner') {
             $member->delete();
         }
@@ -147,6 +158,8 @@ class WorkspaceController extends Controller
 
     public function updateMemberRole(Request $request, Workspace $workspace, WorkspaceMember $member)
     {
+        Gate::authorize('manageMembers', $workspace);
+
         $validated = $request->validate([
             'role' => 'required|in:admin,member,viewer',
         ]);
@@ -160,6 +173,8 @@ class WorkspaceController extends Controller
 
     public function destroy(Workspace $workspace)
     {
+        Gate::authorize('delete', $workspace);
+
         // Don't delete if it's the only workspace
         if (Workspace::count() <= 1) {
             return back()->with('error', 'Cannot delete the only remaining workspace');
