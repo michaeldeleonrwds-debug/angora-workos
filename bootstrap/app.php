@@ -18,11 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+            \App\Http\Middleware\EnsureAccountIsActive::class,
         ]);
 
         $middleware->alias([
             'permission' => \App\Http\Middleware\RequirePermission::class,
             'api.auth' => \App\Http\Middleware\AuthenticateApiToken::class,
+            'account.active' => \App\Http\Middleware\EnsureAccountIsActive::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

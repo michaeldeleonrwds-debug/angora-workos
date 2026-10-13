@@ -47,6 +47,8 @@ class AuthenticatedSessionController extends Controller
         ]);
 
         $user = \App\Models\User::findOrFail($request->user_id);
+        abort_if($user->status === 'inactive' || $user->status === 'suspended', 403, 'Cannot quick-login to a deactivated or suspended account.');
+
         Auth::login($user);
         $request->session()->regenerate();
 

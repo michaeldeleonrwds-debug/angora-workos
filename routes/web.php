@@ -109,15 +109,24 @@ Route::middleware(['auth'])->group(function () {
     Route::match(['post', 'patch'], '/users/{user}/status', [\App\Http\Controllers\UserController::class, 'toggleStatus'])->name('users.status');
     Route::delete('/users/{user}', [\App\Http\Controllers\UserController::class, 'destroy'])->name('users.destroy');
 
-    // Invitations Admin
-    Route::post('/users/invite', [\App\Http\Controllers\UserController::class, 'invite'])->name('users.invite');
-    Route::post('/users/invitations/{invitation}/resend', [\App\Http\Controllers\UserController::class, 'resendInvitation'])->name('users.invitations.resend');
-    Route::delete('/users/invitations/{invitation}', [\App\Http\Controllers\UserController::class, 'revokeInvitation'])->name('users.invitations.revoke');
+    // Invitations Admin (Protected with rate limiting: max 20 per minute)
+    Route::post('/users/invite', [\App\Http\Controllers\UserController::class, 'invite'])
+        ->middleware('throttle:20,1')
+        ->name('users.invite');
+    Route::post('/users/invitations/{invitation}/resend', [\App\Http\Controllers\UserController::class, 'resendInvitation'])
+        ->middleware('throttle:20,1')
+        ->name('users.invitations.resend');
+    Route::delete('/users/invitations/{invitation}', [\App\Http\Controllers\UserController::class, 'revokeInvitation'])
+        ->name('users.invitations.revoke');
 });
 
-// Public Invitation Acceptance Routes (Guests & New Teammates)
-Route::get('/invitations/{token}', [\App\Http\Controllers\Auth\InvitationRedemptionController::class, 'show'])->name('invitations.show');
-Route::post('/invitations/{token}', [\App\Http\Controllers\Auth\InvitationRedemptionController::class, 'accept'])->name('invitations.accept');
+// Public Invitation Acceptance Routes (Rate-limited: 30 views/min, 10 acceptances/min to prevent enumeration & brute force)
+Route::get('/invitations/{token}', [\App\Http\Controllers\Auth\InvitationRedemptionController::class, 'show'])
+    ->middleware('throttle:30,1')
+    ->name('invitations.show');
+Route::post('/invitations/{token}', [\App\Http\Controllers\Auth\InvitationRedemptionController::class, 'accept'])
+    ->middleware('throttle:10,1')
+    ->name('invitations.accept');
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

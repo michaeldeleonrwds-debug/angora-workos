@@ -149,7 +149,9 @@ class WorkspaceController extends Controller
     {
         Gate::authorize('manageMembers', $workspace);
 
-        if ($member->workspace_id === $workspace->id && $member->role !== 'owner') {
+        abort_unless($member->workspace_id === $workspace->id, 404, 'Member does not belong to this workspace.');
+
+        if ($member->role !== 'owner') {
             $member->delete();
         }
 
@@ -160,11 +162,13 @@ class WorkspaceController extends Controller
     {
         Gate::authorize('manageMembers', $workspace);
 
+        abort_unless($member->workspace_id === $workspace->id, 404, 'Member does not belong to this workspace.');
+
         $validated = $request->validate([
             'role' => 'required|in:admin,member,viewer',
         ]);
 
-        if ($member->workspace_id === $workspace->id && $member->role !== 'owner') {
+        if ($member->role !== 'owner') {
             $member->update(['role' => $validated['role']]);
         }
 

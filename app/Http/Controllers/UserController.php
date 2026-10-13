@@ -28,11 +28,13 @@ class UserController extends Controller
         $roleFilter = $request->query('role', '');
         $statusFilter = $request->query('status', '');
 
-        $query = User::query()->with([
-            'workspaces:id,name',
-            'managedProjects:id,name,code',
-            'projects:id,name,code',
-        ]);
+        $query = User::query()
+            ->select('id', 'name', 'email', 'role', 'department', 'phone', 'status', 'created_at')
+            ->with([
+                'workspaces:id,name',
+                'managedProjects:id,name,code',
+                'projects:id,name,code',
+            ]);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -52,7 +54,8 @@ class UserController extends Controller
 
         $users = $query->orderBy('name')->paginate(20)->withQueryString();
 
-        $invitations = UserInvitation::with(['workspace:id,name', 'board:id,title', 'inviter:id,name'])
+        $invitations = UserInvitation::select('id', 'email', 'role', 'workspace_id', 'board_id', 'invited_by', 'expires_at', 'accepted_at', 'revoked_at', 'created_at', 'token')
+            ->with(['workspace:id,name', 'board:id,title', 'inviter:id,name'])
             ->latest()
             ->take(30)
             ->get();
@@ -109,6 +112,13 @@ class UserController extends Controller
 
         Gate::authorize('assignRole', [User::class, $validated['role']]);
 
+        if (!empty($validated['workspace_ids'])) {
+            foreach ($validated['workspace_ids'] as $wsId) {
+                $ws = Workspace::findOrFail($wsId);
+                Gate::authorize('manageMembers', $ws);
+            }
+        }
+
         $user = User::create([
             'name' => $validated['name'],
             'email' => strtolower($validated['email']),
@@ -161,6 +171,18 @@ class UserController extends Controller
 
         Gate::authorize('assignRole', [User::class, $validated['role']]);
 
+        // Authorization check: If target workspace specified, inviter must have manageMembers rights
+        if (!empty($validated['workspace_id'])) {
+            $targetWs = Workspace::findOrFail($validated['workspace_id']);
+            Gate::authorize('manageMembers', $targetWs);
+        }
+
+        // Authorization check: If target board specified, inviter must have manageMembers rights
+        if (!empty($validated['board_id'])) {
+            $targetBoard = KanbanBoard::findOrFail($validated['board_id']);
+            Gate::authorize('manageMembers', $targetBoard);
+        }
+
         // Invalidate any existing pending invitation for this email
         UserInvitation::where('email', strtolower($validated['email']))
             ->whereNull('accepted_at')
@@ -198,11 +220,14 @@ class UserController extends Controller
             return back()->with('error', 'Invitation has already been accepted.');
         }
 
+        $rawToken = \Illuminate\Support\Str::random(48);
         $invitation->update([
-            'token' => \Illuminate\Support\Str::random(48),
+            'token' => $rawToken,
+            'token_hash' => UserInvitation::hashToken($rawToken),
             'expires_at' => now()->addDays(7),
             'revoked_at' => null,
         ]);
+        $invitation->rawToken = $rawToken;
 
         AuditLog::log(
             action: 'USER_INVITATION_RESENT',

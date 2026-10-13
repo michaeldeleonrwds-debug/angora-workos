@@ -11,9 +11,15 @@ class UserInvitation extends Model
 {
     use HasFactory;
 
+    /**
+     * Ephemeral raw token populated only upon creation or regeneration.
+     */
+    public ?string $rawToken = null;
+
     protected $fillable = [
         'email',
         'token',
+        'token_hash',
         'role',
         'workspace_id',
         'board_id',
@@ -23,23 +29,54 @@ class UserInvitation extends Model
         'revoked_at',
     ];
 
+    protected $hidden = [
+        'token_hash',
+    ];
+
     protected $casts = [
         'expires_at' => 'datetime',
         'accepted_at' => 'datetime',
         'revoked_at' => 'datetime',
     ];
 
+    /**
+     * Compute SHA-256 hash of a raw token.
+     */
+    public static function hashToken(string $rawToken): string
+    {
+        return hash('sha256', $rawToken);
+    }
+
+    /**
+     * Securely find an invitation by raw token (checks token_hash first, falls back to legacy token).
+     */
+    public static function findByRawToken(string $rawToken): ?self
+    {
+        $hash = self::hashToken($rawToken);
+
+        return self::where('token_hash', $hash)
+            ->orWhere('token', $rawToken)
+            ->first();
+    }
+
     public static function createInvitation(array $attributes): self
     {
-        return self::create([
+        $rawToken = Str::random(48);
+
+        $invitation = self::create([
             'email' => strtolower(trim($attributes['email'])),
-            'token' => Str::random(48),
+            'token' => $rawToken,
+            'token_hash' => self::hashToken($rawToken),
             'role' => $attributes['role'] ?? 'employee',
             'workspace_id' => $attributes['workspace_id'] ?? null,
             'board_id' => $attributes['board_id'] ?? null,
             'invited_by' => $attributes['invited_by'] ?? null,
             'expires_at' => $attributes['expires_at'] ?? now()->addDays(7),
         ]);
+
+        $invitation->rawToken = $rawToken;
+
+        return $invitation;
     }
 
     public function isPending(): bool

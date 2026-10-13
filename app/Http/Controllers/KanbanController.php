@@ -460,7 +460,9 @@ class KanbanController extends Controller
     {
         Gate::authorize('manageMembers', $board);
 
-        if ($member->board_id === $board->id && $member->role !== 'owner') {
+        abort_unless($member->board_id === $board->id, 404, 'Member does not belong to this board.');
+
+        if ($member->role !== 'owner') {
             $member->delete();
         }
 
@@ -471,11 +473,13 @@ class KanbanController extends Controller
     {
         Gate::authorize('manageMembers', $board);
 
+        abort_unless($member->board_id === $board->id, 404, 'Member does not belong to this board.');
+
         $validated = $request->validate([
             'role' => 'required|in:owner,admin,editor,viewer,guest',
         ]);
 
-        if ($member->board_id === $board->id && $member->role !== 'owner') {
+        if ($member->role !== 'owner') {
             $member->update(['role' => $validated['role']]);
         }
 
