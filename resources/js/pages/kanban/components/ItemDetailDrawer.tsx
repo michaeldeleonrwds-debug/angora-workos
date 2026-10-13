@@ -452,7 +452,25 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                     {col.title}
                                                 </Label>
                                                 <div className="sm:col-span-2">
-                                                    {col.type === 'long_text' ? (
+                                                    {col.type === 'people' ? (
+                                                        <select
+                                                            defaultValue={customVal || ''}
+                                                            onChange={(e) =>
+                                                                handleUpdateField('custom_values', {
+                                                                    ...(task.custom_values || {}),
+                                                                    [col.key]: e.target.value ? Number(e.target.value) : null,
+                                                                })
+                                                            }
+                                                            className="border-border bg-background h-8 w-full rounded-xl border px-2.5 text-xs"
+                                                        >
+                                                            <option value="">Unassigned</option>
+                                                            {users.map((u) => (
+                                                                <option key={u.id} value={u.id}>
+                                                                    {u.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : col.type === 'long_text' ? (
                                                         <textarea
                                                             rows={2}
                                                             defaultValue={customVal}

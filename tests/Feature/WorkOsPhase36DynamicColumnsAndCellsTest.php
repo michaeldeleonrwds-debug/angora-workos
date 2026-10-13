@@ -266,8 +266,70 @@ class WorkOsPhase36DynamicColumnsAndCellsTest extends TestCase
         $countTasks = KanbanTask::where('board_id', $board->id)->count();
         $this->assertGreaterThan(0, $countTasks);
 
-        // Second run to confirm complete idempotency
+        // Verify Realistic Production Board Seeding
+        $this->assertDatabaseHas('workspaces', [
+            'name' => 'Agency Production Operations',
+        ]);
+
+        $prodBoard = KanbanBoard::where('title', 'Angora Production — Demo')->first();
+        $this->assertNotNull($prodBoard);
+
+        // Verify 6 Groups
+        $expectedGroups = ['Resources', 'Hold', 'New Task', 'In Progress', 'For Review', 'Completed'];
+        foreach ($expectedGroups as $gTitle) {
+            $this->assertDatabaseHas('board_groups', [
+                'board_id' => $prodBoard->id,
+                'title' => $gTitle,
+            ]);
+        }
+
+        // Verify 7 Dynamic Columns
+        $this->assertDatabaseHas('board_columns', [
+            'board_id' => $prodBoard->id,
+            'title' => 'Designer',
+            'type' => 'people',
+        ]);
+        $this->assertDatabaseHas('board_columns', [
+            'board_id' => $prodBoard->id,
+            'title' => 'AM',
+            'type' => 'people',
+        ]);
+        $this->assertDatabaseHas('board_columns', [
+            'board_id' => $prodBoard->id,
+            'title' => 'Status',
+            'type' => 'status',
+        ]);
+        $this->assertDatabaseHas('board_columns', [
+            'board_id' => $prodBoard->id,
+            'title' => 'Deadline',
+            'type' => 'date',
+        ]);
+        $this->assertDatabaseHas('board_columns', [
+            'board_id' => $prodBoard->id,
+            'title' => 'Client Deadline',
+            'type' => 'date',
+        ]);
+        $this->assertDatabaseHas('board_columns', [
+            'board_id' => $prodBoard->id,
+            'title' => 'Service Type',
+            'type' => 'dropdown',
+        ]);
+        $this->assertDatabaseHas('board_columns', [
+            'board_id' => $prodBoard->id,
+            'title' => 'No. of Task Simul',
+            'type' => 'number',
+        ]);
+
+        // Verify Tasks & Subitems counts
+        $parentTasksCount = KanbanTask::where('board_id', $prodBoard->id)->whereNull('parent_id')->count();
+        $subitemsCount = KanbanTask::where('board_id', $prodBoard->id)->whereNotNull('parent_id')->count();
+        $this->assertGreaterThanOrEqual(25, $parentTasksCount);
+        $this->assertGreaterThanOrEqual(10, $subitemsCount);
+
+        // Second run to confirm complete idempotency across both boards
         $seeder->run();
         $this->assertEquals($countTasks, KanbanTask::where('board_id', $board->id)->count());
+        $this->assertEquals($parentTasksCount, KanbanTask::where('board_id', $prodBoard->id)->whereNull('parent_id')->count());
+        $this->assertEquals($subitemsCount, KanbanTask::where('board_id', $prodBoard->id)->whereNotNull('parent_id')->count());
     }
 }

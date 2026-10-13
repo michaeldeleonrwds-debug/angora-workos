@@ -465,24 +465,65 @@ export default function TableView({
                                     </form>
 
                                     {/* Group Footer Summary */}
-                                    <div className="bg-muted/10 text-muted-foreground flex items-center px-3 py-1.5 text-[11px] font-bold">
-                                        <div className="w-1.5 self-stretch" />
-                                        <div className="flex flex-1 items-center gap-3">
-                                            <span>Summary</span>
+                                    <div className="bg-muted/10 text-muted-foreground border-border/30 flex items-center border-t text-[11px] font-bold select-none">
+                                        <div className="w-1.5 self-stretch" style={{ backgroundColor: group.color }} />
+                                        <div className="w-8 flex-shrink-0" />
+                                        <div className="border-border/40 min-w-[200px] flex-1 border-r px-2 py-1.5">
                                             <span className="font-semibold text-emerald-500">
                                                 {doneTasks}/{totalTasks} Completed ({donePercent}%)
                                             </span>
                                         </div>
 
-                                        <div className="flex w-48 items-center gap-1.5">
-                                            <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
+                                        {/* Dynamic Column Footers */}
+                                        {boardColumns.map((col) => {
+                                            if (!col.is_visible) return null;
+
+                                            // Number Column: calculate group sum
+                                            if (col.type === 'number') {
+                                                const sum = groupTasks.reduce((acc, t) => {
+                                                    const val = Number((t.custom_values as Record<string, any>)?.[col.key]);
+                                                    return acc + (isNaN(val) ? 0 : val);
+                                                }, 0);
+
+                                                return (
+                                                    <div
+                                                        key={`footer_${col.id}`}
+                                                        style={{ width: col.width || 130 }}
+                                                        className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5 font-mono text-xs font-bold"
+                                                        title={`Sum: ${sum}`}
+                                                    >
+                                                        <span>∑ {sum}</span>
+                                                    </div>
+                                                );
+                                            }
+
+                                            // Progress Column: show average progress
+                                            if (col.type === 'progress') {
+                                                const avg = totalTasks > 0
+                                                    ? Math.round(groupTasks.reduce((acc, t) => acc + (t.progress || 0), 0) / totalTasks)
+                                                    : 0;
+                                                return (
+                                                    <div
+                                                        key={`footer_${col.id}`}
+                                                        style={{ width: col.width || 150 }}
+                                                        className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5 text-[10px] font-bold"
+                                                    >
+                                                        <span>Avg {avg}%</span>
+                                                    </div>
+                                                );
+                                            }
+
+                                            return (
                                                 <div
-                                                    className="h-full rounded-full bg-emerald-500 transition-all"
-                                                    style={{ width: `${donePercent}%` }}
-                                                />
-                                            </div>
-                                            <span className="w-8 text-right text-[10px]">{donePercent}%</span>
-                                        </div>
+                                                    key={`footer_${col.id}`}
+                                                    style={{ width: col.width || 140 }}
+                                                    className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5 text-[10px] text-muted-foreground/40"
+                                                >
+                                                    -
+                                                </div>
+                                            );
+                                        })}
+                                        <div className="w-8 flex-shrink-0" />
                                     </div>
                                 </div>
                             </div>

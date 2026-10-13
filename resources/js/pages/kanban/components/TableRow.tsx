@@ -102,18 +102,30 @@ export default function TableRow({
     const getStatusStyle = (title: string = '') => {
         const lower = title.toLowerCase();
         if (lower.includes('done') || lower.includes('complete')) {
-            return { bg: '#00c875', label: 'Done' };
+            return { bg: '#00c875', label: title || 'Done' };
         }
-        if (lower.includes('progress') || lower.includes('working')) {
-            return { bg: '#fdab3d', label: 'Working on it' };
+        if (lower.includes('working') || lower.includes('progress') || lower.includes('in progress')) {
+            return { bg: '#fdab3d', label: title || 'Working on it' };
         }
-        if (lower.includes('review') || lower.includes('qa')) {
-            return { bg: '#a25ddc', label: 'Quality Review' };
+        if (lower.includes('review') || lower.includes('qa') || lower.includes('for review')) {
+            return { bg: '#a25ddc', label: title || 'For Review' };
+        }
+        if (lower.includes('revision') || lower.includes('needs revision')) {
+            return { bg: '#ff642e', label: title || 'Needs Revision' };
+        }
+        if (lower.includes('hold') || lower.includes('on hold')) {
+            return { bg: '#e2445c', label: title || 'Hold' };
         }
         if (lower.includes('stuck') || lower.includes('blocked')) {
-            return { bg: '#e2445c', label: 'Stuck' };
+            return { bg: '#e2445c', label: title || 'Stuck' };
         }
-        return { bg: '#c4c4c4', label: title || 'Not Started' };
+        if (lower.includes('resource')) {
+            return { bg: '#579bfc', label: title || 'Resources' };
+        }
+        if (lower.includes('new') || lower.includes('backlog')) {
+            return { bg: '#579bfc', label: title || 'New Task' };
+        }
+        return { bg: '#94a3b8', label: title || 'Not Started' };
     };
 
     const getPriorityStyle = (priority: string = 'Medium') => {
@@ -239,6 +251,20 @@ export default function TableRow({
 
                     // 1. People / Assignee Column
                     if (col.type === 'people') {
+                        const isMainAssigneeCol = col.key === 'person' || col.key === 'assigned_to';
+                        const assignedUserId = isMainAssigneeCol ? task.assigned_to : (task.custom_values?.[col.key] as number | null);
+                        const assignedUser = isMainAssigneeCol
+                            ? task.assignee
+                            : users.find((u) => u.id === assignedUserId);
+
+                        const onAssign = (userId: number | null) => {
+                            if (isMainAssigneeCol) {
+                                handleUpdateAssignee(userId);
+                            } else {
+                                handleUpdateCustomValue(col.key, userId);
+                            }
+                        };
+
                         return (
                             <div
                                 key={col.id}
@@ -248,13 +274,13 @@ export default function TableRow({
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <button className="hover:bg-muted/70 flex items-center gap-1.5 rounded-lg p-1 transition-colors">
-                                            {task.assignee ? (
+                                            {assignedUser ? (
                                                 <div className="flex items-center gap-1.5">
                                                     <div className="bg-primary/20 text-primary flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold">
-                                                        {task.assignee.name.charAt(0)}
+                                                        {assignedUser.name.charAt(0)}
                                                     </div>
                                                     <span className="max-w-[80px] truncate text-xs font-medium">
-                                                        {task.assignee.name.split(' ')[0]}
+                                                        {assignedUser.name.split(' ')[0]}
                                                     </span>
                                                 </div>
                                             ) : (
@@ -265,11 +291,11 @@ export default function TableRow({
                                         </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="center" className="w-44 rounded-xl">
-                                        <DropdownMenuItem onClick={() => handleUpdateAssignee(null)}>
+                                        <DropdownMenuItem onClick={() => onAssign(null)}>
                                             <span className="text-muted-foreground">Unassigned</span>
                                         </DropdownMenuItem>
                                         {users.map((u) => (
-                                            <DropdownMenuItem key={u.id} onClick={() => handleUpdateAssignee(u.id)}>
+                                            <DropdownMenuItem key={u.id} onClick={() => onAssign(u.id)}>
                                                 <span>{u.name}</span>
                                             </DropdownMenuItem>
                                         ))}
@@ -379,8 +405,18 @@ export default function TableRow({
 
                     // 4. Date Column
                     if (col.type === 'date') {
-                        const isOverdue = task.deadline_status === 'overdue';
-                        const isDueToday = task.deadline_status === 'due_today';
+                        const isMainDueDateCol = col.key === 'due_date' || col.key === 'deadline';
+                        const dateVal = isMainDueDateCol ? (task.due_date || '') : ((task.custom_values?.[col.key] as string) || '');
+                        const isOverdue = isMainDueDateCol && task.deadline_status === 'overdue';
+                        const isDueToday = isMainDueDateCol && task.deadline_status === 'due_today';
+
+                        const onDateChange = (val: string) => {
+                            if (isMainDueDateCol) {
+                                handleUpdateDate(val);
+                            } else {
+                                handleUpdateCustomValue(col.key, val || null);
+                            }
+                        };
 
                         return (
                             <div
@@ -392,18 +428,18 @@ export default function TableRow({
                             >
                                 <input
                                     type="date"
-                                    value={task.due_date || ''}
-                                    onChange={(e) => handleUpdateDate(e.target.value)}
+                                    value={dateVal}
+                                    onChange={(e) => onDateChange(e.target.value)}
                                     className={`cursor-pointer border-none bg-transparent text-center text-xs focus:outline-none ${
                                         isOverdue ? 'font-bold text-red-600' : isDueToday ? 'font-bold text-amber-600' : ''
                                     }`}
                                 />
-                                {task.due_time && (
+                                {isMainDueDateCol && task.due_time && (
                                     <span className="text-muted-foreground text-[10px] font-medium">
                                         {task.due_time}
                                     </span>
                                 )}
-                                {task.is_milestone && (
+                                {isMainDueDateCol && task.is_milestone && (
                                     <span title="Milestone">
                                         <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
                                     </span>
