@@ -361,13 +361,13 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         type="date"
                                         defaultValue={task.start_date || ''}
                                         onChange={(e) => handleUpdateField('start_date', e.target.value || null)}
-                                        className="h-8 flex-1 min-w-0 text-xs"
+                                        className="h-8 flex-1 min-w-0 px-2 text-xs"
                                     />
                                     <Input
                                         type="time"
                                         defaultValue={task.start_time || ''}
                                         onChange={(e) => handleUpdateField('start_time', e.target.value || null)}
-                                        className="h-8 w-24 shrink-0 text-xs"
+                                        className="h-8 w-[118px] shrink-0 px-2 text-xs"
                                     />
                                 </div>
                             </div>
@@ -380,13 +380,13 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         type="date"
                                         defaultValue={task.due_date || ''}
                                         onChange={(e) => handleUpdateField('due_date', e.target.value || null)}
-                                        className="h-8 flex-1 min-w-0 text-xs"
+                                        className="h-8 flex-1 min-w-0 px-2 text-xs"
                                     />
                                     <Input
                                         type="time"
                                         defaultValue={task.due_time || ''}
                                         onChange={(e) => handleUpdateField('due_time', e.target.value || null)}
-                                        className="h-8 w-24 shrink-0 text-xs"
+                                        className="h-8 w-[118px] shrink-0 px-2 text-xs"
                                     />
                                 </div>
                             </div>
