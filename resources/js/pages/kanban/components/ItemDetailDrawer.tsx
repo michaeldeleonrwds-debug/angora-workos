@@ -1,0 +1,764 @@
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { formatDate } from '@/lib/utils';
+import { router } from '@inertiajs/react';
+import {
+    Activity,
+    AtSign,
+    Check,
+    CornerDownRight,
+    Download,
+    FileText,
+    Link2,
+    MessageCircle,
+    Paperclip,
+    Send,
+    Trash2,
+    Upload,
+    User as UserIcon,
+    X,
+} from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { KanbanBoard, Task, User } from '../types';
+
+interface ItemDetailDrawerProps {
+    task: Task | null;
+    board: KanbanBoard;
+    users: User[];
+    onClose: () => void;
+    onSelectTask?: (task: Task) => void;
+}
+
+export default function ItemDetailDrawer({ task, board, users = [], onClose, onSelectTask }: ItemDetailDrawerProps) {
+    if (!task) return null;
+
+    const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity'>('updates');
+    const [titleInput, setTitleInput] = useState(task.title);
+    const [commentText, setCommentText] = useState('');
+    const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
+    const [replyText, setReplyText] = useState('');
+    const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const comments = task.comments || [];
+    const subitems = task.subitems || [];
+    const attachments = task.attachments || [];
+    const boardColumns = board.board_columns || [];
+    const statusColumns = board.columns || [];
+
+    const completedSubitems = subitems.filter((s) => s.completed_at || s.progress === 100).length;
+
+    // Field updates
+    const handleUpdateField = (field: string, val: any) => {
+        router.patch(`/kanban/tasks/${task.id}`, { [field]: val }, { preserveScroll: true });
+    };
+
+    const handleTitleBlur = () => {
+        if (titleInput.trim() && titleInput !== task.title) {
+            handleUpdateField('title', titleInput.trim());
+        }
+    };
+
+    // Subtasks
+    const handleAddSubtask = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!newSubtaskTitle.trim()) return;
+
+        router.post(
+            `/kanban/tasks/${task.id}/subitems`,
+            { title: newSubtaskTitle.trim() },
+            {
+                preserveScroll: true,
+                onSuccess: () => setNewSubtaskTitle(''),
+            },
+        );
+    };
+
+    const handleToggleSubtask = (sub: Task, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const isDone = !!sub.completed_at || sub.progress === 100;
+        router.patch(`/kanban/tasks/${sub.id}`, { progress: isDone ? 0 : 100 }, { preserveScroll: true });
+    };
+
+    // Comments & Replies
+    const handleSendComment = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!commentText.trim()) return;
+
+        router.post(
+            `/kanban/tasks/${task.id}/comments`,
+            { message: commentText.trim() },
+            {
+                preserveScroll: true,
+                onSuccess: () => setCommentText(''),
+            },
+        );
+    };
+
+    const handleSendReply = (parentId: number, e: React.FormEvent) => {
+        e.preventDefault();
+        if (!replyText.trim()) return;
+
+        router.post(
+            `/kanban/tasks/${task.id}/comments`,
+            {
+                parent_id: parentId,
+                message: replyText.trim(),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setReplyText('');
+                    setReplyingToCommentId(null);
+                },
+            },
+        );
+    };
+
+    const handleDeleteComment = (commentId: number) => {
+        if (confirm('Delete this update?')) {
+            router.delete(`/kanban/comments/${commentId}`, { preserveScroll: true });
+        }
+    };
+
+    const handleReaction = (commentId: number, emoji: string) => {
+        router.post(`/kanban/comments/${commentId}/reactions`, { emoji }, { preserveScroll: true });
+    };
+
+    // Attachments
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        setIsUploading(true);
+        router.post(`/kanban/tasks/${task.id}/attachments`, formData, {
+            preserveScroll: true,
+            onFinish: () => {
+                setIsUploading(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            },
+        });
+    };
+
+    const handleDeleteAttachment = (attachmentId: number) => {
+        if (confirm('Delete this file attachment?')) {
+            router.delete(`/kanban/attachments/${attachmentId}`, { preserveScroll: true });
+        }
+    };
+
+    const formatBytes = (bytes: number) => {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+    };
+
+    return (
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs duration-200 sm:p-6">
+            <div className="bg-card border-border flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border shadow-2xl">
+                {/* Header Top Bar */}
+                <div className="border-border bg-muted/20 flex items-center justify-between border-b px-6 py-3.5">
+                    <div className="text-muted-foreground flex items-center gap-2 text-xs font-semibold">
+                        <span>{board.title}</span>
+                        <span>›</span>
+                        <span className="text-foreground">{task.group?.title || 'General Tasks'}</span>
+                        {task.parent && (
+                            <>
+                                <span>›</span>
+                                <button onClick={() => onSelectTask?.(task.parent!)} className="text-primary font-bold hover:underline">
+                                    {task.parent.title}
+                                </button>
+                            </>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={onClose}
+                            className="hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl p-1.5 transition-colors"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Two-Column Grid Body */}
+                <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-12">
+                    {/* LEFT PANEL: TASK INFORMATION (5 Columns) */}
+                    <div className="border-border bg-card space-y-5 overflow-y-auto border-b p-6 lg:col-span-5 lg:border-r lg:border-b-0">
+                        {/* Task Title */}
+                        <div>
+                            <input
+                                type="text"
+                                value={titleInput}
+                                onChange={(e) => setTitleInput(e.target.value)}
+                                onBlur={handleTitleBlur}
+                                onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
+                                className="text-foreground focus:ring-primary w-full rounded border-none bg-transparent p-1 text-xl font-black focus:ring-1 focus:outline-none"
+                                placeholder="Task Title"
+                            />
+                        </div>
+
+                        {/* Fields Grid */}
+                        <div className="space-y-3.5 text-xs">
+                            {/* Workflow Status */}
+                            <div className="grid grid-cols-3 items-center">
+                                <Label className="text-muted-foreground font-medium">Status</Label>
+                                <div className="col-span-2">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button
+                                                className="rounded-lg px-3 py-1.5 text-center text-xs font-bold text-white shadow-2xs transition-all hover:brightness-105"
+                                                style={{ backgroundColor: task.column?.color || '#64748b' }}
+                                            >
+                                                {task.column?.title || 'Not Started'}
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent className="w-40 space-y-1 rounded-xl p-1.5">
+                                            {statusColumns.map((sc) => (
+                                                <button
+                                                    key={sc.id}
+                                                    type="button"
+                                                    onClick={() => handleUpdateField('column_id', sc.id)}
+                                                    className="block w-full rounded py-1.5 text-center text-xs font-bold text-white hover:opacity-90"
+                                                    style={{ backgroundColor: sc.color }}
+                                                >
+                                                    {sc.title}
+                                                </button>
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                            </div>
+
+                            {/* Assignee */}
+                            <div className="grid grid-cols-3 items-center">
+                                <Label className="text-muted-foreground font-medium">Assignee</Label>
+                                <div className="col-span-2">
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button className="border-border bg-background hover:bg-muted flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs font-semibold">
+                                                {task.assignee ? (
+                                                    <>
+                                                        <div className="bg-primary/20 text-primary flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold">
+                                                            {task.assignee.name.charAt(0)}
+                                                        </div>
+                                                        <span className="max-w-[130px] truncate">{task.assignee.name}</span>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-muted-foreground flex items-center gap-1">
+                                                        <UserIcon className="h-3.5 w-3.5" />
+                                                        <span>Unassigned</span>
+                                                    </span>
+                                                )}
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent className="w-48 rounded-xl">
+                                            <DropdownMenuItem onClick={() => handleUpdateField('assigned_to', null)}>
+                                                <span className="text-muted-foreground">Unassigned</span>
+                                            </DropdownMenuItem>
+                                            {users.map((u) => (
+                                                <DropdownMenuItem key={u.id} onClick={() => handleUpdateField('assigned_to', u.id)}>
+                                                    <span>{u.name}</span>
+                                                </DropdownMenuItem>
+                                            ))}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                            </div>
+
+                            {/* Priority */}
+                            <div className="grid grid-cols-3 items-center">
+                                <Label className="text-muted-foreground font-medium">Priority</Label>
+                                <div className="col-span-2">
+                                    <select
+                                        defaultValue={task.priority}
+                                        onChange={(e) => handleUpdateField('priority', e.target.value)}
+                                        className="border-border bg-background h-8 rounded-xl border px-2.5 text-xs font-bold"
+                                    >
+                                        <option value="Urgent">Urgent</option>
+                                        <option value="High">High</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="Low">Low</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Due Date & Time */}
+                            <div className="grid grid-cols-3 items-center">
+                                <Label className="text-muted-foreground font-medium">Due Date & Time</Label>
+                                <div className="col-span-2 flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        defaultValue={task.due_date || ''}
+                                        onChange={(e) => handleUpdateField('due_date', e.target.value || null)}
+                                        className="h-8 flex-1 text-xs"
+                                    />
+                                    <Input
+                                        type="time"
+                                        defaultValue={task.due_time || ''}
+                                        onChange={(e) => handleUpdateField('due_time', e.target.value || null)}
+                                        className="h-8 w-24 text-xs"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Start Date */}
+                            <div className="grid grid-cols-3 items-center">
+                                <Label className="text-muted-foreground font-medium">Start Date</Label>
+                                <div className="col-span-2">
+                                    <Input
+                                        type="date"
+                                        defaultValue={task.start_date || ''}
+                                        onChange={(e) => handleUpdateField('start_date', e.target.value || null)}
+                                        className="h-8 w-full text-xs"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Progress */}
+                            <div className="grid grid-cols-3 items-center">
+                                <Label className="text-muted-foreground font-medium">Progress</Label>
+                                <div className="col-span-2 flex items-center gap-2">
+                                    <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
+                                        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${task.progress}%` }} />
+                                    </div>
+                                    <span className="w-8 text-right text-xs font-bold">{task.progress}%</span>
+                                </div>
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <Label className="text-muted-foreground mb-1 block font-medium">Description</Label>
+                                <textarea
+                                    rows={3}
+                                    defaultValue={task.description || ''}
+                                    onBlur={(e) => handleUpdateField('description', e.target.value)}
+                                    placeholder="Add notes or task background..."
+                                    className="border-border bg-background focus:ring-primary w-full rounded-xl border p-2.5 text-xs focus:ring-1 focus:outline-none"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Subtask Hierarchy & List */}
+                        <div className="border-border/60 space-y-3 border-t pt-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className="text-foreground flex items-center gap-1.5 text-xs font-black">
+                                    <CornerDownRight className="text-primary h-3.5 w-3.5" />
+                                    <span>
+                                        Subtasks ({completedSubitems}/{subitems.length})
+                                    </span>
+                                </h4>
+                            </div>
+
+                            {/* Subtask List */}
+                            <div className="max-h-48 space-y-1.5 overflow-y-auto">
+                                {subitems.map((sub) => (
+                                    <div
+                                        key={sub.id}
+                                        onClick={() => onSelectTask?.(sub)}
+                                        className="bg-muted/20 border-border/60 hover:border-primary/50 flex cursor-pointer items-center justify-between rounded-xl border p-2 text-xs transition-all"
+                                    >
+                                        <div className="flex flex-1 items-center gap-2 truncate">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => handleToggleSubtask(sub, e)}
+                                                className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
+                                                    sub.completed_at || sub.progress === 100
+                                                        ? 'border-emerald-500 bg-emerald-500 text-white'
+                                                        : 'border-border bg-card'
+                                                }`}
+                                            >
+                                                {(sub.completed_at || sub.progress === 100) && <Check className="h-3 w-3" />}
+                                            </button>
+                                            <span
+                                                className={`truncate ${
+                                                    sub.completed_at || sub.progress === 100
+                                                        ? 'text-muted-foreground line-through'
+                                                        : 'text-foreground font-semibold'
+                                                }`}
+                                            >
+                                                {sub.title}
+                                            </span>
+                                        </div>
+
+                                        <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-bold">
+                                            {sub.column?.title || 'Active'}
+                                        </span>
+                                    </div>
+                                ))}
+
+                                {/* Add Subtask Input */}
+                                <form onSubmit={handleAddSubtask} className="flex items-center gap-1.5 pt-1">
+                                    <Input
+                                        placeholder="Add a new subtask..."
+                                        value={newSubtaskTitle}
+                                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                                        className="h-8 flex-1 text-xs"
+                                    />
+                                    <Button type="submit" size="sm" className="h-8 text-xs font-bold">
+                                        Add
+                                    </Button>
+                                </form>
+                            </div>
+                        </div>
+
+                        {/* Connected Boards & Workflows (Phase 6) */}
+                        <div className="border-border/60 space-y-3 border-t pt-4">
+                            <h4 className="text-foreground flex items-center justify-between text-xs font-black">
+                                <span className="flex items-center gap-1.5">
+                                    <Link2 className="text-primary h-3.5 w-3.5" />
+                                    <span>Connected Board Items ({task.outgoingRelationships?.length || 0})</span>
+                                </span>
+                            </h4>
+
+                            {!task.outgoingRelationships || task.outgoingRelationships.length === 0 ? (
+                                <p className="text-muted-foreground text-[11px] italic">
+                                    No cross-board items connected yet. Add a Connect Boards column to link tasks across departments.
+                                </p>
+                            ) : (
+                                <div className="space-y-1.5">
+                                    {task.outgoingRelationships.map((rel) => (
+                                        <div
+                                            key={rel.id}
+                                            className="bg-muted/20 border-border/50 flex items-center justify-between rounded-xl border p-2 text-xs"
+                                        >
+                                            <div className="flex flex-1 items-center gap-2 truncate">
+                                                <Link2 className="text-primary h-3 w-3 shrink-0" />
+                                                <div className="truncate">
+                                                    <span className="text-foreground block truncate font-semibold">
+                                                        {rel.target_task?.title || `Item #${rel.target_task_id}`}
+                                                    </span>
+                                                    <span className="text-muted-foreground text-[10px]">
+                                                        {rel.target_board?.title || 'External Board'} •{' '}
+                                                        {rel.relation_type === 'two_way' ? 'Two-Way' : 'One-Way'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {rel.target_task?.column && (
+                                                <span
+                                                    className="py-0.2 shrink-0 rounded px-1.5 text-[9px] font-bold text-white"
+                                                    style={{ backgroundColor: rel.target_task.column.color || '#64748b' }}
+                                                >
+                                                    {rel.target_task.column.title}
+                                                </span>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* RIGHT PANEL: COLLABORATION (7 Columns) */}
+                    <div className="bg-background flex flex-col overflow-hidden lg:col-span-7">
+                        {/* Tabs Bar */}
+                        <div className="border-border flex items-center gap-6 border-b px-6 pt-4 text-xs font-bold">
+                            <button
+                                onClick={() => setActiveCollabTab('updates')}
+                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                    activeCollabTab === 'updates'
+                                        ? 'border-primary text-primary'
+                                        : 'text-muted-foreground hover:text-foreground border-transparent'
+                                }`}
+                            >
+                                <MessageCircle className="h-4 w-4" />
+                                <span>Updates ({comments.length})</span>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveCollabTab('files')}
+                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                    activeCollabTab === 'files'
+                                        ? 'border-primary text-primary'
+                                        : 'text-muted-foreground hover:text-foreground border-transparent'
+                                }`}
+                            >
+                                <Paperclip className="h-4 w-4" />
+                                <span>Files ({attachments.length})</span>
+                            </button>
+
+                            <button
+                                onClick={() => setActiveCollabTab('activity')}
+                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                    activeCollabTab === 'activity'
+                                        ? 'border-primary text-primary'
+                                        : 'text-muted-foreground hover:text-foreground border-transparent'
+                                }`}
+                            >
+                                <Activity className="h-4 w-4" />
+                                <span>Activity Log</span>
+                            </button>
+                        </div>
+
+                        {/* Tab Contents */}
+                        <div className="flex-1 space-y-5 overflow-y-auto p-6">
+                            {/* 1. UPDATES TAB */}
+                            {activeCollabTab === 'updates' && (
+                                <div className="space-y-5">
+                                    {/* Composer */}
+                                    <form onSubmit={handleSendComment} className="border-border bg-card rounded-2xl border p-3.5 shadow-xs">
+                                        <textarea
+                                            rows={3}
+                                            placeholder="Write an update, ask a question, or use @mention for team members..."
+                                            value={commentText}
+                                            onChange={(e) => setCommentText(e.target.value)}
+                                            className="placeholder:text-muted-foreground/60 w-full resize-none border-none bg-transparent text-xs focus:outline-none"
+                                        />
+
+                                        <div className="border-border/40 flex items-center justify-between border-t pt-2 text-xs">
+                                            {/* @mention Quick Tool */}
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <button
+                                                        type="button"
+                                                        className="text-muted-foreground hover:text-primary hover:bg-muted flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold"
+                                                    >
+                                                        <AtSign className="h-3.5 w-3.5" />
+                                                        <span>Mention</span>
+                                                    </button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent className="w-48 rounded-xl">
+                                                    {users.map((u) => (
+                                                        <DropdownMenuItem
+                                                            key={u.id}
+                                                            onClick={() => setCommentText((prev) => `${prev} @${u.name} `)}
+                                                            className="text-xs"
+                                                        >
+                                                            <span>@{u.name}</span>
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+
+                                            <Button type="submit" size="sm" className="h-8 gap-1 px-4 text-xs font-bold">
+                                                <Send className="h-3 w-3" />
+                                                <span>Update</span>
+                                            </Button>
+                                        </div>
+                                    </form>
+
+                                    {/* Comments List */}
+                                    <div className="space-y-4">
+                                        {comments.map((comment) => {
+                                            const reactions = comment.reactions || {};
+                                            const replies = comment.replies || [];
+
+                                            return (
+                                                <div key={comment.id} className="border-border/70 bg-card space-y-3 rounded-2xl border p-4 shadow-xs">
+                                                    {/* Author & Timestamp */}
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <div className="bg-primary/20 text-primary flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold">
+                                                                {comment.user?.name.charAt(0) || 'U'}
+                                                            </div>
+                                                            <div>
+                                                                <h5 className="text-foreground text-xs font-bold">{comment.user?.name || 'User'}</h5>
+                                                                <span className="text-muted-foreground text-[10px]">
+                                                                    {formatDate(comment.created_at)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+
+                                                        <button
+                                                            onClick={() => handleDeleteComment(comment.id)}
+                                                            className="text-muted-foreground rounded p-1 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                                                            title="Delete update"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Message */}
+                                                    <p className="text-foreground text-xs leading-relaxed whitespace-pre-wrap">{comment.message}</p>
+
+                                                    {/* Reaction Badges & Actions */}
+                                                    <div className="border-border/40 flex items-center gap-2 border-t pt-2 text-xs">
+                                                        {/* Emoji buttons */}
+                                                        {['👍', '❤️', '🎉', '🚀'].map((emoji) => {
+                                                            const count = reactions[emoji]?.length || 0;
+                                                            return (
+                                                                <button
+                                                                    key={emoji}
+                                                                    type="button"
+                                                                    onClick={() => handleReaction(comment.id, emoji)}
+                                                                    className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold transition-all ${
+                                                                        count > 0
+                                                                            ? 'bg-primary/10 border-primary/40 text-primary'
+                                                                            : 'border-border/60 hover:bg-muted text-muted-foreground'
+                                                                    }`}
+                                                                >
+                                                                    <span>{emoji}</span>
+                                                                    {count > 0 && <span>{count}</span>}
+                                                                </button>
+                                                            );
+                                                        })}
+
+                                                        {/* Reply Trigger */}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setReplyingToCommentId(replyingToCommentId === comment.id ? null : comment.id)
+                                                            }
+                                                            className="text-primary ml-auto text-[11px] font-semibold hover:underline"
+                                                        >
+                                                            Reply ({replies.length})
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Threaded Replies */}
+                                                    {replies.length > 0 && (
+                                                        <div className="border-border/30 space-y-2 border-t pt-2 pl-6">
+                                                            {replies.map((rep) => (
+                                                                <div
+                                                                    key={rep.id}
+                                                                    className="bg-muted/30 border-border/50 rounded-xl border p-2.5 text-xs"
+                                                                >
+                                                                    <div className="mb-1 flex items-center justify-between">
+                                                                        <span className="text-[11px] font-bold">{rep.user?.name || 'User'}</span>
+                                                                        <span className="text-muted-foreground text-[10px]">
+                                                                            {formatDate(rep.created_at)}
+                                                                        </span>
+                                                                    </div>
+                                                                    <p className="text-foreground/90 whitespace-pre-wrap">{rep.message}</p>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    )}
+
+                                                    {/* Reply Composer */}
+                                                    {replyingToCommentId === comment.id && (
+                                                        <form
+                                                            onSubmit={(e) => handleSendReply(comment.id, e)}
+                                                            className="flex items-center gap-2 pt-2 pl-4"
+                                                        >
+                                                            <Input
+                                                                placeholder="Write a reply..."
+                                                                value={replyText}
+                                                                onChange={(e) => setReplyText(e.target.value)}
+                                                                autoFocus
+                                                                className="h-8 flex-1 text-xs"
+                                                            />
+                                                            <Button type="submit" size="sm" className="h-8 text-xs font-bold">
+                                                                Reply
+                                                            </Button>
+                                                        </form>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+
+                                        {comments.length === 0 && (
+                                            <div className="text-muted-foreground py-12 text-center text-xs">
+                                                No updates on this task yet. Start the conversation above!
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 2. FILES TAB */}
+                            {activeCollabTab === 'files' && (
+                                <div className="space-y-4">
+                                    {/* Upload Trigger */}
+                                    <div
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="border-border hover:border-primary/60 hover:bg-muted/10 cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition-all"
+                                    >
+                                        <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
+                                        <Upload className="text-primary mx-auto mb-2 h-8 w-8 opacity-80" />
+                                        <div className="text-foreground text-xs font-bold">
+                                            {isUploading ? 'Uploading file...' : 'Click to upload files'}
+                                        </div>
+                                        <p className="text-muted-foreground mt-0.5 text-[10px]">PDF, PNG, JPG, ZIP, DOCX up to 20MB</p>
+                                    </div>
+
+                                    {/* Attachments List */}
+                                    <div className="space-y-2">
+                                        {attachments.map((att) => (
+                                            <div
+                                                key={att.id}
+                                                className="border-border bg-card flex items-center justify-between rounded-xl border p-3 text-xs shadow-xs"
+                                            >
+                                                <div className="flex flex-1 items-center gap-3 truncate">
+                                                    <FileText className="text-primary h-6 w-6 flex-shrink-0" />
+                                                    <div className="truncate">
+                                                        <div className="text-foreground truncate font-bold">{att.file_name}</div>
+                                                        <span className="text-muted-foreground text-[10px]">
+                                                            {formatBytes(att.file_size_bytes)} • {formatDate(att.created_at)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    <a
+                                                        href={`/storage/${att.file_path}`}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="border-border hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg border p-1.5 transition-colors"
+                                                        title="Download / View"
+                                                    >
+                                                        <Download className="h-3.5 w-3.5" />
+                                                    </a>
+                                                    <button
+                                                        onClick={() => handleDeleteAttachment(att.id)}
+                                                        className="text-muted-foreground rounded-lg p-1.5 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                                                        title="Delete attachment"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+
+                                        {attachments.length === 0 && (
+                                            <div className="text-muted-foreground py-10 text-center text-xs">
+                                                No attachments uploaded to this item yet.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 3. ACTIVITY LOG TAB */}
+                            {activeCollabTab === 'activity' && (
+                                <div className="space-y-3">
+                                    <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-3 text-xs">
+                                        <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-emerald-500" />
+                                        <div>
+                                            <span className="text-foreground font-bold">Task Created</span>
+                                            <p className="text-muted-foreground text-[10px]">
+                                                Created by {task.creator?.name || 'System'} on {formatDate(task.created_at)}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {task.completed_at && (
+                                        <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-3 text-xs">
+                                            <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-blue-500" />
+                                            <div>
+                                                <span className="text-foreground font-bold">Task Completed</span>
+                                                <p className="text-muted-foreground text-[10px]">Completed on {formatDate(task.completed_at)}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="bg-muted/20 border-border/50 text-muted-foreground rounded-xl border p-3 text-xs">
+                                        Detailed relational audit events are tracked in the centralized Audit Log trail.
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

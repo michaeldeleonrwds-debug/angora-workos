@@ -1,0 +1,1217 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\AuditLog;
+use App\Models\AutomationExecution;
+use App\Models\BoardAutomation;
+use App\Models\BoardColumn;
+use App\Models\BoardGroup;
+use App\Models\BoardView;
+use App\Models\KanbanAttachment;
+use App\Models\KanbanBoard;
+use App\Models\KanbanColumn;
+use App\Models\KanbanComment;
+use App\Models\BoardItemRelationship;
+use App\Models\KanbanTask;
+use App\Models\TaskDependency;
+use App\Models\User;
+use App\Models\Workspace;
+use App\Services\AutomationEngineService;
+use App\Services\CrossBoardService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Inertia\Inertia;
+
+class KanbanController extends Controller
+{
+    protected AutomationEngineService $automationEngine;
+    protected CrossBoardService $crossBoardService;
+
+    public function __construct(AutomationEngineService $automationEngine, CrossBoardService $crossBoardService)
+    {
+        $this->automationEngine = $automationEngine;
+        $this->crossBoardService = $crossBoardService;
+    }
+    public function index(Request $request)
+    {
+        $user = auth()->user();
+
+        // 1. Get or create default workspace if none exist
+        $workspaces = Workspace::with([
+            'boards' => function ($q) {
+                $q->orderBy('title');
+            },
+            'members.user',
+            'owner',
+        ])->get();
+
+        if ($workspaces->isEmpty()) {
+            $workspace = Workspace::create([
+                'name' => 'Main Workspace',
+                'description' => 'Default enterprise workspace',
+                'owner_id' => $user->id,
+            ]);
+            $workspaces = Workspace::with(['boards', 'members.user', 'owner'])->get();
+        }
+
+        // 2. Resolve Active Workspace & Board
+        $workspaceId = $request->query('workspace');
+        $boardId = $request->query('board');
+
+        $activeWorkspace = $workspaceId ? Workspace::find($workspaceId) : $workspaces->first();
+        if (!$activeWorkspace) {
+            $activeWorkspace = $workspaces->first();
+        }
+
+        // Eager load board with tasks, comments, subitems, attachments, workflow columns, dependencies, and groups
+        $boardsQuery = KanbanBoard::with([
+            'columns.tasks' => function ($q) {
+                $q->whereNull('parent_id')
+                    ->orderBy('position')
+                    ->with([
+                        'assignee',
+                        'column',
+                        'group',
+                        'subitems.assignee',
+                        'subitems.column',
+                        'comments.user',
+                        'comments.replies.user',
+                        'attachments.user',
+                        'dependencies.dependencyTask',
+                        'dependents.task',
+                    ]);
+            },
+            'groups.tasks' => function ($q) {
+                $q->whereNull('parent_id')
+                    ->orderBy('position')
+                    ->with([
+                        'assignee',
+                        'column',
+                        'group',
+                        'subitems.assignee',
+                        'subitems.column',
+                        'comments.user',
+                        'comments.replies.user',
+                        'attachments.user',
+                        'dependencies.dependencyTask',
+                        'dependents.task',
+                    ]);
+            },
+            'boardColumns' => function ($q) {
+                $q->orderBy('position');
+            },
+            'views' => function ($q) {
+                $q->orderBy('position');
+            },
+            'workspace',
+        ]);
+
+        $boards = $boardsQuery->get();
+
+        // Target active board
+        $activeBoard = null;
+        if ($boardId) {
+            $activeBoard = $boards->firstWhere('id', (int) $boardId);
+        }
+        if (!$activeBoard && $activeWorkspace) {
+            $activeBoard = $boards->firstWhere('workspace_id', $activeWorkspace->id);
+        }
+        if (!$activeBoard) {
+            $activeBoard = $boards->first();
+        }
+
+        // Auto-heal active board if it lacks groups or dynamic columns
+        if ($activeBoard) {
+            $this->ensureBoardIntegrity($activeBoard);
+            $activeBoard->load([
+                'columns.tasks.assignee',
+                'columns.tasks.group',
+                'columns.tasks.subitems.assignee',
+                'columns.tasks.subitems.column',
+                'columns.tasks.comments.user',
+                'columns.tasks.comments.replies.user',
+                'columns.tasks.attachments.user',
+                'columns.tasks.dependencies.dependencyTask',
+                'columns.tasks.dependents.task',
+                'columns.tasks.outgoingRelationships.targetBoard',
+                'columns.tasks.outgoingRelationships.targetTask.column',
+                'columns.tasks.outgoingRelationships.targetTask.assignee',
+                'groups.tasks.assignee',
+                'groups.tasks.column',
+                'groups.tasks.subitems.assignee',
+                'groups.tasks.subitems.column',
+                'groups.tasks.comments.user',
+                'groups.tasks.comments.replies.user',
+                'groups.tasks.attachments.user',
+                'groups.tasks.dependencies.dependencyTask',
+                'groups.tasks.dependents.task',
+                'groups.tasks.outgoingRelationships.targetBoard',
+                'groups.tasks.outgoingRelationships.targetTask.column',
+                'groups.tasks.outgoingRelationships.targetTask.assignee',
+                'boardColumns',
+                'views',
+                'automations.creator',
+                'automationExecutions.triggeredBy',
+                'automationExecutions.task',
+            ]);
+        }
+
+        // Deep linking: resolve selected item if requested via ?item={id}
+        $selectedTaskId = $request->query('item');
+        $selectedTask = null;
+        if ($selectedTaskId) {
+            $selectedTask = KanbanTask::with([
+                'assignee',
+                'column',
+                'group',
+                'board',
+                'subitems.assignee',
+                'subitems.column',
+                'comments.user',
+                'comments.replies.user',
+                'attachments.user',
+                'dependencies.dependencyTask',
+                'dependents.task',
+                'outgoingRelationships.targetBoard',
+                'outgoingRelationships.targetTask.column',
+                'outgoingRelationships.targetTask.assignee',
+            ])->find($selectedTaskId);
+        }
+
+        // Resolve Mirror column values for all tasks on the active board
+        $boardTasks = $activeBoard
+            ? $activeBoard->columns->flatMap->tasks->merge($activeBoard->groups->flatMap->tasks)->unique('id')
+            : collect();
+        $mirroredValues = $activeBoard
+            ? $this->crossBoardService->resolveMirrorsForBoard($activeBoard, $boardTasks, $user)
+            : [];
+
+        $users = User::select('id', 'name', 'role', 'department', 'email')->get();
+
+        return Inertia::render('kanban/index', [
+            'workspaces' => $workspaces,
+            'activeWorkspace' => $activeWorkspace,
+            'boards' => $boards,
+            'activeBoard' => $activeBoard,
+            'users' => $users,
+            'selectedTask' => $selectedTask,
+            'mirroredValues' => $mirroredValues,
+        ]);
+    }
+
+    private function ensureBoardIntegrity(KanbanBoard $board): void
+    {
+        // 1. Ensure at least one group
+        if ($board->groups()->count() === 0) {
+            $g1 = BoardGroup::create([
+                'board_id' => $board->id,
+                'title' => 'Active Tasks',
+                'color' => '#579BFC',
+                'position' => 0,
+            ]);
+
+            BoardGroup::create([
+                'board_id' => $board->id,
+                'title' => 'Future Sprints',
+                'color' => '#A25DDC',
+                'position' => 1,
+            ]);
+
+            KanbanTask::where('board_id', $board->id)
+                ->whereNull('group_id')
+                ->whereNull('parent_id')
+                ->update(['group_id' => $g1->id]);
+        }
+
+        // 2. Ensure dynamic columns exist
+        if ($board->boardColumns()->count() === 0) {
+            $defaultCols = [
+                ['key' => 'col_person', 'title' => 'Owner', 'type' => 'people', 'position' => 0, 'width' => 140],
+                ['key' => 'col_status', 'title' => 'Status', 'type' => 'status', 'position' => 1, 'width' => 150],
+                ['key' => 'col_priority', 'title' => 'Priority', 'type' => 'priority', 'position' => 2, 'width' => 130],
+                ['key' => 'col_date', 'title' => 'Due Date', 'type' => 'date', 'position' => 3, 'width' => 130],
+                ['key' => 'col_timeline', 'title' => 'Timeline', 'type' => 'timeline', 'position' => 4, 'width' => 170],
+                ['key' => 'col_progress', 'title' => 'Progress', 'type' => 'progress', 'position' => 5, 'width' => 150],
+            ];
+
+            foreach ($defaultCols as $col) {
+                BoardColumn::create([
+                    'board_id' => $board->id,
+                    'key' => $col['key'],
+                    'title' => $col['title'],
+                    'type' => $col['type'],
+                    'position' => $col['position'],
+                    'width' => $col['width'],
+                    'is_visible' => true,
+                ]);
+            }
+        }
+
+        // 3. Ensure default views exist
+        if ($board->views()->count() === 0) {
+            BoardView::create(['board_id' => $board->id, 'name' => 'Main Table', 'type' => 'table', 'is_default' => true, 'position' => 0]);
+            BoardView::create(['board_id' => $board->id, 'name' => 'Kanban', 'type' => 'kanban', 'is_default' => false, 'position' => 1]);
+            BoardView::create(['board_id' => $board->id, 'name' => 'Timeline', 'type' => 'timeline', 'is_default' => false, 'position' => 2]);
+            BoardView::create(['board_id' => $board->id, 'name' => 'Calendar', 'type' => 'calendar', 'is_default' => false, 'position' => 3]);
+        }
+
+        // 4. Ensure starter automation exists
+        if ($board->automations()->count() === 0) {
+            BoardAutomation::create([
+                'board_id' => $board->id,
+                'name' => 'Auto-Notify on Completion',
+                'description' => 'When a task moves to Done, notify the creator and record an audit log',
+                'trigger_type' => 'status_changed',
+                'trigger_config' => ['to_status' => 'Done'],
+                'conditions' => [
+                    'match_type' => 'and',
+                    'rules' => [
+                        ['field' => 'status', 'operator' => 'equals', 'value' => 'Done'],
+                    ],
+                ],
+                'actions' => [
+                    ['type' => 'notify_creator', 'title' => 'Task Completed', 'message' => 'Your task has been marked as Done.'],
+                    ['type' => 'create_audit_event', 'description' => 'Automated completion workflow executed.'],
+                ],
+                'is_active' => true,
+                'created_by' => auth()->id() ?? 1,
+            ]);
+        }
+    }
+
+    public function storeBoard(Request $request)
+    {
+        $validated = $request->validate([
+            'workspace_id' => 'required|exists:workspaces,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'folder_name' => 'nullable|string|max:100',
+            'visibility' => 'nullable|in:public,private,shareable',
+        ]);
+
+        $board = KanbanBoard::create([
+            'workspace_id' => $validated['workspace_id'],
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'folder_name' => $validated['folder_name'] ?? null,
+            'visibility' => $validated['visibility'] ?? 'public',
+            'department' => auth()->user()->department ?? 'Operations',
+            'created_by' => auth()->id(),
+        ]);
+
+        // Default stages (Columns)
+        KanbanColumn::create(['board_id' => $board->id, 'title' => 'Not Started', 'color' => '#64748b', 'position' => 0]);
+        KanbanColumn::create(['board_id' => $board->id, 'title' => 'Working on it', 'color' => '#fdab3d', 'position' => 1]);
+        KanbanColumn::create(['board_id' => $board->id, 'title' => 'Quality Review', 'color' => '#a25ddc', 'position' => 2]);
+        KanbanColumn::create(['board_id' => $board->id, 'title' => 'Done', 'color' => '#00c875', 'position' => 3]);
+
+        $this->ensureBoardIntegrity($board);
+
+        AuditLog::log(
+            action: 'BOARD_CREATED',
+            department: auth()->user()->department ?? 'Operations',
+            entityType: 'KanbanBoard',
+            entityId: $board->id,
+            description: "Created board '{$board->title}'"
+        );
+
+        return redirect()->route('kanban.index', ['workspace' => $board->workspace_id, 'board' => $board->id])
+            ->with('success', 'Board created successfully');
+    }
+
+    public function updateBoard(Request $request, KanbanBoard $board)
+    {
+        $validated = $request->validate([
+            'title' => 'sometimes|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'folder_name' => 'nullable|string|max:100',
+            'visibility' => 'nullable|in:public,private,shareable',
+            'is_favorite' => 'nullable|boolean',
+            'settings' => 'nullable|array',
+        ]);
+
+        $board->update($validated);
+
+        return back()->with('success', 'Board updated');
+    }
+
+    public function duplicateBoard(KanbanBoard $board)
+    {
+        $newBoard = KanbanBoard::create([
+            'workspace_id' => $board->workspace_id,
+            'title' => $board->title . ' (Copy)',
+            'description' => $board->description,
+            'department' => $board->department,
+            'folder_name' => $board->folder_name,
+            'visibility' => $board->visibility,
+            'created_by' => auth()->id(),
+        ]);
+
+        foreach ($board->columns as $col) {
+            KanbanColumn::create([
+                'board_id' => $newBoard->id,
+                'title' => $col->title,
+                'color' => $col->color,
+                'position' => $col->position,
+            ]);
+        }
+
+        foreach ($board->groups as $grp) {
+            BoardGroup::create([
+                'board_id' => $newBoard->id,
+                'title' => $grp->title,
+                'color' => $grp->color,
+                'position' => $grp->position,
+            ]);
+        }
+
+        foreach ($board->boardColumns as $bc) {
+            BoardColumn::create([
+                'board_id' => $newBoard->id,
+                'key' => $bc->key,
+                'title' => $bc->title,
+                'type' => $bc->type,
+                'config' => $bc->config,
+                'position' => $bc->position,
+                'width' => $bc->width,
+                'is_visible' => $bc->is_visible,
+            ]);
+        }
+
+        foreach ($board->views as $v) {
+            BoardView::create([
+                'board_id' => $newBoard->id,
+                'name' => $v->name,
+                'type' => $v->type,
+                'is_default' => $v->is_default,
+                'settings' => $v->settings,
+                'position' => $v->position,
+            ]);
+        }
+
+        return redirect()->route('kanban.index', ['workspace' => $newBoard->workspace_id, 'board' => $newBoard->id])
+            ->with('success', 'Board duplicated successfully');
+    }
+
+    public function deleteBoard(KanbanBoard $board)
+    {
+        $workspaceId = $board->workspace_id;
+        $board->delete();
+
+        return redirect()->route('kanban.index', ['workspace' => $workspaceId])
+            ->with('success', 'Board deleted successfully');
+    }
+
+    // --- Workflow Stages (Kanban Columns) Management ---
+    public function storeWorkflowStage(Request $request, KanbanBoard $board)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'color' => 'nullable|string|max:20',
+        ]);
+
+        $stage = KanbanColumn::create([
+            'board_id' => $board->id,
+            'title' => $validated['title'],
+            'color' => $validated['color'] ?? '#64748b',
+            'position' => $board->columns()->count(),
+        ]);
+
+        return back()->with('success', 'Stage created');
+    }
+
+    public function updateWorkflowStage(Request $request, KanbanColumn $column)
+    {
+        $validated = $request->validate([
+            'title' => 'sometimes|string|max:255',
+            'color' => 'nullable|string|max:20',
+        ]);
+
+        $column->update($validated);
+
+        return back()->with('success', 'Stage updated');
+    }
+
+    public function deleteWorkflowStage(KanbanColumn $column)
+    {
+        $boardId = $column->board_id;
+        $fallback = KanbanColumn::where('board_id', $boardId)->where('id', '!=', $column->id)->first();
+        if ($fallback) {
+            KanbanTask::where('column_id', $column->id)->update(['column_id' => $fallback->id]);
+        }
+        $column->delete();
+
+        return back()->with('success', 'Stage deleted');
+    }
+
+    public function reorderWorkflowStages(Request $request, KanbanBoard $board)
+    {
+        $validated = $request->validate([
+            'stage_ids' => 'required|array',
+            'stage_ids.*' => 'exists:kanban_columns,id',
+        ]);
+
+        foreach ($validated['stage_ids'] as $idx => $id) {
+            KanbanColumn::where('id', $id)->where('board_id', $board->id)->update(['position' => $idx]);
+        }
+
+        return back()->with('success', 'Stages reordered');
+    }
+
+    // --- Groups Management ---
+    public function storeGroup(Request $request, KanbanBoard $board)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'color' => 'nullable|string|max:20',
+        ]);
+
+        $group = BoardGroup::create([
+            'board_id' => $board->id,
+            'title' => $validated['title'],
+            'color' => $validated['color'] ?? '#579BFC',
+            'position' => $board->groups()->count(),
+        ]);
+
+        return back()->with('success', 'Group created');
+    }
+
+    public function updateGroup(Request $request, BoardGroup $group)
+    {
+        $validated = $request->validate([
+            'title' => 'sometimes|string|max:255',
+            'color' => 'nullable|string|max:20',
+        ]);
+
+        $group->update($validated);
+
+        return back()->with('success', 'Group updated');
+    }
+
+    public function deleteGroup(BoardGroup $group)
+    {
+        $boardId = $group->board_id;
+        $otherGroup = BoardGroup::where('board_id', $boardId)->where('id', '!=', $group->id)->first();
+        if ($otherGroup) {
+            KanbanTask::where('group_id', $group->id)->update(['group_id' => $otherGroup->id]);
+        }
+        $group->delete();
+
+        return back()->with('success', 'Group deleted');
+    }
+
+    // --- Dynamic Columns Management ---
+    public function storeBoardColumn(Request $request, KanbanBoard $board)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'type' => 'required|string|in:text,status,priority,people,date,timeline,number,checkbox,dropdown,tags,rating,progress,link,formula',
+            'config' => 'nullable|array',
+            'width' => 'nullable|integer',
+        ]);
+
+        $key = 'col_' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', $validated['title'])) . '_' . uniqid();
+
+        BoardColumn::create([
+            'board_id' => $board->id,
+            'key' => $key,
+            'title' => $validated['title'],
+            'type' => $validated['type'],
+            'config' => $validated['config'] ?? null,
+            'width' => $validated['width'] ?? 150,
+            'position' => $board->boardColumns()->count(),
+        ]);
+
+        return back()->with('success', 'Column added');
+    }
+
+    public function updateBoardColumn(Request $request, BoardColumn $column)
+    {
+        $validated = $request->validate([
+            'title' => 'sometimes|string|max:255',
+            'is_visible' => 'nullable|boolean',
+            'width' => 'nullable|integer',
+            'config' => 'nullable|array',
+        ]);
+
+        $column->update($validated);
+
+        return back()->with('success', 'Column updated');
+    }
+
+    public function deleteBoardColumn(BoardColumn $column)
+    {
+        $column->delete();
+        return back()->with('success', 'Column deleted');
+    }
+
+    public function reorderBoardColumns(Request $request, KanbanBoard $board)
+    {
+        $validated = $request->validate([
+            'column_ids' => 'required|array',
+            'column_ids.*' => 'exists:board_columns,id',
+        ]);
+
+        foreach ($validated['column_ids'] as $index => $colId) {
+            BoardColumn::where('id', $colId)->where('board_id', $board->id)->update(['position' => $index]);
+        }
+
+        return back()->with('success', 'Columns reordered');
+    }
+
+    public function toggleBoardFavorite(KanbanBoard $board)
+    {
+        $board->update(['is_favorite' => !$board->is_favorite]);
+        return back()->with('success', 'Board updated');
+    }
+
+    // --- Tasks / Items ---
+    public function storeTask(Request $request)
+    {
+        $validated = $request->validate([
+            'board_id' => 'required|exists:kanban_boards,id',
+            'column_id' => 'nullable|exists:kanban_columns,id',
+            'group_id' => 'nullable|exists:board_groups,id',
+            'parent_id' => 'nullable|exists:kanban_tasks,id',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'priority' => 'nullable|in:Low,Medium,High,Urgent',
+            'due_date' => 'nullable|date',
+            'due_time' => 'nullable|string|max:10',
+            'start_date' => 'nullable|date',
+            'assigned_to' => 'nullable|exists:users,id',
+            'labels' => 'nullable|array',
+            'custom_values' => 'nullable|array',
+            'progress' => 'nullable|integer|min:0|max:100',
+        ]);
+
+        $board = KanbanBoard::findOrFail($validated['board_id']);
+
+        $columnId = $validated['column_id'] ?? null;
+        if (!$columnId) {
+            $columnId = $board->columns()->first()?->id ?? KanbanColumn::create([
+                'board_id' => $board->id,
+                'title' => 'Not Started',
+                'color' => '#64748b',
+                'position' => 0,
+            ])->id;
+        }
+
+        $groupId = $validated['group_id'] ?? null;
+        if (!$groupId) {
+            $groupId = $board->groups()->first()?->id ?? BoardGroup::create([
+                'board_id' => $board->id,
+                'title' => 'Active Tasks',
+                'color' => '#579BFC',
+                'position' => 0,
+            ])->id;
+        }
+
+        $task = KanbanTask::create([
+            'board_id' => $board->id,
+            'column_id' => $columnId,
+            'group_id' => $groupId,
+            'parent_id' => $validated['parent_id'] ?? null,
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? null,
+            'priority' => $validated['priority'] ?? 'Medium',
+            'due_date' => $validated['due_date'] ?? null,
+            'due_time' => $validated['due_time'] ?? null,
+            'start_date' => $validated['start_date'] ?? null,
+            'assigned_to' => $validated['assigned_to'] ?? null,
+            'labels' => $validated['labels'] ?? [],
+            'custom_values' => $validated['custom_values'] ?? [],
+            'progress' => $validated['progress'] ?? 0,
+            'created_by' => auth()->id(),
+            'position' => KanbanTask::where('board_id', $board->id)->where('column_id', $columnId)->count(),
+        ]);
+
+        if ($task->parent_id) {
+            $task->parent?->recalculateProgressFromSubtasks();
+        }
+
+        AuditLog::log(
+            action: 'KANBAN_TASK_CREATED',
+            department: auth()->user()->department ?? 'Operations',
+            entityType: 'KanbanTask',
+            entityId: $task->id,
+            description: "Created task: {$task->title} in board {$board->title}"
+        );
+
+        // Dispatch Automations for Item Created
+        $this->automationEngine->dispatch('item_created', $task, [], auth()->user());
+
+        return back()->with('success', 'Task created successfully');
+    }
+
+    public function updateTask(Request $request, KanbanTask $task)
+    {
+        $validated = $request->validate([
+            'title' => 'sometimes|string|max:255',
+            'description' => 'nullable|string',
+            'priority' => 'nullable|in:Low,Medium,High,Urgent',
+            'due_date' => 'nullable|date',
+            'due_time' => 'nullable|string|max:10',
+            'start_date' => 'nullable|date',
+            'assigned_to' => 'nullable|exists:users,id',
+            'column_id' => 'nullable|exists:kanban_columns,id',
+            'group_id' => 'nullable|exists:board_groups,id',
+            'labels' => 'nullable|array',
+            'custom_values' => 'nullable|array',
+            'progress' => 'nullable|integer|min:0|max:100',
+            'estimated_hours' => 'nullable|numeric',
+            'actual_hours' => 'nullable|numeric',
+        ]);
+
+        if (isset($validated['column_id'])) {
+            $colTitle = KanbanColumn::find($validated['column_id'])?->title;
+            if ($colTitle && (strtolower($colTitle) === 'done' || strtolower($colTitle) === 'completed')) {
+                $task->completed_at = now();
+                if (!isset($validated['progress'])) {
+                    $validated['progress'] = 100;
+                }
+            } else {
+                $task->completed_at = null;
+            }
+        }
+
+        if (isset($validated['custom_values'])) {
+            $current = $task->custom_values ?? [];
+            $validated['custom_values'] = array_merge($current, $validated['custom_values']);
+        }
+
+        $prevPriority = $task->priority;
+        $prevAssigned = $task->assigned_to;
+        $prevColumn = $task->column?->title;
+
+        $task->update($validated);
+
+        if ($task->parent_id) {
+            $task->parent?->recalculateProgressFromSubtasks();
+        }
+
+        // Dispatch Automations
+        if (isset($validated['priority']) && $validated['priority'] !== $prevPriority) {
+            $this->automationEngine->dispatch('priority_changed', $task, ['prev_priority' => $prevPriority], auth()->user());
+        }
+        if (isset($validated['assigned_to']) && $validated['assigned_to'] !== $prevAssigned) {
+            $this->automationEngine->dispatch('item_assigned', $task, ['prev_assigned' => $prevAssigned], auth()->user());
+        }
+        if (isset($validated['column_id'])) {
+            $this->automationEngine->dispatch('status_changed', $task, ['prev_column' => $prevColumn], auth()->user());
+        }
+        $this->automationEngine->dispatch('item_updated', $task, [], auth()->user());
+        \App\Events\TaskUpdatedEvent::dispatch($task, 'updated', auth()->id());
+
+        return back()->with('success', 'Task updated');
+    }
+
+    public function updateTaskColumn(Request $request, KanbanTask $task)
+    {
+        $validated = $request->validate([
+            'column_id' => 'required|exists:kanban_columns,id',
+            'position' => 'nullable|integer',
+        ]);
+
+        $prevColumn = $task->column?->title;
+        $task->column_id = $validated['column_id'];
+        if (isset($validated['position'])) {
+            $task->position = $validated['position'];
+        }
+
+        $newColumn = KanbanColumn::find($validated['column_id'])?->title;
+
+        if (strtolower($newColumn ?? '') === 'completed' || strtolower($newColumn ?? '') === 'done') {
+            $task->completed_at = now();
+            $task->progress = 100;
+        } else {
+            $task->completed_at = null;
+        }
+
+        $task->save();
+
+        if ($task->parent_id) {
+            $task->parent?->recalculateProgressFromSubtasks();
+        }
+
+        AuditLog::log(
+            action: 'KANBAN_TASK_MOVED',
+            department: auth()->user()->department ?? 'Operations',
+            entityType: 'KanbanTask',
+            entityId: $task->id,
+            description: "Moved task '{$task->title}' from {$prevColumn} to {$newColumn}"
+        );
+
+        $task->load('column', 'group', 'board');
+
+        // Dispatch status_changed automation
+        $this->automationEngine->dispatch('status_changed', $task, [
+            'prev_column' => $prevColumn,
+            'new_column' => $newColumn,
+        ], auth()->user());
+
+        \App\Events\TaskUpdatedEvent::dispatch($task, 'status_changed', auth()->id());
+
+        return back()->with('success', 'Task updated');
+    }
+
+    public function reorderTasks(Request $request)
+    {
+        $validated = $request->validate([
+            'task_ids' => 'required|array',
+            'task_ids.*' => 'exists:kanban_tasks,id',
+            'column_id' => 'nullable|exists:kanban_columns,id',
+        ]);
+
+        foreach ($validated['task_ids'] as $idx => $id) {
+            $data = ['position' => $idx];
+            if (isset($validated['column_id'])) {
+                $data['column_id'] = $validated['column_id'];
+            }
+            KanbanTask::where('id', $id)->update($data);
+        }
+
+        return back()->with('success', 'Tasks reordered');
+    }
+
+    public function updateTaskGroup(Request $request, KanbanTask $task)
+    {
+        $validated = $request->validate([
+            'group_id' => 'required|exists:board_groups,id',
+            'position' => 'nullable|integer',
+        ]);
+
+        $task->group_id = $validated['group_id'];
+        if (isset($validated['position'])) {
+            $task->position = $validated['position'];
+        }
+        $task->save();
+
+        return back()->with('success', 'Task moved to group');
+    }
+
+    public function storeSubitem(Request $request, KanbanTask $task)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'assigned_to' => 'nullable|exists:users,id',
+            'due_date' => 'nullable|date',
+            'column_id' => 'nullable|exists:kanban_columns,id',
+        ]);
+
+        // Prevent circular relationship or excessive depth (>3)
+        $depth = 0;
+        $curr = $task;
+        while ($curr->parent_id && $depth < 5) {
+            $depth++;
+            $curr = $curr->parent;
+        }
+
+        if ($depth >= 3) {
+            return back()->with('error', 'Subtask hierarchy depth limit reached (max 3 levels)');
+        }
+
+        $subitem = KanbanTask::create([
+            'board_id' => $task->board_id,
+            'group_id' => $task->group_id,
+            'parent_id' => $task->id,
+            'column_id' => $validated['column_id'] ?? $task->column_id,
+            'title' => $validated['title'],
+            'assigned_to' => $validated['assigned_to'] ?? null,
+            'due_date' => $validated['due_date'] ?? null,
+            'priority' => 'Medium',
+            'created_by' => auth()->id(),
+            'position' => KanbanTask::where('parent_id', $task->id)->count(),
+        ]);
+
+        $task->recalculateProgressFromSubtasks();
+
+        return back()->with('success', 'Subitem added');
+    }
+
+    public function deleteTask(KanbanTask $task)
+    {
+        $taskTitle = $task->title;
+        $parentId = $task->parent_id;
+
+        $task->delete();
+
+        if ($parentId) {
+            $parent = KanbanTask::find($parentId);
+            $parent?->recalculateProgressFromSubtasks();
+        }
+
+        AuditLog::log(
+            action: 'KANBAN_TASK_DELETED',
+            department: auth()->user()->department ?? 'Operations',
+            entityType: 'KanbanTask',
+            entityId: $task->id,
+            description: "Deleted task: {$taskTitle}"
+        );
+
+        return back()->with('success', 'Task deleted');
+    }
+
+    // --- Comments, Threaded Replies & Reactions ---
+    public function storeComment(Request $request, KanbanTask $task)
+    {
+        $validated = $request->validate([
+            'message' => 'required|string',
+            'parent_id' => 'nullable|exists:kanban_comments,id',
+        ]);
+
+        $comment = KanbanComment::create([
+            'task_id' => $task->id,
+            'parent_id' => $validated['parent_id'] ?? null,
+            'user_id' => auth()->id(),
+            'message' => $validated['message'],
+        ]);
+
+        \App\Events\CommentAddedEvent::dispatch($comment);
+
+        return back()->with('success', 'Update posted');
+    }
+
+    public function deleteComment(KanbanComment $comment)
+    {
+        if ($comment->user_id === auth()->id() || auth()->user()->role === 'super_admin') {
+            $comment->delete();
+            return back()->with('success', 'Comment deleted');
+        }
+        return back()->with('error', 'Unauthorized');
+    }
+
+    public function toggleCommentReaction(Request $request, KanbanComment $comment)
+    {
+        $validated = $request->validate([
+            'emoji' => 'required|string|max:10',
+        ]);
+
+        $emoji = $validated['emoji'];
+        $userId = auth()->id();
+        $reactions = $comment->reactions ?? [];
+
+        $usersForEmoji = $reactions[$emoji] ?? [];
+        if (in_array($userId, $usersForEmoji)) {
+            $usersForEmoji = array_values(array_filter($usersForEmoji, fn($id) => $id !== $userId));
+            if (empty($usersForEmoji)) {
+                unset($reactions[$emoji]);
+            } else {
+                $reactions[$emoji] = $usersForEmoji;
+            }
+        } else {
+            $usersForEmoji[] = $userId;
+            $reactions[$emoji] = $usersForEmoji;
+        }
+
+        $comment->update(['reactions' => $reactions]);
+
+        return back()->with('success', 'Reaction updated');
+    }
+
+    // --- Attachments ---
+    public function storeAttachment(Request $request, KanbanTask $task)
+    {
+        $request->validate([
+            'file' => 'required|file|max:20480', // 20MB limit
+        ]);
+
+        $file = $request->file('file');
+        $fileName = $file->getClientOriginalName();
+        $filePath = $file->store('attachments/kanban', 'public');
+
+        $attachment = KanbanAttachment::create([
+            'task_id' => $task->id,
+            'user_id' => auth()->id(),
+            'file_name' => $fileName,
+            'file_path' => $filePath,
+            'file_size_bytes' => $file->getSize(),
+            'mime_type' => $file->getClientMimeType() ?: 'application/octet-stream',
+        ]);
+
+        AuditLog::log(
+            action: 'TASK_ATTACHMENT_UPLOADED',
+            department: auth()->user()->department ?? 'Operations',
+            entityType: 'KanbanAttachment',
+            entityId: $attachment->id,
+            description: "Uploaded attachment '{$fileName}' to task '{$task->title}'"
+        );
+
+        return back()->with('success', 'Attachment uploaded');
+    }
+
+    public function deleteAttachment(KanbanAttachment $attachment)
+    {
+        if ($attachment->user_id === auth()->id() || auth()->user()->role === 'super_admin') {
+            if (Storage::disk('public')->exists($attachment->file_path)) {
+                Storage::disk('public')->delete($attachment->file_path);
+            }
+            $attachment->delete();
+            return back()->with('success', 'Attachment deleted');
+        }
+        return back()->with('error', 'Unauthorized');
+    }
+
+    public function downloadAttachment(KanbanAttachment $attachment)
+    {
+        $user = auth()->user();
+        if ($user->role === 'external_user') {
+            abort(403, 'External users are not authorized to download internal task attachments.');
+        }
+
+        abort_unless($user->hasPermission('kanban.view') || $user->isSuperAdmin(), 403, 'Unauthorized');
+
+        if (!$attachment->file_path || !Storage::disk('public')->exists($attachment->file_path)) {
+            abort(404, 'Attachment file not found on storage.');
+        }
+
+        return Storage::disk('public')->download($attachment->file_path, $attachment->file_name);
+    }
+
+    // --- Views Management (Table, Kanban, Calendar, Timeline, Gantt, Workload, Chart, Files, Gallery) ---
+    public function storeView(Request $request, KanbanBoard $board)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'type' => 'required|in:table,kanban,calendar,timeline,gantt,workload,chart,files,gallery',
+            'settings' => 'nullable|array',
+        ]);
+
+        $view = BoardView::create([
+            'board_id' => $board->id,
+            'name' => $validated['name'],
+            'type' => $validated['type'],
+            'settings' => $validated['settings'] ?? [],
+            'is_default' => false,
+            'position' => $board->views()->count(),
+        ]);
+
+        return back()->with('success', "View '{$view->name}' created");
+    }
+
+    public function updateView(Request $request, BoardView $view)
+    {
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'type' => 'sometimes|in:table,kanban,calendar,timeline,gantt,workload,chart,files,gallery',
+            'settings' => 'nullable|array',
+            'is_default' => 'sometimes|boolean',
+        ]);
+
+        if (!empty($validated['is_default'])) {
+            BoardView::where('board_id', $view->board_id)->update(['is_default' => false]);
+        }
+
+        if (isset($validated['settings']) && is_array($validated['settings'])) {
+            $existing = $view->settings ?? [];
+            $validated['settings'] = array_merge($existing, $validated['settings']);
+        }
+
+        $view->update($validated);
+
+        return back()->with('success', 'View updated');
+    }
+
+    public function deleteView(BoardView $view)
+    {
+        $boardId = $view->board_id;
+        if (BoardView::where('board_id', $boardId)->count() <= 1) {
+            return back()->with('error', 'Cannot delete the only view on the board');
+        }
+
+        $wasDefault = $view->is_default;
+        $view->delete();
+
+        if ($wasDefault) {
+            $first = BoardView::where('board_id', $boardId)->first();
+            $first?->update(['is_default' => true]);
+        }
+
+        return back()->with('success', 'View deleted');
+    }
+
+    public function reorderViews(Request $request, KanbanBoard $board)
+    {
+        $validated = $request->validate([
+            'view_ids' => 'required|array',
+            'view_ids.*' => 'exists:board_views,id',
+        ]);
+
+        foreach ($validated['view_ids'] as $idx => $id) {
+            BoardView::where('id', $id)->where('board_id', $board->id)->update(['position' => $idx]);
+        }
+
+        return back()->with('success', 'Views reordered');
+    }
+
+    // --- Task Dependencies (Gantt & Sequencing with Cycle Detection) ---
+    public function storeDependency(Request $request, KanbanTask $task)
+    {
+        $validated = $request->validate([
+            'depends_on_task_id' => 'required|exists:kanban_tasks,id|different:task_id',
+            'dependency_type' => 'nullable|string|in:finish_to_start,start_to_start,finish_to_finish,start_to_finish',
+            'lag_days' => 'nullable|integer',
+        ]);
+
+        $targetId = (int) $validated['depends_on_task_id'];
+
+        if ($task->id === $targetId) {
+            return back()->with('error', 'A task cannot depend on itself');
+        }
+
+        // Circular dependency check: will adding (task_id -> targetId) create a directed cycle?
+        // i.e., can we already reach task_id by traversing dependencies starting from targetId?
+        if ($this->hasCircularDependency($targetId, $task->id)) {
+            return back()->with('error', 'Circular dependency detected. This relationship would cause a loop.');
+        }
+
+        TaskDependency::updateOrCreate(
+            ['task_id' => $task->id, 'depends_on_task_id' => $targetId],
+            [
+                'dependency_type' => $validated['dependency_type'] ?? 'finish_to_start',
+                'lag_days' => $validated['lag_days'] ?? 0,
+            ]
+        );
+
+        return back()->with('success', 'Dependency added successfully');
+    }
+
+    public function deleteDependency(TaskDependency $dependency)
+    {
+        $dependency->delete();
+        return back()->with('success', 'Dependency removed');
+    }
+
+    public function updateTaskSchedule(Request $request, KanbanTask $task)
+    {
+        $validated = $request->validate([
+            'start_date' => 'nullable|date',
+            'due_date' => 'nullable|date',
+        ]);
+
+        $task->update($validated);
+
+        return back()->with('success', 'Task schedule updated');
+    }
+
+    private function hasCircularDependency(int $currentId, int $targetId, array &$visited = []): bool
+    {
+        if ($currentId === $targetId) {
+            return true;
+        }
+
+        if (isset($visited[$currentId])) {
+            return false;
+        }
+        $visited[$currentId] = true;
+
+        $nextTaskIds = TaskDependency::where('task_id', $currentId)->pluck('depends_on_task_id');
+        foreach ($nextTaskIds as $nextId) {
+            if ($this->hasCircularDependency($nextId, $targetId, $visited)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // --- Automation Engine Endpoints ---
+    public function storeAutomation(Request $request, KanbanBoard $board)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'trigger_type' => 'required|string',
+            'trigger_config' => 'nullable|array',
+            'conditions' => 'nullable|array',
+            'actions' => 'required|array|min:1',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $automation = BoardAutomation::create([
+            'board_id' => $board->id,
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'trigger_type' => $validated['trigger_type'],
+            'trigger_config' => $validated['trigger_config'] ?? [],
+            'conditions' => $validated['conditions'] ?? ['match_type' => 'and', 'rules' => []],
+            'actions' => $validated['actions'],
+            'is_active' => $validated['is_active'] ?? true,
+            'created_by' => auth()->id(),
+        ]);
+
+        AuditLog::log(
+            action: 'AUTOMATION_CREATED',
+            department: $board->department ?? 'Operations',
+            entityType: 'BoardAutomation',
+            entityId: $automation->id,
+            description: "Created automation rule: {$automation->name}"
+        );
+
+        return back()->with('success', 'Automation rule created');
+    }
+
+    public function updateAutomation(Request $request, BoardAutomation $automation)
+    {
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'description' => 'nullable|string|max:1000',
+            'trigger_type' => 'sometimes|string',
+            'trigger_config' => 'nullable|array',
+            'conditions' => 'nullable|array',
+            'actions' => 'sometimes|array|min:1',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        $automation->update($validated);
+
+        return back()->with('success', 'Automation rule updated');
+    }
+
+    public function toggleAutomation(BoardAutomation $automation)
+    {
+        $automation->update(['is_active' => !$automation->is_active]);
+        $statusStr = $automation->is_active ? 'enabled' : 'disabled';
+        return back()->with('success', "Automation {$statusStr}");
+    }
+
+    public function duplicateAutomation(BoardAutomation $automation)
+    {
+        $clone = $automation->replicate();
+        $clone->name = "{$automation->name} (Copy)";
+        $clone->created_by = auth()->id();
+        $clone->execution_count = 0;
+        $clone->last_executed_at = null;
+        $clone->save();
+
+        return back()->with('success', 'Automation duplicated');
+    }
+
+    public function deleteAutomation(BoardAutomation $automation)
+    {
+        $automation->delete();
+        return back()->with('success', 'Automation rule deleted');
+    }
+
+    public function testAutomation(Request $request, BoardAutomation $automation)
+    {
+        $task = KanbanTask::where('board_id', $automation->board_id)->first();
+        if (!$task) {
+            return back()->with('error', 'No tasks available on this board to test automation against');
+        }
+
+        $result = $this->automationEngine->evaluateAndExecute(
+            $automation,
+            $task,
+            ['is_test_run' => true],
+            auth()->user()
+        );
+
+        if ($result['status'] === 'success') {
+            return back()->with('success', "Test execution succeeded on item: {$task->title} in {$result['duration_ms']}ms");
+        }
+
+        return back()->with('error', "Test execution result: {$result['status']} (" . ($result['reason'] ?? $result['error'] ?? 'unspecified') . ")");
+    }
+}
