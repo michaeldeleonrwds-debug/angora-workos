@@ -617,7 +617,7 @@ class KanbanController extends Controller
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'type' => 'required|string|in:text,status,priority,people,date,timeline,number,checkbox,dropdown,tags,rating,progress,link,formula',
+            'type' => 'required|string|in:text,long_text,status,priority,people,date,timeline,number,checkbox,dropdown,tags,rating,progress,link,formula,connect_boards,mirror',
             'config' => 'nullable|array',
             'width' => 'nullable|integer',
         ]);
@@ -654,6 +654,40 @@ class KanbanController extends Controller
         $column->update($validated);
 
         return back()->with('success', 'Column updated');
+    }
+
+    public function duplicateBoardColumn(BoardColumn $column)
+    {
+        $board = $column->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
+        $newKey = 'col_' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', $column->title)) . '_copy_' . uniqid();
+        $duplicated = BoardColumn::create([
+            'board_id' => $column->board_id,
+            'key' => $newKey,
+            'title' => "{$column->title} (Copy)",
+            'type' => $column->type,
+            'config' => $column->config,
+            'width' => $column->width,
+            'position' => $board ? $board->boardColumns()->count() : ($column->position + 1),
+            'is_visible' => true,
+        ]);
+
+        // If tasks have custom values for the original column, copy them over safely
+        if ($board) {
+            $tasks = KanbanTask::where('board_id', $board->id)->get();
+            foreach ($tasks as $task) {
+                if ($task->custom_values && isset($task->custom_values[$column->key])) {
+                    $vals = $task->custom_values;
+                    $vals[$newKey] = $vals[$column->key];
+                    $task->update(['custom_values' => $vals]);
+                }
+            }
+        }
+
+        return back()->with('success', 'Column duplicated');
     }
 
     public function deleteBoardColumn(BoardColumn $column)
@@ -1483,6 +1517,9 @@ class KanbanController extends Controller
         }
 
         $tasks = collect();
+        $boardColumns = null;
+        $statusColumns = null;
+
         if ($boardId) {
             $board = KanbanBoard::find($boardId);
             if ($board && Gate::allows('view', $board)) {
@@ -1500,6 +1537,8 @@ class KanbanController extends Controller
                 }
 
                 $tasks = $tasksQuery->get();
+                $boardColumns = $board->boardColumns()->orderBy('position')->get();
+                $statusColumns = $board->columns()->orderBy('position')->get();
             }
         }
 
@@ -1516,6 +1555,8 @@ class KanbanController extends Controller
 
         return response()->json([
             'tasks' => $tasks,
+            'board_columns' => $boardColumns,
+            'status_columns' => $statusColumns,
             'unread_notifications_count' => $unreadCount,
             'recent_notifications' => $notifications,
             'cursor' => now()->toIso8601String(),

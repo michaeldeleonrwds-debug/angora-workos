@@ -1,7 +1,7 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatDate } from '@/lib/utils';
 import { router } from '@inertiajs/react';
-import { Check, ChevronDown, ChevronRight, Copy, Link2, MessageCircle, MoreHorizontal, Plus, Star, Trash2, User as UserIcon } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, Star, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import { BoardColumn, BoardGroup, KanbanColumn, Task, User } from '../types';
 import ConnectBoardsModal from './ConnectBoardsModal';
@@ -171,15 +171,26 @@ export default function TableRow({
                         />
                     ) : (
                         <span
-                            onClick={() => setIsEditingTitle(true)}
+                            onClick={() => onSelectTask(task)}
                             className="text-foreground hover:text-primary max-w-sm cursor-pointer truncate font-semibold"
-                            title="Click to edit title"
+                            title="Click to open item details"
                         >
                             {task.title}
                         </span>
                     )}
 
                     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setIsEditingTitle(true);
+                            }}
+                            className="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-1"
+                            title="Rename Item"
+                        >
+                            <Edit2 className="h-3.5 w-3.5" />
+                        </button>
                         <button
                             onClick={() => onSelectTask(task)}
                             className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded p-1"
@@ -268,8 +279,11 @@ export default function TableRow({
                         );
                     }
 
-                    // 2. Status Column (Monday signature colored cell)
+                    // 2. Status Column (Dynamic board-configured colored cell)
                     if (col.type === 'status') {
+                        const statusOptions = (col.config?.status_options as string[]) || [];
+                        const currentStatusTitle = task.column?.title || 'Not Started';
+
                         return (
                             <div
                                 key={col.id}
@@ -285,7 +299,7 @@ export default function TableRow({
                                             {statusMeta.label}
                                         </button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="center" className="w-40 space-y-1 rounded-xl p-1.5">
+                                    <DropdownMenuContent align="center" className="w-44 space-y-1 rounded-xl p-1.5">
                                         {statusColumns.map((sc) => {
                                             const meta = getStatusStyle(sc.title);
                                             return (
@@ -293,13 +307,31 @@ export default function TableRow({
                                                     key={sc.id}
                                                     type="button"
                                                     onClick={() => handleUpdateStatus(sc.id)}
-                                                    className="block w-full rounded py-1.5 text-center text-xs font-bold text-white transition-opacity hover:opacity-90"
-                                                    style={{ backgroundColor: meta.bg }}
+                                                    className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                                                    style={{ backgroundColor: sc.color || meta.bg }}
                                                 >
-                                                    {sc.title}
+                                                    <span className="truncate">{sc.title}</span>
+                                                    {sc.id === task.column_id && <Check className="h-3 w-3 shrink-0" />}
                                                 </button>
                                             );
                                         })}
+                                        {/* Board-configured custom status labels if defined on column */}
+                                        {statusOptions.length > 0 && statusColumns.length === 0 && (
+                                            statusOptions.map((opt) => {
+                                                const meta = getStatusStyle(opt);
+                                                return (
+                                                    <button
+                                                        key={opt}
+                                                        type="button"
+                                                        onClick={() => handleUpdateCustomValue(col.key, opt)}
+                                                        className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                                                        style={{ backgroundColor: meta.bg }}
+                                                    >
+                                                        <span className="truncate">{opt}</span>
+                                                    </button>
+                                                );
+                                            })
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </div>
@@ -331,10 +363,11 @@ export default function TableRow({
                                                     key={pr}
                                                     type="button"
                                                     onClick={() => handleUpdatePriority(pr)}
-                                                    className="block w-full rounded py-1.5 text-center text-xs font-bold text-white transition-opacity hover:opacity-90"
+                                                    className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
                                                     style={{ backgroundColor: meta.bg }}
                                                 >
-                                                    {pr}
+                                                    <span>{pr}</span>
+                                                    {pr === task.priority && <Check className="h-3 w-3 shrink-0" />}
                                                 </button>
                                             );
                                         })}
@@ -388,8 +421,10 @@ export default function TableRow({
                                 className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
                             >
                                 <div
-                                    className="flex h-6 w-full items-center justify-center gap-1 rounded-full px-2.5 text-[10px] font-bold text-white shadow-2xs"
+                                    onClick={() => onSelectTask(task)}
+                                    className="flex h-6 w-full cursor-pointer items-center justify-center gap-1 rounded-full px-2.5 text-[10px] font-bold text-white shadow-2xs hover:brightness-105"
                                     style={{ backgroundColor: statusMeta.bg }}
+                                    title="Click to edit schedule in Item Details"
                                 >
                                     <span>
                                         {task.start_date ? formatDate(task.start_date) : 'Start'}
@@ -608,7 +643,27 @@ export default function TableRow({
                         );
                     }
 
-                    // 14. Text Column
+                    // 14. Long Text Column
+                    if (col.type === 'long_text') {
+                        const longVal = task.custom_values?.[col.key] ?? '';
+                        return (
+                            <div
+                                key={col.id}
+                                style={{ width: col.width || 180 }}
+                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
+                            >
+                                <textarea
+                                    defaultValue={longVal}
+                                    onBlur={(e) => handleUpdateCustomValue(col.key, e.target.value)}
+                                    placeholder="Add notes..."
+                                    rows={1}
+                                    className="focus:bg-muted/40 w-full resize-none rounded border-none bg-transparent px-1 py-0.5 text-xs focus:outline-none"
+                                />
+                            </div>
+                        );
+                    }
+
+                    // 15. Text Column (Default)
                     const textVal = task.custom_values?.[col.key] ?? '';
                     return (
                         <div

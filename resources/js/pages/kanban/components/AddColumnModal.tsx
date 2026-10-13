@@ -13,6 +13,8 @@ interface AddColumnModalProps {
     onClose: () => void;
 }
 
+import { FileText } from 'lucide-react';
+
 const COLUMN_TYPES = [
     { type: 'people', title: 'People', icon: UserCheck, desc: 'Assign team members' },
     { type: 'status', title: 'Status', icon: Layers, desc: 'Color-coded progress states' },
@@ -27,13 +29,15 @@ const COLUMN_TYPES = [
     { type: 'rating', title: 'Rating', icon: Star, desc: 'Visual star or point ranking' },
     { type: 'connect_boards', title: 'Connect Boards', icon: Link2, desc: 'Link items across other boards' },
     { type: 'mirror', title: 'Mirror', icon: Copy, desc: 'Reflect columns from connected items' },
-    { type: 'text', title: 'Text', icon: Type, desc: 'Notes and text entries' },
+    { type: 'text', title: 'Short Text', icon: Type, desc: 'Single-line text entry' },
+    { type: 'long_text', title: 'Long Text', icon: FileText, desc: 'Multi-line notes and details' },
 ];
 
 export default function AddColumnModal({ board, isOpen, onClose }: AddColumnModalProps) {
     const [title, setTitle] = useState('');
     const [selectedType, setSelectedType] = useState('status');
     const [optionsString, setOptionsString] = useState('Option A, Option B, Option C');
+    const [statusLabelsString, setStatusLabelsString] = useState('Not Started, In Progress, Review, Done');
     const [relationType, setRelationType] = useState<'one_way' | 'two_way'>('one_way');
     const [mirrorSourceField, setMirrorSourceField] = useState('status');
     const [mirrorAggregation, setMirrorAggregation] = useState('first');
@@ -47,6 +51,11 @@ export default function AddColumnModal({ board, isOpen, onClose }: AddColumnModa
             config.options = optionsString
                 .split(',')
                 .map((o) => o.trim())
+                .filter(Boolean);
+        } else if (selectedType === 'status') {
+            config.status_options = statusLabelsString
+                .split(',')
+                .map((s) => s.trim())
                 .filter(Boolean);
         } else if (selectedType === 'connect_boards') {
             config.relation_type = relationType;
@@ -124,6 +133,22 @@ export default function AddColumnModal({ board, isOpen, onClose }: AddColumnModa
                                 })}
                             </div>
                         </div>
+
+                        {selectedType === 'status' && (
+                            <div>
+                                <Label htmlFor="col-status-opts">Status Labels (comma separated)</Label>
+                                <Input
+                                    id="col-status-opts"
+                                    placeholder="e.g. Not Started, In Progress, For Review, Done"
+                                    value={statusLabelsString}
+                                    onChange={(e) => setStatusLabelsString(e.target.value)}
+                                    className="mt-1"
+                                />
+                                <span className="text-muted-foreground mt-1 block text-[11px]">
+                                    Each status will have a board-specific color tag in your board table.
+                                </span>
+                            </div>
+                        )}
 
                         {(selectedType === 'dropdown' || selectedType === 'tags') && (
                             <div>

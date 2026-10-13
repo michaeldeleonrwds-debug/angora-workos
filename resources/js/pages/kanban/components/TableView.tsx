@@ -4,7 +4,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { router } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Edit3, Eye, EyeOff, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { BoardColumn, KanbanBoard, Task, User } from '../types';
 import TableRow from './TableRow';
@@ -340,6 +340,16 @@ export default function TableView({
                                                             >
                                                                 <Edit3 className="mr-2 h-3.5 w-3.5" />
                                                                 <span>Rename Column</span>
+                                                            </DropdownMenuItem>
+
+                                                            <DropdownMenuItem
+                                                                onClick={() => {
+                                                                    router.post(`/kanban/board-columns/${col.id}/duplicate`, {}, { preserveScroll: true });
+                                                                }}
+                                                                className="text-xs"
+                                                            >
+                                                                <Copy className="mr-2 h-3.5 w-3.5" />
+                                                                <span>Duplicate Column</span>
                                                             </DropdownMenuItem>
 
                                                             <DropdownMenuSeparator />

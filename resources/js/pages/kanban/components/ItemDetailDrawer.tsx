@@ -51,6 +51,17 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
 
     const completedSubitems = subitems.filter((s) => s.completed_at || s.progress === 100).length;
 
+    // Dismiss drawer on Escape key
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [onClose]);
+
     // Field updates
     const handleUpdateField = (field: string, val: any) => {
         router.patch(`/kanban/tasks/${task.id}`, { [field]: val }, { preserveScroll: true });
@@ -161,8 +172,14 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
     };
 
     return (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs duration-200 sm:p-6">
-            <div className="bg-card border-border flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border shadow-2xl">
+        <div
+            onClick={onClose}
+            className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs duration-200 sm:p-6"
+        >
+            <div
+                onClick={(e) => e.stopPropagation()}
+                className="bg-card border-border flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border shadow-2xl"
+            >
                 {/* Header Top Bar */}
                 <div className="border-border bg-muted/20 flex items-center justify-between border-b px-6 py-3.5">
                     <div className="text-muted-foreground flex items-center gap-2 text-xs font-semibold">
@@ -331,39 +348,39 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                             )}
 
                             {/* Start Date & Time */}
-                            <div className="grid grid-cols-3 items-center">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-1 sm:gap-0">
                                 <Label className="text-muted-foreground font-medium">Start Date & Time</Label>
-                                <div className="col-span-2 flex items-center gap-2">
+                                <div className="sm:col-span-2 flex items-center gap-2 min-w-0">
                                     <Input
                                         type="date"
                                         defaultValue={task.start_date || ''}
                                         onChange={(e) => handleUpdateField('start_date', e.target.value || null)}
-                                        className="h-8 flex-1 text-xs"
+                                        className="h-8 flex-1 min-w-0 text-xs"
                                     />
                                     <Input
                                         type="time"
                                         defaultValue={task.start_time || ''}
                                         onChange={(e) => handleUpdateField('start_time', e.target.value || null)}
-                                        className="h-8 w-24 text-xs"
+                                        className="h-8 w-24 shrink-0 text-xs"
                                     />
                                 </div>
                             </div>
 
                             {/* Due Date & Time */}
-                            <div className="grid grid-cols-3 items-center">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-1 sm:gap-0">
                                 <Label className="text-muted-foreground font-medium">Due Date & Time</Label>
-                                <div className="col-span-2 flex items-center gap-2">
+                                <div className="sm:col-span-2 flex items-center gap-2 min-w-0">
                                     <Input
                                         type="date"
                                         defaultValue={task.due_date || ''}
                                         onChange={(e) => handleUpdateField('due_date', e.target.value || null)}
-                                        className="h-8 flex-1 text-xs"
+                                        className="h-8 flex-1 min-w-0 text-xs"
                                     />
                                     <Input
                                         type="time"
                                         defaultValue={task.due_time || ''}
                                         onChange={(e) => handleUpdateField('due_time', e.target.value || null)}
-                                        className="h-8 w-24 text-xs"
+                                        className="h-8 w-24 shrink-0 text-xs"
                                     />
                                 </div>
                             </div>
@@ -420,6 +437,108 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                     className="border-border bg-background focus:ring-primary w-full rounded-xl border p-2.5 text-xs focus:ring-1 focus:outline-none"
                                 />
                             </div>
+
+                            {/* Custom Dynamic Columns */}
+                            {boardColumns.length > 0 && (
+                                <div className="space-y-3 pt-2">
+                                    <div className="text-muted-foreground border-border/60 border-t pt-3 text-[11px] font-bold uppercase tracking-wider">
+                                        Board Columns & Custom Fields
+                                    </div>
+                                    {boardColumns.map((col) => {
+                                        const customVal = (task.custom_values as Record<string, any>)?.[col.key] ?? '';
+                                        return (
+                                            <div key={col.id} className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-1 sm:gap-0">
+                                                <Label className="text-muted-foreground font-medium truncate" title={col.title}>
+                                                    {col.title}
+                                                </Label>
+                                                <div className="sm:col-span-2">
+                                                    {col.type === 'long_text' ? (
+                                                        <textarea
+                                                            rows={2}
+                                                            defaultValue={customVal}
+                                                            onBlur={(e) =>
+                                                                handleUpdateField('custom_values', {
+                                                                    ...(task.custom_values || {}),
+                                                                    [col.key]: e.target.value,
+                                                                })
+                                                            }
+                                                            placeholder={`Enter ${col.title.toLowerCase()}...`}
+                                                            className="border-border bg-background focus:ring-primary w-full rounded-xl border p-2 text-xs focus:ring-1 focus:outline-none"
+                                                        />
+                                                    ) : col.type === 'checkbox' ? (
+                                                        <input
+                                                            type="checkbox"
+                                                            defaultChecked={Boolean(customVal)}
+                                                            onChange={(e) =>
+                                                                handleUpdateField('custom_values', {
+                                                                    ...(task.custom_values || {}),
+                                                                    [col.key]: e.target.checked,
+                                                                })
+                                                            }
+                                                            className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                                                        />
+                                                    ) : col.type === 'dropdown' && col.config?.options ? (
+                                                        <select
+                                                            defaultValue={customVal}
+                                                            onChange={(e) =>
+                                                                handleUpdateField('custom_values', {
+                                                                    ...(task.custom_values || {}),
+                                                                    [col.key]: e.target.value,
+                                                                })
+                                                            }
+                                                            className="border-border bg-background h-8 w-full rounded-xl border px-2.5 text-xs"
+                                                        >
+                                                            <option value="">Select option</option>
+                                                            {col.config.options.map((opt: string) => (
+                                                                <option key={opt} value={opt}>
+                                                                    {opt}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : col.type === 'number' ? (
+                                                        <Input
+                                                            type="number"
+                                                            defaultValue={customVal}
+                                                            onBlur={(e) =>
+                                                                handleUpdateField('custom_values', {
+                                                                    ...(task.custom_values || {}),
+                                                                    [col.key]: e.target.value ? Number(e.target.value) : null,
+                                                                })
+                                                            }
+                                                            className="h-8 text-xs"
+                                                        />
+                                                    ) : col.type === 'date' ? (
+                                                        <Input
+                                                            type="date"
+                                                            defaultValue={customVal}
+                                                            onChange={(e) =>
+                                                                handleUpdateField('custom_values', {
+                                                                    ...(task.custom_values || {}),
+                                                                    [col.key]: e.target.value || null,
+                                                                })
+                                                            }
+                                                            className="h-8 text-xs"
+                                                        />
+                                                    ) : (
+                                                        <Input
+                                                            type="text"
+                                                            defaultValue={customVal}
+                                                            onBlur={(e) =>
+                                                                handleUpdateField('custom_values', {
+                                                                    ...(task.custom_values || {}),
+                                                                    [col.key]: e.target.value,
+                                                                })
+                                                            }
+                                                            placeholder={`Enter ${col.title.toLowerCase()}...`}
+                                                            className="h-8 text-xs"
+                                                        />
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
 
                         {/* Subtask Hierarchy & List */}

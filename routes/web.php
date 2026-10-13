@@ -56,6 +56,7 @@ Route::middleware(['auth'])->group(function () {
     // Dynamic Columns
     Route::post('/kanban/boards/{board}/columns', [KanbanController::class, 'storeBoardColumn'])->name('kanban.columns.store');
     Route::patch('/kanban/board-columns/{column}', [KanbanController::class, 'updateBoardColumn'])->name('kanban.columns.update');
+    Route::post('/kanban/board-columns/{column}/duplicate', [KanbanController::class, 'duplicateBoardColumn'])->name('kanban.columns.duplicate');
     Route::delete('/kanban/board-columns/{column}', [KanbanController::class, 'deleteBoardColumn'])->name('kanban.columns.delete');
     Route::post('/kanban/boards/{board}/columns/reorder', [KanbanController::class, 'reorderBoardColumns'])->name('kanban.columns.reorder');
 
