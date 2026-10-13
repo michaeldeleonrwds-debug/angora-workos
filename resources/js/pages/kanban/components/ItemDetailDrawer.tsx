@@ -291,6 +291,64 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 </div>
                             </div>
 
+                            {/* Deadline Status Badge */}
+                            {task.due_date && (
+                                <div className="grid grid-cols-3 items-center">
+                                    <Label className="text-muted-foreground font-medium">Deadline Status</Label>
+                                    <div className="col-span-2">
+                                        {task.deadline_status === 'overdue' && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-bold text-red-600">
+                                                Overdue
+                                            </span>
+                                        )}
+                                        {task.deadline_status === 'due_today' && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-600">
+                                                Due Today
+                                            </span>
+                                        )}
+                                        {task.deadline_status === 'due_soon' && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-600">
+                                                Due Soon (48h)
+                                            </span>
+                                        )}
+                                        {task.deadline_status === 'upcoming' && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
+                                                Upcoming
+                                            </span>
+                                        )}
+                                        {task.deadline_status === 'completed_on_time' && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-600">
+                                                Completed On Time
+                                            </span>
+                                        )}
+                                        {task.deadline_status === 'completed_late' && (
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-bold text-purple-600">
+                                                Completed Late
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Start Date & Time */}
+                            <div className="grid grid-cols-3 items-center">
+                                <Label className="text-muted-foreground font-medium">Start Date & Time</Label>
+                                <div className="col-span-2 flex items-center gap-2">
+                                    <Input
+                                        type="date"
+                                        defaultValue={task.start_date || ''}
+                                        onChange={(e) => handleUpdateField('start_date', e.target.value || null)}
+                                        className="h-8 flex-1 text-xs"
+                                    />
+                                    <Input
+                                        type="time"
+                                        defaultValue={task.start_time || ''}
+                                        onChange={(e) => handleUpdateField('start_time', e.target.value || null)}
+                                        className="h-8 w-24 text-xs"
+                                    />
+                                </div>
+                            </div>
+
                             {/* Due Date & Time */}
                             <div className="grid grid-cols-3 items-center">
                                 <Label className="text-muted-foreground font-medium">Due Date & Time</Label>
@@ -310,16 +368,33 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 </div>
                             </div>
 
-                            {/* Start Date */}
+                            {/* Milestone & Deadline Reminders */}
                             <div className="grid grid-cols-3 items-center">
-                                <Label className="text-muted-foreground font-medium">Start Date</Label>
-                                <div className="col-span-2">
-                                    <Input
-                                        type="date"
-                                        defaultValue={task.start_date || ''}
-                                        onChange={(e) => handleUpdateField('start_date', e.target.value || null)}
-                                        className="h-8 w-full text-xs"
-                                    />
+                                <Label className="text-muted-foreground font-medium">Milestone & Alert</Label>
+                                <div className="col-span-2 flex items-center justify-between gap-3">
+                                    <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            defaultChecked={Boolean(task.is_milestone)}
+                                            onChange={(e) => handleUpdateField('is_milestone', e.target.checked)}
+                                            className="rounded border-border text-primary focus:ring-primary"
+                                        />
+                                        <span>Milestone</span>
+                                    </label>
+
+                                    <select
+                                        defaultValue={task.reminder_lead_minutes !== null && task.reminder_lead_minutes !== undefined ? String(task.reminder_lead_minutes) : ''}
+                                        onChange={(e) => handleUpdateField('reminder_lead_minutes', e.target.value === '' ? null : Number(e.target.value))}
+                                        className="border-border bg-background h-8 rounded-xl border px-2 text-xs"
+                                    >
+                                        <option value="">No Reminder</option>
+                                        <option value="0">At deadline</option>
+                                        <option value="5">5 mins before</option>
+                                        <option value="15">15 mins before</option>
+                                        <option value="30">30 mins before</option>
+                                        <option value="60">1 hour before</option>
+                                        <option value="1440">1 day before</option>
+                                    </select>
                                 </div>
                             </div>
 

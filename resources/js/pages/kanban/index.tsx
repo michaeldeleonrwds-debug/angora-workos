@@ -83,6 +83,71 @@ export default function KanbanPage({
         }
     };
 
+    // Polling Synchronization (Phase 3.5)
+    // Runs incrementally without re-rendering or disrupting user typing
+    useEffect(() => {
+        if (!board.id) return;
+
+        let cursor: string | null = null;
+        let isPolling = false;
+
+        const runPoll = async () => {
+            // Pause polling when browser tab is hidden to conserve resources
+            if (document.hidden || isPolling) return;
+
+            try {
+                isPolling = true;
+                const url = new URL('/kanban/sync', window.location.origin);
+                url.searchParams.set('board_id', String(board.id));
+                if (cursor) {
+                    url.searchParams.set('since', cursor);
+                }
+
+                const res = await fetch(url.toString(), {
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.cursor) {
+                        cursor = data.cursor;
+                    }
+
+                    // If changes detected on current active board, trigger lightweight Inertia reload for board only
+                    if (data.tasks && data.tasks.length > 0) {
+                        router.reload({
+                            only: ['activeBoard', 'boards'],
+                        });
+                    }
+                }
+            } catch (err) {
+                // Silently swallow network drops
+            } finally {
+                isPolling = false;
+            }
+        };
+
+        // Poll every 15 seconds when active
+        const interval = setInterval(runPoll, 15000);
+
+        // Resume immediately when returning to tab
+        const handleVisibilityChange = () => {
+            if (!document.hidden) {
+                runPoll();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [board.id]);
+
     // Modals
     const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
     const [isNewGroupModalOpen, setIsNewGroupModalOpen] = useState(false);
@@ -93,8 +158,12 @@ export default function KanbanPage({
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [newTaskDesc, setNewTaskDesc] = useState('');
     const [newTaskPriority, setNewTaskPriority] = useState<'Low' | 'Medium' | 'High' | 'Urgent'>('Medium');
+    const [newTaskStartDate, setNewTaskStartDate] = useState('');
+    const [newTaskStartTime, setNewTaskStartTime] = useState('');
     const [newTaskDueDate, setNewTaskDueDate] = useState('');
     const [newTaskDueTime, setNewTaskDueTime] = useState('');
+    const [newTaskIsMilestone, setNewTaskIsMilestone] = useState(false);
+    const [newTaskReminderLead, setNewTaskReminderLead] = useState<string>('');
     const [newTaskAssignee, setNewTaskAssignee] = useState<string>('');
     const [newTaskGroupId, setNewTaskGroupId] = useState<number | ''>(board.groups?.[0]?.id || '');
     const [newTaskColumnId, setNewTaskColumnId] = useState<number | ''>(board.columns?.[0]?.id || '');
@@ -116,8 +185,12 @@ export default function KanbanPage({
                 title: newTaskTitle.trim(),
                 description: newTaskDesc.trim() || undefined,
                 priority: newTaskPriority,
+                start_date: newTaskStartDate || undefined,
+                start_time: newTaskStartTime || undefined,
                 due_date: newTaskDueDate || undefined,
                 due_time: newTaskDueTime || undefined,
+                is_milestone: newTaskIsMilestone,
+                reminder_lead_minutes: newTaskReminderLead ? Number(newTaskReminderLead) : undefined,
                 assigned_to: newTaskAssignee ? Number(newTaskAssignee) : undefined,
             },
             {
@@ -125,8 +198,12 @@ export default function KanbanPage({
                     setIsNewTaskModalOpen(false);
                     setNewTaskTitle('');
                     setNewTaskDesc('');
+                    setNewTaskStartDate('');
+                    setNewTaskStartTime('');
                     setNewTaskDueDate('');
                     setNewTaskDueTime('');
+                    setNewTaskIsMilestone(false);
+                    setNewTaskReminderLead('');
                 },
             },
         );
@@ -436,6 +513,29 @@ export default function KanbanPage({
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
+                                    <Label htmlFor="task-start">Start Date</Label>
+                                    <Input
+                                        id="task-start"
+                                        type="date"
+                                        value={newTaskStartDate}
+                                        onChange={(e) => setNewTaskStartDate(e.target.value)}
+                                        className="mt-1 text-xs"
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="task-start-time">Start Time</Label>
+                                    <Input
+                                        id="task-start-time"
+                                        type="time"
+                                        value={newTaskStartTime}
+                                        onChange={(e) => setNewTaskStartTime(e.target.value)}
+                                        className="mt-1 text-xs"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
                                     <Label htmlFor="task-due">Due Date</Label>
                                     <Input
                                         id="task-due"
@@ -454,6 +554,36 @@ export default function KanbanPage({
                                         onChange={(e) => setNewTaskDueTime(e.target.value)}
                                         className="mt-1 text-xs"
                                     />
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-3 pt-1">
+                                <label className="flex items-center gap-2 text-xs font-semibold cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={newTaskIsMilestone}
+                                        onChange={(e) => setNewTaskIsMilestone(e.target.checked)}
+                                        className="rounded border-border text-primary focus:ring-primary"
+                                    />
+                                    <span>Milestone Item</span>
+                                </label>
+
+                                <div className="flex items-center gap-2">
+                                    <Label htmlFor="task-reminder" className="text-xs">Alert:</Label>
+                                    <select
+                                        id="task-reminder"
+                                        value={newTaskReminderLead}
+                                        onChange={(e) => setNewTaskReminderLead(e.target.value)}
+                                        className="border-border bg-background h-8 rounded-xl border px-2 text-xs"
+                                    >
+                                        <option value="">No reminder</option>
+                                        <option value="0">At deadline</option>
+                                        <option value="5">5 mins before</option>
+                                        <option value="15">15 mins before</option>
+                                        <option value="30">30 mins before</option>
+                                        <option value="60">1 hour before</option>
+                                        <option value="1440">1 day before</option>
+                                    </select>
                                 </div>
                             </div>
 

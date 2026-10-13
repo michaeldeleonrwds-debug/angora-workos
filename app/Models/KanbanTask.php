@@ -20,6 +20,7 @@ class KanbanTask extends Model
         'due_date',
         'due_time',
         'start_date',
+        'start_time',
         'estimated_hours',
         'actual_hours',
         'progress',
@@ -29,6 +30,9 @@ class KanbanTask extends Model
         'labels',
         'custom_values',
         'is_personal',
+        'is_milestone',
+        'reminder_lead_minutes',
+        'reminder_sent_at',
         'completed_at',
     ];
 
@@ -38,10 +42,17 @@ class KanbanTask extends Model
         'due_date' => 'date:Y-m-d',
         'start_date' => 'date:Y-m-d',
         'completed_at' => 'datetime',
+        'reminder_sent_at' => 'datetime',
         'is_personal' => 'boolean',
+        'is_milestone' => 'boolean',
+        'reminder_lead_minutes' => 'integer',
         'progress' => 'integer',
         'estimated_hours' => 'decimal:2',
         'actual_hours' => 'decimal:2',
+    ];
+
+    protected $appends = [
+        'deadline_status',
     ];
 
     public function getDueDateAttribute($value)
@@ -132,6 +143,162 @@ class KanbanTask extends Model
     {
         return $this->hasMany(BoardItemRelationship::class, 'target_task_id')
             ->with(['sourceBoard', 'sourceTask.column', 'sourceTask.assignee']);
+    }
+
+    public function reminders()
+    {
+        return $this->hasMany(TaskReminder::class, 'task_id');
+    }
+
+    /**
+     * Resolve exact due timestamp in UTC.
+     * If due_time is set, parses using user's timezone (or board creator's timezone) and converts to UTC.
+     * If date-only, defaults to end of day (23:59:59) in user's timezone.
+     */
+    public function getDueDateTimeUtc(?string $timezone = null): ?\Illuminate\Support\Carbon
+    {
+        if (!$this->due_date) {
+            return null;
+        }
+
+        $userTimezone = $timezone 
+            ?? $this->assignee?->timezone 
+            ?? auth()->user()?->timezone 
+            ?? config('app.timezone', 'UTC');
+
+        if (!in_array($userTimezone, timezone_identifiers_list())) {
+            $userTimezone = 'UTC';
+        }
+
+        $dateString = is_string($this->due_date) 
+            ? $this->due_date 
+            : \Illuminate\Support\Carbon::parse($this->due_date)->format('Y-m-d');
+
+        if (!empty($this->due_time)) {
+            $timeString = trim($this->due_time);
+            // Handle H:i or H:i:s
+            if (strlen($timeString) === 5) {
+                $timeString .= ':00';
+            }
+            try {
+                return \Illuminate\Support\Carbon::createFromFormat(
+                    'Y-m-d H:i:s',
+                    "{$dateString} {$timeString}",
+                    $userTimezone
+                )->setTimezone('UTC');
+            } catch (\Throwable $e) {
+                // fallback
+            }
+        }
+
+        // Date-only policy: 23:59:59 in user's timezone converted to UTC
+        return \Illuminate\Support\Carbon::createFromFormat(
+            'Y-m-d H:i:s',
+            "{$dateString} 23:59:59",
+            $userTimezone
+        )->setTimezone('UTC');
+    }
+
+    /**
+     * Resolve start timestamp in UTC.
+     */
+    public function getStartDateTimeUtc(?string $timezone = null): ?\Illuminate\Support\Carbon
+    {
+        if (!$this->start_date) {
+            return null;
+        }
+
+        $userTimezone = $timezone 
+            ?? $this->assignee?->timezone 
+            ?? auth()->user()?->timezone 
+            ?? config('app.timezone', 'UTC');
+
+        if (!in_array($userTimezone, timezone_identifiers_list())) {
+            $userTimezone = 'UTC';
+        }
+
+        $dateString = is_string($this->start_date) 
+            ? $this->start_date 
+            : \Illuminate\Support\Carbon::parse($this->start_date)->format('Y-m-d');
+
+        if (!empty($this->start_time)) {
+            $timeString = trim($this->start_time);
+            if (strlen($timeString) === 5) {
+                $timeString .= ':00';
+            }
+            try {
+                return \Illuminate\Support\Carbon::createFromFormat(
+                    'Y-m-d H:i:s',
+                    "{$dateString} {$timeString}",
+                    $userTimezone
+                )->setTimezone('UTC');
+            } catch (\Throwable $e) {
+                // fallback
+            }
+        }
+
+        return \Illuminate\Support\Carbon::createFromFormat(
+            'Y-m-d H:i:s',
+            "{$dateString} 00:00:00",
+            $userTimezone
+        )->setTimezone('UTC');
+    }
+
+    /**
+     * Calculate deadline status:
+     * - 'completed_on_time'
+     * - 'completed_late'
+     * - 'overdue'
+     * - 'due_today'
+     * - 'due_soon' (within next 48 hours)
+     * - 'upcoming'
+     * - 'no_deadline'
+     */
+    public function getDeadlineStatusAttribute(): string
+    {
+        if (!$this->due_date) {
+            return 'no_deadline';
+        }
+
+        $dueUtc = $this->getDueDateTimeUtc();
+        if (!$dueUtc) {
+            return 'no_deadline';
+        }
+
+        $now = now()->setTimezone('UTC');
+
+        // Check if completed
+        $isCompleted = !empty($this->completed_at) || ($this->progress ?? 0) === 100;
+        if ($isCompleted) {
+            $completedAt = $this->completed_at ? \Illuminate\Support\Carbon::parse($this->completed_at)->setTimezone('UTC') : $now;
+            return $completedAt->lte($dueUtc) ? 'completed_on_time' : 'completed_late';
+        }
+
+        if ($now->gt($dueUtc)) {
+            return 'overdue';
+        }
+
+        // User's calendar date comparison for "due today"
+        $userTz = auth()->user()?->timezone ?? $this->assignee?->timezone ?? 'UTC';
+        if (!in_array($userTz, timezone_identifiers_list())) {
+            $userTz = 'UTC';
+        }
+
+        $userToday = now($userTz)->format('Y-m-d');
+        $taskDueDate = is_string($this->due_date) 
+            ? $this->due_date 
+            : \Illuminate\Support\Carbon::parse($this->due_date)->format('Y-m-d');
+
+        if ($taskDueDate === $userToday) {
+            return 'due_today';
+        }
+
+        // Within next 48 hours
+        if ($now->diffInHours($dueUtc, false) <= 48) {
+            return 'due_soon';
+        }
+
+        return 'upcoming';
     }
 
     public function recalculateProgressFromSubtasks(): void

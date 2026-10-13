@@ -26,6 +26,7 @@ class User extends Authenticatable
         'phone',
         'avatar_url',
         'status',
+        'timezone',
     ];
 
     /**

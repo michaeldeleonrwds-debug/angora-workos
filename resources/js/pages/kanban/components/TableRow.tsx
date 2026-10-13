@@ -68,6 +68,12 @@ export default function TableRow({
         });
     };
 
+    const handleUpdateDueTime = (time: string) => {
+        router.patch(`/kanban/tasks/${task.id}`, {
+            due_time: time || null,
+        });
+    };
+
     const handleUpdateProgress = (val: number) => {
         router.patch(`/kanban/tasks/${task.id}`, {
             progress: Math.min(100, Math.max(0, val)),
@@ -340,18 +346,35 @@ export default function TableRow({
 
                     // 4. Date Column
                     if (col.type === 'date') {
+                        const isOverdue = task.deadline_status === 'overdue';
+                        const isDueToday = task.deadline_status === 'due_today';
+
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 130 }}
-                                className="border-border/40 text-foreground flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5 font-medium"
+                                style={{ width: col.width || 150 }}
+                                className={`border-border/40 text-foreground flex flex-shrink-0 items-center justify-center gap-1 border-r px-2 py-1.5 font-medium ${
+                                    isOverdue ? 'bg-red-500/10' : isDueToday ? 'bg-amber-500/10' : ''
+                                }`}
                             >
                                 <input
                                     type="date"
                                     value={task.due_date || ''}
                                     onChange={(e) => handleUpdateDate(e.target.value)}
-                                    className="cursor-pointer border-none bg-transparent text-center text-xs focus:outline-none"
+                                    className={`cursor-pointer border-none bg-transparent text-center text-xs focus:outline-none ${
+                                        isOverdue ? 'font-bold text-red-600' : isDueToday ? 'font-bold text-amber-600' : ''
+                                    }`}
                                 />
+                                {task.due_time && (
+                                    <span className="text-muted-foreground text-[10px] font-medium">
+                                        {task.due_time}
+                                    </span>
+                                )}
+                                {task.is_milestone && (
+                                    <span title="Milestone">
+                                        <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+                                    </span>
+                                )}
                             </div>
                         );
                     }
@@ -361,16 +384,18 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 170 }}
+                                style={{ width: col.width || 180 }}
                                 className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
                             >
                                 <div
-                                    className="flex h-6 w-full items-center justify-center rounded-full px-2.5 text-[11px] font-bold text-white shadow-2xs"
+                                    className="flex h-6 w-full items-center justify-center gap-1 rounded-full px-2.5 text-[10px] font-bold text-white shadow-2xs"
                                     style={{ backgroundColor: statusMeta.bg }}
                                 >
                                     <span>
-                                        {task.start_date ? formatDate(task.start_date) : 'Start'} –{' '}
+                                        {task.start_date ? formatDate(task.start_date) : 'Start'}
+                                        {task.start_time ? ` ${task.start_time}` : ''} –{' '}
                                         {task.due_date ? formatDate(task.due_date) : 'End'}
+                                        {task.due_time ? ` ${task.due_time}` : ''}
                                     </span>
                                 </div>
                             </div>

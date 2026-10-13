@@ -522,32 +522,46 @@ class AutomationEngineService
     }
 
     /**
-     * Run scheduled / recurring automations (e.g. overdue checks, recurring task generators).
+     * Run scheduled / recurring automations (e.g. overdue checks, recurring task generators, and deadline reminders).
      */
     public function runScheduledAutomations(): int
     {
-        $now = Carbon::now();
+        $nowUtc = Carbon::now('UTC');
         $processedCount = 0;
 
-        // 1. Process Due Date Arrived & Overdue Automations
+        // 1. Process Due Date Arrived & Overdue Automations with exact time-awareness
         $overdueAutomations = BoardAutomation::where('is_active', true)
             ->whereIn('trigger_type', ['due_date_arrives', 'task_overdue'])
             ->get();
 
         foreach ($overdueAutomations as $auto) {
-            $overdueTasks = KanbanTask::where('board_id', $auto->board_id)
+            $tasks = KanbanTask::where('board_id', $auto->board_id)
                 ->whereNull('completed_at')
+                ->where('progress', '<', 100)
                 ->whereNotNull('due_date')
-                ->where('due_date', '<=', $now->format('Y-m-d'))
                 ->get();
 
-            foreach ($overdueTasks as $task) {
-                $this->evaluateAndExecute($auto, $task, ['overdue' => true]);
-                $processedCount++;
+            foreach ($tasks as $task) {
+                $dueUtc = $task->getDueDateTimeUtc();
+                if ($dueUtc && $nowUtc->gte($dueUtc)) {
+                    // Check if already executed for this task and automation today or recently
+                    $alreadyLogged = AutomationExecution::where('automation_id', $auto->id)
+                        ->where('task_id', $task->id)
+                        ->where('created_at', '>=', $nowUtc->copy()->subHours(24))
+                        ->exists();
+
+                    if (!$alreadyLogged) {
+                        $this->evaluateAndExecute($auto, $task, ['overdue' => true]);
+                        $processedCount++;
+                    }
+                }
             }
         }
 
-        // 2. Process Recurring Schedule Automations (e.g. Every Monday or Daily)
+        // 2. Process Deadline Reminders (Database-backed, idempotent)
+        $processedCount += $this->processTaskReminders();
+
+        // 3. Process Recurring Schedule Automations (e.g. Every Monday or Daily)
         $recurringAutomations = BoardAutomation::where('is_active', true)
             ->where('trigger_type', 'recurring_schedule')
             ->get();
@@ -564,7 +578,7 @@ class AutomationEngineService
 
             if ($frequency === 'weekly') {
                 $dayOfWeek = (int)($cfg['day_of_week'] ?? 1); // 1 = Monday
-                if ($now->dayOfWeekIso !== $dayOfWeek) {
+                if ($nowUtc->dayOfWeekIso !== $dayOfWeek) {
                     continue;
                 }
             }
@@ -578,5 +592,102 @@ class AutomationEngineService
         }
 
         return $processedCount;
+    }
+
+    /**
+     * Process database-backed reminders with strict idempotency.
+     */
+    public function processTaskReminders(): int
+    {
+        $nowUtc = Carbon::now('UTC');
+        $remindersCount = 0;
+
+        // A. Tasks with reminder_lead_minutes configured directly on task
+        $tasksWithLead = KanbanTask::whereNotNull('due_date')
+            ->whereNotNull('reminder_lead_minutes')
+            ->whereNull('completed_at')
+            ->where(function ($q) {
+                $q->whereNull('progress')->orWhere('progress', '<', 100);
+            })
+            ->whereNull('reminder_sent_at')
+            ->with(['assignee', 'creator'])
+            ->get();
+
+        foreach ($tasksWithLead as $task) {
+            $dueUtc = $task->getDueDateTimeUtc();
+            if (!$dueUtc) continue;
+
+            $leadMinutes = (int) $task->reminder_lead_minutes;
+            $alertTimeUtc = $dueUtc->copy()->subMinutes($leadMinutes);
+
+            if ($nowUtc->gte($alertTimeUtc)) {
+                $recipientId = $task->assigned_to ?? $task->created_by;
+                if ($recipientId) {
+                    // Check duplicate prevention in SystemNotification
+                    $recentAlertExists = SystemNotification::where('user_id', $recipientId)
+                        ->where('type', 'task_reminder')
+                        ->where('link', 'like', "%item={$task->id}%")
+                        ->where('created_at', '>=', $nowUtc->copy()->subHours(12))
+                        ->exists();
+
+                    if (!$recentAlertExists) {
+                        $timeDesc = $leadMinutes === 0 ? "is due now" : "is due in {$leadMinutes} minutes";
+                        SystemNotification::create([
+                            'user_id' => $recipientId,
+                            'title' => "Deadline Reminder: {$task->title}",
+                            'message' => "Task '{$task->title}' {$timeDesc} ({$task->due_date}" . ($task->due_time ? " at {$task->due_time}" : "") . ").",
+                            'type' => 'task_reminder',
+                            'link' => "/kanban?board={$task->board_id}&item={$task->id}",
+                            'is_read' => false,
+                        ]);
+                        $remindersCount++;
+                    }
+                }
+
+                $task->update(['reminder_sent_at' => $nowUtc]);
+            }
+        }
+
+        // B. Process task_reminders table queue
+        $pendingReminders = \App\Models\TaskReminder::where('status', 'pending')
+            ->where('scheduled_for', '<=', $nowUtc)
+            ->with(['task', 'user'])
+            ->get();
+
+        foreach ($pendingReminders as $reminder) {
+            $task = $reminder->task;
+            $user = $reminder->user;
+
+            if (!$task || !$user || $task->completed_at || ($task->progress ?? 0) === 100) {
+                $reminder->update(['status' => 'cancelled']);
+                continue;
+            }
+
+            // Check if notification already created
+            $alreadySent = SystemNotification::where('user_id', $user->id)
+                ->where('type', 'task_reminder')
+                ->where('link', 'like', "%item={$task->id}%")
+                ->where('created_at', '>=', $nowUtc->copy()->subHours(6))
+                ->exists();
+
+            if (!$alreadySent) {
+                SystemNotification::create([
+                    'user_id' => $user->id,
+                    'title' => "Reminder: {$task->title}",
+                    'message' => "Scheduled reminder for item '{$task->title}' (Due: {$task->due_date}" . ($task->due_time ? " {$task->due_time}" : "") . ").",
+                    'type' => 'task_reminder',
+                    'link' => "/kanban?board={$task->board_id}&item={$task->id}",
+                    'is_read' => false,
+                ]);
+                $remindersCount++;
+            }
+
+            $reminder->update([
+                'status' => 'sent',
+                'sent_at' => $nowUtc,
+            ]);
+        }
+
+        return $remindersCount;
     }
 }

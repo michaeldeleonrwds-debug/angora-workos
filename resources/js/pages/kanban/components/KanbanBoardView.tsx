@@ -18,6 +18,7 @@ import {
     MessageCircle,
     MoreHorizontal,
     Plus,
+    Star,
     Trash2,
     User as UserIcon,
 } from 'lucide-react';
@@ -200,11 +201,13 @@ export default function KanbanBoardView({
     };
 
     const isOverdue = (task: Task) => {
-        if (!task.due_date || task.completed_at) return false;
-        const due = new Date(task.due_date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        return due < today;
+        if (!task.due_date || task.completed_at || (task.progress ?? 0) === 100) return false;
+        if (task.deadline_status) {
+            return task.deadline_status === 'overdue';
+        }
+        const timeStr = task.due_time ? task.due_time : '23:59:59';
+        const due = new Date(`${task.due_date}T${timeStr}`);
+        return due < new Date();
     };
 
     const getPriorityBadgeClass = (priority: string) => {
@@ -469,7 +472,16 @@ export default function KanbanBoardView({
                                                     <div className={`flex items-center gap-1 font-medium ${overdue ? 'font-bold text-red-500' : ''}`}>
                                                         <Calendar className="h-3 w-3" />
                                                         <span>{formatDate(task.due_date)}</span>
+                                                        {task.due_time && (
+                                                            <span className="text-[10px] opacity-80">{task.due_time}</span>
+                                                        )}
                                                     </div>
+                                                )}
+
+                                                {task.is_milestone && (
+                                                    <span title="Milestone">
+                                                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                                    </span>
                                                 )}
 
                                                 {commentCount > 0 && (

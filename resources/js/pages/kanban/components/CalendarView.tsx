@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Clock, Plus, User as UserIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, Plus, Star, User as UserIcon } from 'lucide-react';
 import React, { useState } from 'react';
 import { KanbanBoard, Task, User } from '../types';
 
@@ -248,8 +248,8 @@ export default function CalendarView({
                                     {/* Task Cards on this date */}
                                     <div className="scrollbar-none max-h-[120px] flex-1 space-y-1.5 overflow-y-auto">
                                         {dayTasks.slice(0, 3).map((task) => {
-                                            const isDone = !!task.completed_at;
-                                            const isOverdue = !isDone && task.due_date && task.due_date < todayStr;
+                                            const isDone = !!task.completed_at || (task.progress ?? 0) === 100;
+                                            const isOverdue = !isDone && (task.deadline_status === 'overdue' || (task.due_date && task.due_date < todayStr));
 
                                             return (
                                                 <div
@@ -266,6 +266,9 @@ export default function CalendarView({
                                                                 backgroundColor: isDone ? '#00c875' : isOverdue ? '#e2445c' : '#579bfc',
                                                             }}
                                                         />
+                                                        {task.is_milestone && (
+                                                            <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400 flex-shrink-0" />
+                                                        )}
                                                         <span
                                                             className={`truncate ${
                                                                 isDone ? 'text-muted-foreground line-through' : 'text-foreground'
@@ -275,11 +278,18 @@ export default function CalendarView({
                                                         </span>
                                                     </div>
 
-                                                    {task.assignee && (
-                                                        <span className="bg-primary/20 text-primary flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold">
-                                                            {task.assignee.name.charAt(0).toUpperCase()}
-                                                        </span>
-                                                    )}
+                                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                                        {task.due_time && (
+                                                            <span className="text-muted-foreground text-[9px] font-normal">
+                                                                {task.due_time}
+                                                            </span>
+                                                        )}
+                                                        {task.assignee && (
+                                                            <span className="bg-primary/20 text-primary flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold">
+                                                                {task.assignee.name.charAt(0).toUpperCase()}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             );
                                         })}
@@ -358,11 +368,16 @@ export default function CalendarView({
                                                     {task.priority}
                                                 </span>
 
-                                                {task.due_time && (
-                                                    <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
-                                                        <Clock className="h-2.5 w-2.5" /> {task.due_time}
-                                                    </span>
-                                                )}
+                                                <div className="flex items-center gap-1">
+                                                    {task.is_milestone && (
+                                                        <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+                                                    )}
+                                                    {task.due_time && (
+                                                        <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
+                                                            <Clock className="h-2.5 w-2.5" /> {task.due_time}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <h4 className="text-foreground line-clamp-2 text-xs font-bold">{task.title}</h4>

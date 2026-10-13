@@ -270,41 +270,53 @@ export default function GanttView({ board, searchTerm, personFilter, priorityFil
 
                                     {/* Right Gantt Bar Track */}
                                     <div className="relative flex h-9 flex-1 items-center px-2">
-                                        {/* Task Bar */}
-                                        <div
-                                            className="group/bar absolute flex h-6 items-center justify-between rounded-lg px-2 text-[10px] font-bold text-white shadow-xs transition-all"
-                                            style={{
-                                                left: `${leftPercent}%`,
-                                                width: `${widthPercent}%`,
-                                                backgroundColor: isDone ? '#00c875' : task.priority === 'Urgent' ? '#e2445c' : '#579bfc',
-                                            }}
-                                        >
-                                            <span className="truncate">{task.progress || 0}%</span>
+                                        {/* Task Bar or Milestone Diamond */}
+                                        {task.is_milestone ? (
+                                            <div
+                                                className="group/bar absolute flex h-5 w-5 -translate-x-1/2 rotate-45 items-center justify-center rounded-xs shadow-xs transition-all hover:scale-125"
+                                                style={{
+                                                    left: `${leftPercent}%`,
+                                                    backgroundColor: isDone ? '#00c875' : '#f59e0b',
+                                                }}
+                                                title={`Milestone: ${task.title} (Due: ${task.due_date || 'N/A'}${task.due_time ? ' ' + task.due_time : ''})`}
+                                            />
+                                        ) : (
+                                            <div
+                                                className="group/bar absolute flex h-6 items-center justify-between rounded-lg px-2 text-[10px] font-bold text-white shadow-xs transition-all"
+                                                style={{
+                                                    left: `${leftPercent}%`,
+                                                    width: `${widthPercent}%`,
+                                                    backgroundColor: isDone ? '#00c875' : task.priority === 'Urgent' ? '#e2445c' : '#579bfc',
+                                                }}
+                                                title={`${task.title} (${task.start_date || ''}${task.start_time ? ' ' + task.start_time : ''} – ${task.due_date || ''}${task.due_time ? ' ' + task.due_time : ''})`}
+                                            >
+                                                <span className="truncate">{task.progress || 0}%</span>
 
-                                            {/* Quick Shift Controls on Hover */}
-                                            <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/bar:opacity-100">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleShiftTaskDays(task, -1);
-                                                    }}
-                                                    title="-1 day"
-                                                    className="flex h-3.5 w-3.5 items-center justify-center rounded bg-black/30 hover:bg-black/50"
-                                                >
-                                                    ‹
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleShiftTaskDays(task, 1);
-                                                    }}
-                                                    title="+1 day"
-                                                    className="flex h-3.5 w-3.5 items-center justify-center rounded bg-black/30 hover:bg-black/50"
-                                                >
-                                                    ›
-                                                </button>
+                                                {/* Quick Shift Controls on Hover */}
+                                                <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/bar:opacity-100">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleShiftTaskDays(task, -1);
+                                                        }}
+                                                        title="-1 day"
+                                                        className="flex h-3.5 w-3.5 items-center justify-center rounded bg-black/30 hover:bg-black/50"
+                                                    >
+                                                        ‹
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleShiftTaskDays(task, 1);
+                                                        }}
+                                                        title="+1 day"
+                                                        className="flex h-3.5 w-3.5 items-center justify-center rounded bg-black/30 hover:bg-black/50"
+                                                    >
+                                                        ›
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
 
                                         {/* Dependency Badges */}
                                         {(task.dependencies || []).map((dep) => (

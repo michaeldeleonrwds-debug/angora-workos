@@ -114,6 +114,11 @@ export interface Task {
     due_date?: string | null;
     due_time?: string | null;
     start_date?: string | null;
+    start_time?: string | null;
+    is_milestone?: boolean;
+    reminder_lead_minutes?: number | null;
+    reminder_sent_at?: string | null;
+    deadline_status?: 'overdue' | 'due_today' | 'due_soon' | 'upcoming' | 'completed_on_time' | 'completed_late' | 'no_deadline';
     estimated_hours?: number | null;
     actual_hours?: number | null;
     progress: number;

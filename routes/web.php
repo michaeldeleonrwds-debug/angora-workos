@@ -102,6 +102,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/kanban/automations/{automation}', [KanbanController::class, 'deleteAutomation'])->name('kanban.automations.delete');
     Route::post('/kanban/automations/{automation}/test', [KanbanController::class, 'testAutomation'])->name('kanban.automations.test');
 
+    // Polling Synchronization & User Preferences
+    Route::get('/kanban/sync', [KanbanController::class, 'pollSync'])->name('kanban.sync');
+    Route::post('/user/preferences', [KanbanController::class, 'updatePreferences'])->name('user.preferences.update');
+
     // 2. User Management & Administrative Operations
     Route::get('/users', [\App\Http\Controllers\UserController::class, 'index'])->name('users.index');
     Route::post('/users', [\App\Http\Controllers\UserController::class, 'store'])->name('users.store');

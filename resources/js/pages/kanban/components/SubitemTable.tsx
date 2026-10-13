@@ -113,6 +113,16 @@ export default function SubitemTable({ parentTask, subitems = [], columns = [], 
                                     </DropdownMenuContent>
                                 </DropdownMenu>
 
+                                {/* Due Date & Time */}
+                                <div className="text-muted-foreground flex items-center gap-1 text-[10px]">
+                                    {sub.due_date && (
+                                        <span>
+                                            {sub.due_date}
+                                            {sub.due_time ? ` ${sub.due_time}` : ''}
+                                        </span>
+                                    )}
+                                </div>
+
                                 {/* Status */}
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>

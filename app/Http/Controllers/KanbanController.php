@@ -705,11 +705,22 @@ class KanbanController extends Controller
             'due_date' => 'nullable|date',
             'due_time' => 'nullable|string|max:10',
             'start_date' => 'nullable|date',
+            'start_time' => 'nullable|string|max:10',
+            'is_milestone' => 'nullable|boolean',
+            'reminder_lead_minutes' => 'nullable|integer',
             'assigned_to' => 'nullable|exists:users,id',
             'labels' => 'nullable|array',
             'custom_values' => 'nullable|array',
             'progress' => 'nullable|integer|min:0|max:100',
         ]);
+
+        if (!empty($validated['start_date']) && !empty($validated['due_date'])) {
+            $startDateTime = $validated['start_date'] . ' ' . ($validated['start_time'] ?? '00:00');
+            $dueDateTime = $validated['due_date'] . ' ' . ($validated['due_time'] ?? '23:59');
+            if (strtotime($dueDateTime) < strtotime($startDateTime)) {
+                return back()->with('error', 'Due date/time cannot precede start date/time');
+            }
+        }
 
         $board = KanbanBoard::findOrFail($validated['board_id']);
         Gate::authorize('view', $board);
@@ -745,6 +756,9 @@ class KanbanController extends Controller
             'due_date' => $validated['due_date'] ?? null,
             'due_time' => $validated['due_time'] ?? null,
             'start_date' => $validated['start_date'] ?? null,
+            'start_time' => $validated['start_time'] ?? null,
+            'is_milestone' => $validated['is_milestone'] ?? false,
+            'reminder_lead_minutes' => $validated['reminder_lead_minutes'] ?? null,
             'assigned_to' => $validated['assigned_to'] ?? null,
             'labels' => $validated['labels'] ?? [],
             'custom_values' => $validated['custom_values'] ?? [],
@@ -782,6 +796,9 @@ class KanbanController extends Controller
             'due_date' => 'nullable|date',
             'due_time' => 'nullable|string|max:10',
             'start_date' => 'nullable|date',
+            'start_time' => 'nullable|string|max:10',
+            'is_milestone' => 'nullable|boolean',
+            'reminder_lead_minutes' => 'nullable|integer',
             'assigned_to' => 'nullable|exists:users,id',
             'column_id' => 'nullable|exists:kanban_columns,id',
             'group_id' => 'nullable|exists:board_groups,id',
@@ -791,6 +808,20 @@ class KanbanController extends Controller
             'estimated_hours' => 'nullable|numeric',
             'actual_hours' => 'nullable|numeric',
         ]);
+
+        // Date order validation
+        $effectiveStartDate = $validated['start_date'] ?? $task->start_date;
+        $effectiveStartTime = $validated['start_time'] ?? $task->start_time ?? '00:00';
+        $effectiveDueDate = $validated['due_date'] ?? $task->due_date;
+        $effectiveDueTime = $validated['due_time'] ?? $task->due_time ?? '23:59';
+
+        if (!empty($effectiveStartDate) && !empty($effectiveDueDate)) {
+            $startDateTime = $effectiveStartDate . ' ' . $effectiveStartTime;
+            $dueDateTime = $effectiveDueDate . ' ' . $effectiveDueTime;
+            if (strtotime($dueDateTime) < strtotime($startDateTime)) {
+                return back()->with('error', 'Due date/time cannot precede start date/time');
+            }
+        }
 
         if (isset($validated['column_id'])) {
             $colTitle = KanbanColumn::find($validated['column_id'])?->title;
@@ -934,6 +965,9 @@ class KanbanController extends Controller
             'title' => 'required|string|max:255',
             'assigned_to' => 'nullable|exists:users,id',
             'due_date' => 'nullable|date',
+            'due_time' => 'nullable|string|max:10',
+            'start_date' => 'nullable|date',
+            'start_time' => 'nullable|string|max:10',
             'column_id' => 'nullable|exists:kanban_columns,id',
         ]);
 
@@ -957,6 +991,9 @@ class KanbanController extends Controller
             'title' => $validated['title'],
             'assigned_to' => $validated['assigned_to'] ?? null,
             'due_date' => $validated['due_date'] ?? null,
+            'due_time' => $validated['due_time'] ?? null,
+            'start_date' => $validated['start_date'] ?? null,
+            'start_time' => $validated['start_time'] ?? null,
             'priority' => 'Medium',
             'created_by' => auth()->id(),
             'position' => KanbanTask::where('parent_id', $task->id)->count(),
@@ -1251,8 +1288,23 @@ class KanbanController extends Controller
 
         $validated = $request->validate([
             'start_date' => 'nullable|date',
+            'start_time' => 'nullable|string|max:10',
             'due_date' => 'nullable|date',
+            'due_time' => 'nullable|string|max:10',
         ]);
+
+        $effectiveStartDate = array_key_exists('start_date', $validated) ? $validated['start_date'] : $task->start_date;
+        $effectiveStartTime = array_key_exists('start_time', $validated) ? $validated['start_time'] : ($task->start_time ?? '00:00');
+        $effectiveDueDate = array_key_exists('due_date', $validated) ? $validated['due_date'] : $task->due_date;
+        $effectiveDueTime = array_key_exists('due_time', $validated) ? $validated['due_time'] : ($task->due_time ?? '23:59');
+
+        if (!empty($effectiveStartDate) && !empty($effectiveDueDate)) {
+            $startDateTime = $effectiveStartDate . ' ' . ($effectiveStartTime ?: '00:00');
+            $dueDateTime = $effectiveDueDate . ' ' . ($effectiveDueTime ?: '23:59');
+            if (strtotime($dueDateTime) < strtotime($startDateTime)) {
+                return back()->with('error', 'Due date/time cannot precede start date/time');
+            }
+        }
 
         $task->update($validated);
 
@@ -1404,4 +1456,86 @@ class KanbanController extends Controller
 
         return back()->with('error', "Test execution result: {$result['status']} (" . ($result['reason'] ?? $result['error'] ?? 'unspecified') . ")");
     }
+
+    /**
+     * Polling-Based Synchronization endpoint (Phase 3.5).
+     * Accepts:
+     * - board_id: ID of active board
+     * - since: ISO timestamp or UNIX timestamp change cursor
+     * Returns:
+     * - changed tasks since cursor
+     * - unread notifications
+     * - new server timestamp cursor
+     */
+    public function pollSync(Request $request)
+    {
+        $user = auth()->user();
+        $boardId = $request->query('board_id');
+        $since = $request->query('since');
+
+        $sinceCarbon = null;
+        if (!empty($since)) {
+            try {
+                $sinceCarbon = is_numeric($since) ? \Illuminate\Support\Carbon::createFromTimestamp((int)$since) : \Illuminate\Support\Carbon::parse($since);
+            } catch (\Throwable $e) {
+                $sinceCarbon = null;
+            }
+        }
+
+        $tasks = collect();
+        if ($boardId) {
+            $board = KanbanBoard::find($boardId);
+            if ($board && Gate::allows('view', $board)) {
+                $tasksQuery = KanbanTask::where('board_id', $board->id)
+                    ->with([
+                        'assignee',
+                        'column',
+                        'group',
+                        'subitems.assignee',
+                        'subitems.column',
+                    ]);
+
+                if ($sinceCarbon) {
+                    $tasksQuery->where('updated_at', '>', $sinceCarbon);
+                }
+
+                $tasks = $tasksQuery->get();
+            }
+        }
+
+        // Get unread notifications
+        $notifications = \App\Models\SystemNotification::where('user_id', $user->id)
+            ->where('is_read', false)
+            ->latest()
+            ->take(10)
+            ->get();
+
+        $unreadCount = \App\Models\SystemNotification::where('user_id', $user->id)
+            ->where('is_read', false)
+            ->count();
+
+        return response()->json([
+            'tasks' => $tasks,
+            'unread_notifications_count' => $unreadCount,
+            'recent_notifications' => $notifications,
+            'cursor' => now()->toIso8601String(),
+        ]);
+    }
+
+    /**
+     * Update user preferences such as timezone.
+     */
+    public function updatePreferences(Request $request)
+    {
+        $validated = $request->validate([
+            'timezone' => 'required|string|timezone',
+        ]);
+
+        auth()->user()->update([
+            'timezone' => $validated['timezone'],
+        ]);
+
+        return back()->with('success', 'Preferences updated');
+    }
 }
+
