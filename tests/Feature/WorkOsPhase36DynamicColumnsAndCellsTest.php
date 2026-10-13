@@ -320,6 +320,28 @@ class WorkOsPhase36DynamicColumnsAndCellsTest extends TestCase
             'type' => 'number',
         ]);
 
+        $serviceCol = BoardColumn::where('board_id', $prodBoard->id)->where('key', 'service_type')->first();
+        $this->assertNotNull($serviceCol);
+        $expectedTaskTypes = [
+            'Email Automation',
+            'Landing Page',
+            'Logo',
+            'Poster',
+            'Promotional Kit',
+            'Resolution & Image Quality',
+            'Social Media Post',
+            'Video',
+        ];
+        foreach ($expectedTaskTypes as $exp) {
+            $this->assertContains($exp, $serviceCol->config['options']);
+        }
+
+        $subTypeCol = BoardColumn::where('board_id', $prodBoard->id)->where('key', 'sub_task_type')->first();
+        $this->assertNotNull($subTypeCol);
+        foreach ($expectedTaskTypes as $exp) {
+            $this->assertContains($exp, $subTypeCol->config['options']);
+        }
+
         // Verify Tasks & Subitems counts
         $parentTasksCount = KanbanTask::where('board_id', $prodBoard->id)->whereNull('parent_id')->count();
         $subitemsCount = KanbanTask::where('board_id', $prodBoard->id)->whereNotNull('parent_id')->count();

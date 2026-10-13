@@ -3,8 +3,9 @@ import { formatDate } from '@/lib/utils';
 import { router } from '@inertiajs/react';
 import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, Star, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
-import { BoardColumn, BoardGroup, KanbanColumn, Task, User } from '../types';
+import { BoardColumn, BoardGroup, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../types';
 import ConnectBoardsModal from './ConnectBoardsModal';
+import EditableDropdownCell from './EditableDropdownCell';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import SubitemTable from './SubitemTable';
 
@@ -17,6 +18,7 @@ interface TableRowProps {
     groups: BoardGroup[];
     users: User[];
     mirroredValues?: Record<string, any>;
+    gridTemplateColumns?: string;
     onSelectTask: (task: Task) => void;
     onAddSubtaskColumn?: () => void;
 }
@@ -30,6 +32,7 @@ export default function TableRow({
     groups = [],
     users = [],
     mirroredValues = {},
+    gridTemplateColumns,
     onSelectTask,
     onAddSubtaskColumn,
 }: TableRowProps) {
@@ -153,15 +156,18 @@ export default function TableRow({
 
     return (
         <>
-            <div className="group border-border/50 hover:bg-muted/30 flex items-center border-b text-xs transition-colors select-none">
-                {/* Left group color indicator & Checkbox / Expander */}
-                <div className="w-1.5 flex-shrink-0 self-stretch" style={{ backgroundColor: group.color || '#579bfc' }} />
+            <div
+                className="group border-border/40 hover:bg-muted/30 grid w-full items-stretch border-b text-xs transition-colors select-none"
+                style={{ gridTemplateColumns }}
+            >
+                {/* Left group color indicator (Track 0) */}
+                <div className="h-full" style={{ backgroundColor: group.color || '#579bfc' }} />
 
-                {/* Subitems Toggle & Row Actions */}
-                <div className="flex flex-shrink-0 items-center gap-1 px-2 py-2">
+                {/* Subitems Toggle & Row Actions (Track 1 - 44px fixed) */}
+                <div className="border-border/40 border-r flex items-center justify-center gap-0.5 px-1 py-1.5 min-w-0 overflow-hidden">
                     <button
                         onClick={() => setIsSubitemsOpen(!isSubitemsOpen)}
-                        className={`hover:bg-muted text-muted-foreground rounded p-1 transition-transform ${
+                        className={`hover:bg-muted text-muted-foreground rounded p-0.5 transition-transform ${
                             subitems.length > 0 ? 'visible' : 'invisible group-hover:visible'
                         }`}
                         title="Subitems"
@@ -170,12 +176,12 @@ export default function TableRow({
                     </button>
 
                     {subitems.length > 0 && (
-                        <span className="py-0.2 bg-primary/10 text-primary rounded-full px-1.5 text-[10px] font-bold">{subitems.length}</span>
+                        <span className="bg-primary/10 text-primary rounded-full px-1 py-0.2 text-[9px] font-bold">{subitems.length}</span>
                     )}
                 </div>
 
-                {/* Item Name (Primary Column) */}
-                <div className="border-border/40 flex min-w-[200px] flex-1 items-center justify-between border-r px-2 py-2">
+                {/* Item Name (Track 2 - minmax(280px, 1fr)) */}
+                <div className="border-border/40 border-r px-3 py-1.5 flex items-center justify-between min-w-0 h-full">
                     {isEditingTitle ? (
                         <input
                             type="text"
@@ -215,38 +221,6 @@ export default function TableRow({
                         >
                             <MessageCircle className="h-3.5 w-3.5" />
                         </button>
-
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <button className="text-muted-foreground hover:text-foreground rounded p-1">
-                                    <MoreHorizontal className="h-3.5 w-3.5" />
-                                </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                                <DropdownMenuItem onClick={() => onSelectTask(task)}>
-                                    <span>Open Item Card</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => setIsSubitemsOpen(true)}>
-                                    <Plus className="mr-2 h-3.5 w-3.5" />
-                                    <span>Add Subitem</span>
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <div className="text-muted-foreground px-2 py-1 text-[10px] font-semibold uppercase">Move to Group</div>
-                                {groups
-                                    .filter((g) => g.id !== group.id)
-                                    .map((g) => (
-                                        <DropdownMenuItem key={g.id} onClick={() => handleMoveGroup(g.id)}>
-                                            <span className="mr-2 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
-                                            <span>{g.title}</span>
-                                        </DropdownMenuItem>
-                                    ))}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={handleDelete} className="text-red-500">
-                                    <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                    <span>Delete Item</span>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
                     </div>
                 </div>
 
@@ -289,8 +263,7 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 140 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <MultiPeoplePicker
                                     selectedUserIds={currentIds}
@@ -306,18 +279,16 @@ export default function TableRow({
                     // 2. Status Column (Dynamic board-configured colored cell)
                     if (col.type === 'status') {
                         const statusOptions = (col.config?.status_options as string[]) || [];
-                        const currentStatusTitle = task.column?.title || 'Not Started';
 
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 150 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-1.5 py-1"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <button
-                                            className="h-8 w-full truncate rounded px-2 text-center text-xs font-bold text-white shadow-2xs transition-all hover:brightness-105"
+                                            className="h-7 w-full truncate rounded px-2 text-center text-xs font-bold text-white shadow-2xs transition-all hover:brightness-105"
                                             style={{ backgroundColor: statusMeta.bg }}
                                         >
                                             {statusMeta.label}
@@ -367,13 +338,12 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 130 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-1.5 py-1"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <button
-                                            className="h-8 w-full truncate rounded px-2 text-center text-xs font-bold text-white shadow-2xs transition-all hover:brightness-105"
+                                            className="h-7 w-full truncate rounded px-2 text-center text-xs font-bold text-white shadow-2xs transition-all hover:brightness-105"
                                             style={{ backgroundColor: priorityMeta.bg }}
                                         >
                                             {priorityMeta.label}
@@ -419,8 +389,7 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 150 }}
-                                className={`border-border/40 text-foreground flex flex-shrink-0 items-center justify-center gap-1 border-r px-2 py-1.5 font-medium ${
+                                className={`border-border/40 text-foreground border-r px-1.5 py-1 flex items-center justify-center gap-1 min-w-0 h-full font-medium overflow-hidden ${
                                     isOverdue ? 'bg-red-500/10' : isDueToday ? 'bg-amber-500/10' : ''
                                 }`}
                             >
@@ -451,16 +420,15 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 180 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <div
                                     onClick={() => onSelectTask(task)}
-                                    className="flex h-6 w-full cursor-pointer items-center justify-center gap-1 rounded-full px-2.5 text-[10px] font-bold text-white shadow-2xs hover:brightness-105"
+                                    className="flex h-6 w-full cursor-pointer items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white shadow-2xs hover:brightness-105"
                                     style={{ backgroundColor: statusMeta.bg }}
                                     title="Click to edit schedule in Item Details"
                                 >
-                                    <span>
+                                    <span className="truncate">
                                         {task.start_date ? formatDate(task.start_date) : 'Start'}
                                         {task.start_time ? ` ${task.start_time}` : ''} –{' '}
                                         {task.due_date ? formatDate(task.due_date) : 'End'}
@@ -477,10 +445,9 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 150 }}
-                                className="border-border/40 flex flex-shrink-0 items-center gap-2 border-r px-3 py-1.5"
+                                className="border-border/40 border-r px-2 py-1 flex items-center gap-1.5 min-w-0 h-full overflow-hidden"
                             >
-                                <div className="bg-muted h-3 flex-1 overflow-hidden rounded-full">
+                                <div className="bg-muted h-2.5 flex-1 overflow-hidden rounded-full">
                                     <div
                                         className="h-full rounded-full transition-all duration-300"
                                         style={{
@@ -489,7 +456,7 @@ export default function TableRow({
                                         }}
                                     />
                                 </div>
-                                <span className="text-muted-foreground w-8 text-right text-[11px] font-bold">{prog}%</span>
+                                <span className="text-muted-foreground w-7 text-right text-[10px] font-bold">{prog}%</span>
                             </div>
                         );
                     }
@@ -500,8 +467,7 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 100 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <button
                                     type="button"
@@ -516,30 +482,22 @@ export default function TableRow({
                         );
                     }
 
-                    // 8. Dropdown Column
+                    // 8. Dropdown Column (e.g. Service Type / Task Type — Editable with 8 standard types + custom types)
                     if (col.type === 'dropdown') {
-                        const currentVal = task.custom_values?.[col.key] || 'Select';
-                        const options = (col.config?.options as string[]) || ['Option A', 'Option B', 'Option C'];
+                        const currentVal = (task.custom_values?.[col.key] as string) || '';
+                        const configOptions = (col.config?.options as string[]) || [];
+                        const allOptions = Array.from(new Set([...DEFAULT_TASK_TYPES, ...configOptions]));
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 140 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <button className="bg-muted/30 hover:bg-muted/60 text-foreground w-full truncate rounded px-2 py-1 text-center text-xs font-semibold">
-                                            {currentVal}
-                                        </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="center" className="w-36 rounded-xl">
-                                        {options.map((opt) => (
-                                            <DropdownMenuItem key={opt} onClick={() => handleUpdateCustomValue(col.key, opt)} className="text-xs">
-                                                <span>{opt}</span>
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <EditableDropdownCell
+                                    value={currentVal}
+                                    options={allOptions}
+                                    onSelect={(opt) => handleUpdateCustomValue(col.key, opt)}
+                                    placeholder="Select"
+                                />
                             </div>
                         );
                     }
@@ -551,8 +509,7 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 140 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -578,8 +535,7 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 140 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center gap-1 border-r px-2 py-1.5"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center gap-1 min-w-0 h-full overflow-hidden"
                             >
                                 {[1, 2, 3, 4, 5].map((star) => (
                                     <button
@@ -605,8 +561,7 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 130 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5 font-mono text-xs"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden font-mono text-xs"
                             >
                                 <input
                                     type="number"
@@ -625,8 +580,7 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 170 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-between border-r px-2 py-1.5"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-between min-w-0 h-full overflow-hidden"
                             >
                                 <div className="mr-1 flex flex-1 items-center gap-1 overflow-x-auto">
                                     {connections.length === 0 ? (
@@ -662,8 +616,7 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 150 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r bg-purple-500/[0.02] px-2 py-1.5"
+                                className="border-border/40 border-r bg-purple-500/[0.02] px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 {mirroredVal !== undefined && mirroredVal !== null ? (
                                     <span className="inline-flex max-w-full items-center gap-1 truncate rounded bg-purple-500/10 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:text-purple-300">
@@ -683,8 +636,7 @@ export default function TableRow({
                         return (
                             <div
                                 key={col.id}
-                                style={{ width: col.width || 180 }}
-                                className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
+                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <textarea
                                     defaultValue={longVal}
@@ -702,8 +654,7 @@ export default function TableRow({
                     return (
                         <div
                             key={col.id}
-                            style={{ width: col.width || 140 }}
-                            className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
+                            className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                         >
                             <input
                                 type="text"
@@ -715,6 +666,41 @@ export default function TableRow({
                         </div>
                     );
                 })}
+
+                {/* End Row Actions (Track N+1 - 40px fixed) */}
+                <div className="flex items-center justify-center h-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button className="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-1">
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                            <DropdownMenuItem onClick={() => onSelectTask(task)}>
+                                <span>Open Item Card</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setIsSubitemsOpen(true)}>
+                                <Plus className="mr-2 h-3.5 w-3.5" />
+                                <span>Add Subitem</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <div className="text-muted-foreground px-2 py-1 text-[10px] font-semibold uppercase">Move to Group</div>
+                            {groups
+                                .filter((g) => g.id !== group.id)
+                                .map((g) => (
+                                    <DropdownMenuItem key={g.id} onClick={() => handleMoveGroup(g.id)}>
+                                        <span className="mr-2 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                                        <span>{g.title}</span>
+                                    </DropdownMenuItem>
+                                ))}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={handleDelete} className="text-red-500">
+                                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                <span>Delete Item</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
             </div>
 
             {/* Connect Boards Modal */}

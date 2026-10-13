@@ -22,7 +22,8 @@ import {
     X,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
-import { BoardColumn, KanbanColumn, Task, User } from '../types';
+import { BoardColumn, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../types';
+import EditableDropdownCell from './EditableDropdownCell';
 import MultiPeoplePicker from './MultiPeoplePicker';
 
 interface SubitemTableProps {
@@ -90,9 +91,9 @@ export default function SubitemTable({
                 type: 'dropdown',
                 position: 3,
                 is_visible: true,
-                width: 150,
+                width: 170,
                 config: {
-                    options: ['Design Phase', 'Build / Asset Export', 'QA & Review', 'Revision', 'Copywriting & Content'],
+                    options: DEFAULT_TASK_TYPES,
                 },
             },
             { id: 9005, board_id: parentTask.board_id, key: 'sub_internal_revision', title: 'Internal Revision', type: 'text', position: 4, is_visible: true, width: 140 },
@@ -276,7 +277,7 @@ export default function SubitemTable({
                 <div className="bg-card border-border/70 min-w-0 flex-1 overflow-hidden rounded-xl border shadow-xs">
                     {/* Inner horizontal scroll container */}
                     <div className="overflow-x-auto overflow-y-visible">
-                        <div className="min-w-fit">
+                        <div className="w-max min-w-full">
                             {/* Subtask Table Header Row */}
                             <div className="bg-muted/40 border-border/50 text-muted-foreground flex items-center border-b text-[10px] font-bold tracking-wider uppercase">
                                 {/* Left checkbox/icon spacer */}
@@ -542,46 +543,27 @@ export default function SubitemTable({
                                                 );
                                             }
 
-                                            // 4. Dropdown (e.g. Task Type)
+                                            // 4. Dropdown (e.g. Task Type — Editable with 8 standard types + custom types)
                                             if (col.type === 'dropdown' || col.key.includes('task_type')) {
                                                 const currentVal =
-                                                    sub.custom_values?.[col.key] ||
-                                                    sub.custom_values?.task_type ||
-                                                    '-';
-                                                const dropdownOptions =
-                                                    col.config?.options || [
-                                                        'Design Phase',
-                                                        'Build / Asset Export',
-                                                        'QA & Review',
-                                                        'Revision',
-                                                        'Copywriting & Content',
-                                                    ];
+                                                    (sub.custom_values?.[col.key] as string) ||
+                                                    (sub.custom_values?.task_type as string) ||
+                                                    '';
+                                                const configOptions = (col.config?.options as string[]) || [];
+                                                const allOptions = Array.from(new Set([...DEFAULT_TASK_TYPES, ...configOptions]));
 
                                                 return (
                                                     <div
                                                         key={col.id}
-                                                        style={{ width: col.width || 150 }}
-                                                        className="border-border/30 flex flex-shrink-0 items-center justify-center border-r px-2 py-1"
+                                                        style={{ width: col.width || 170 }}
+                                                        className="border-border/30 flex flex-shrink-0 items-center justify-center border-r px-1.5 py-1 min-w-0 overflow-hidden"
                                                     >
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <button className="bg-muted/50 hover:bg-muted text-foreground flex w-full items-center justify-between gap-1 truncate rounded px-2 py-0.5 text-center text-[11px] font-medium transition-colors">
-                                                                    <span className="truncate">{currentVal}</span>
-                                                                    <ChevronDown className="h-3 w-3 shrink-0 opacity-50" />
-                                                                </button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="center" className="w-48 rounded-xl p-1">
-                                                                {dropdownOptions.map((opt: string) => (
-                                                                    <DropdownMenuItem
-                                                                        key={opt}
-                                                                        onClick={() => handleUpdateCustomValue(sub, col.key, opt)}
-                                                                        className="text-xs"
-                                                                    >
-                                                                        {opt}
-                                                                    </DropdownMenuItem>
-                                                                ))}
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                        <EditableDropdownCell
+                                                            value={currentVal}
+                                                            options={allOptions}
+                                                            onSelect={(opt) => handleUpdateCustomValue(sub, col.key, opt)}
+                                                            placeholder="Select"
+                                                        />
                                                     </div>
                                                 );
                                             }

@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { router } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
-import { BoardColumn, KanbanBoard, Task, User } from '../types';
+import { BoardColumn, getTableGridTemplate, KanbanBoard, Task, User } from '../types';
 import AddColumnModal from './AddColumnModal';
 import TableRow from './TableRow';
 
@@ -139,6 +139,7 @@ export default function TableView({
     const subitemColumns = board.subitem_columns || board.subitemColumns || [];
     const statusColumns = board.columns || [];
     const visibleColumns = boardColumns.filter((c) => c.is_visible);
+    const gridTemplateColumns = getTableGridTemplate(visibleColumns);
 
     // Filter tasks
     const filterTask = (task: Task) => {
@@ -308,125 +309,126 @@ export default function TableView({
                         {/* Collapsible Table Body */}
                         {!isCollapsed && (
                             <div className="overflow-x-auto">
-                                <div className="min-w-fit">
+                                <div className="w-max min-w-full">
                                     {/* Table Column Header Row */}
-                                    <div className="bg-muted/40 border-border text-muted-foreground flex items-center border-b text-[11px] font-bold tracking-wider uppercase select-none">
-                                        <div className="w-1.5 self-stretch" style={{ backgroundColor: group.color }} />
-                                        <div className="w-8 flex-shrink-0" />
-                                        <div className="border-border/40 min-w-[200px] flex-1 border-r px-2 py-2">Item</div>
+                                    <div
+                                        className="bg-muted/40 border-border/40 text-muted-foreground grid w-full items-stretch border-b text-[11px] font-bold tracking-wider uppercase select-none"
+                                        style={{ gridTemplateColumns }}
+                                    >
+                                        <div className="h-full" style={{ backgroundColor: group.color }} />
+                                        <div className="border-border/40 border-r flex items-center justify-center h-full" />
+                                        <div className="border-border/40 border-r px-3 py-2 flex items-center min-w-0">Item</div>
 
                                         {/* Dynamic Columns Headers */}
-                                        {boardColumns.map((col, colIdx) => {
-                                            if (!col.is_visible) return null;
-                                            return (
-                                                <div
-                                                    key={col.id}
-                                                    style={{ width: col.width || 140 }}
-                                                    className="border-border/40 group/col flex flex-shrink-0 items-center justify-between border-r px-2 py-2 text-center"
-                                                >
-                                                    <span className="w-full truncate">{col.title}</span>
+                                        {visibleColumns.map((col, colIdx) => (
+                                            <div
+                                                key={col.id}
+                                                className="border-border/40 group/col border-r px-2 py-2 flex items-center justify-between min-w-0 h-full text-center"
+                                            >
+                                                <span className="w-full truncate">{col.title}</span>
 
-                                                    {/* Column Options Menu */}
-                                                    <DropdownMenu>
-                                                        <DropdownMenuTrigger asChild>
-                                                            <button className="hover:bg-muted rounded p-0.5 opacity-0 transition-opacity group-hover/col:opacity-100">
-                                                                <MoreHorizontal className="h-3.5 w-3.5" />
-                                                            </button>
-                                                        </DropdownMenuTrigger>
-                                                        <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                                                            <DropdownMenuItem
-                                                                onClick={() => {
-                                                                    setRenameColumn(col);
-                                                                    setRenameTitleInput(col.title);
-                                                                }}
-                                                                className="text-xs"
-                                                            >
-                                                                <Edit3 className="mr-2 h-3.5 w-3.5" />
-                                                                <span>Rename Column</span>
-                                                            </DropdownMenuItem>
+                                                {/* Column Options Menu */}
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <button className="hover:bg-muted rounded p-0.5 opacity-0 transition-opacity group-hover/col:opacity-100">
+                                                            <MoreHorizontal className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                                                        <DropdownMenuItem
+                                                            onClick={() => {
+                                                                setRenameColumn(col);
+                                                                setRenameTitleInput(col.title);
+                                                            }}
+                                                            className="text-xs"
+                                                        >
+                                                            <Edit3 className="mr-2 h-3.5 w-3.5" />
+                                                            <span>Rename Column</span>
+                                                        </DropdownMenuItem>
 
-                                                            <DropdownMenuItem
-                                                                onClick={() => {
-                                                                    router.post(`/kanban/board-columns/${col.id}/duplicate`, {}, { preserveScroll: true });
-                                                                }}
-                                                                className="text-xs"
-                                                            >
-                                                                <Copy className="mr-2 h-3.5 w-3.5" />
-                                                                <span>Duplicate Column</span>
-                                                            </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => {
+                                                                router.post(`/kanban/board-columns/${col.id}/duplicate`, {}, { preserveScroll: true });
+                                                            }}
+                                                            className="text-xs"
+                                                        >
+                                                            <Copy className="mr-2 h-3.5 w-3.5" />
+                                                            <span>Duplicate Column</span>
+                                                        </DropdownMenuItem>
 
-                                                            <DropdownMenuSeparator />
+                                                        <DropdownMenuSeparator />
 
-                                                            {/* Width submenu */}
-                                                            <div className="text-muted-foreground px-2 py-1 text-[10px] font-bold uppercase">
-                                                                Column Width
-                                                            </div>
-                                                            <div className="flex items-center gap-1 px-2 py-1">
-                                                                {[110, 140, 180, 240].map((w) => (
-                                                                    <button
-                                                                        key={w}
-                                                                        onClick={() => handleResizeColumn(col, w)}
-                                                                        className={`flex-1 rounded border py-1 text-[10px] font-bold ${
-                                                                            (col.width || 140) === w
-                                                                                ? 'bg-primary/10 border-primary text-primary'
-                                                                                : 'border-border hover:bg-muted'
-                                                                        }`}
-                                                                    >
-                                                                        {w}px
-                                                                    </button>
-                                                                ))}
-                                                            </div>
+                                                        {/* Width submenu */}
+                                                        <div className="text-muted-foreground px-2 py-1 text-[10px] font-bold uppercase">
+                                                            Column Width
+                                                        </div>
+                                                        <div className="flex items-center gap-1 px-2 py-1">
+                                                            {[110, 140, 180, 240].map((w) => (
+                                                                <button
+                                                                    key={w}
+                                                                    onClick={() => handleResizeColumn(col, w)}
+                                                                    className={`flex-1 rounded border py-1 text-[10px] font-bold ${
+                                                                        (col.width || 140) === w
+                                                                            ? 'bg-primary/10 border-primary text-primary'
+                                                                            : 'border-border hover:bg-muted'
+                                                                    }`}
+                                                                >
+                                                                    {w}px
+                                                                </button>
+                                                            ))}
+                                                        </div>
 
-                                                            <DropdownMenuSeparator />
+                                                        <DropdownMenuSeparator />
 
-                                                            {/* Reorder */}
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleReorderColumn(colIdx, 'left')}
-                                                                disabled={colIdx === 0}
-                                                                className="text-xs"
-                                                            >
-                                                                <ArrowLeft className="mr-2 h-3.5 w-3.5" />
-                                                                <span>Move Left</span>
-                                                            </DropdownMenuItem>
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleReorderColumn(colIdx, 'right')}
-                                                                disabled={colIdx === boardColumns.length - 1}
-                                                                className="text-xs"
-                                                            >
-                                                                <ArrowRight className="mr-2 h-3.5 w-3.5" />
-                                                                <span>Move Right</span>
-                                                            </DropdownMenuItem>
+                                                        {/* Reorder */}
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleReorderColumn(colIdx, 'left')}
+                                                            disabled={colIdx === 0}
+                                                            className="text-xs"
+                                                        >
+                                                            <ArrowLeft className="mr-2 h-3.5 w-3.5" />
+                                                            <span>Move Left</span>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleReorderColumn(colIdx, 'right')}
+                                                            disabled={colIdx === visibleColumns.length - 1}
+                                                            className="text-xs"
+                                                        >
+                                                            <ArrowRight className="mr-2 h-3.5 w-3.5" />
+                                                            <span>Move Right</span>
+                                                        </DropdownMenuItem>
 
-                                                            <DropdownMenuSeparator />
+                                                        <DropdownMenuSeparator />
 
-                                                            {/* Hide */}
-                                                            <DropdownMenuItem onClick={() => handleToggleColumnVisibility(col)} className="text-xs">
-                                                                <EyeOff className="mr-2 h-3.5 w-3.5" />
-                                                                <span>Hide Column</span>
-                                                            </DropdownMenuItem>
+                                                        {/* Hide */}
+                                                        <DropdownMenuItem onClick={() => handleToggleColumnVisibility(col)} className="text-xs">
+                                                            <EyeOff className="mr-2 h-3.5 w-3.5" />
+                                                            <span>Hide Column</span>
+                                                        </DropdownMenuItem>
 
-                                                            {/* Delete */}
-                                                            <DropdownMenuItem
-                                                                onClick={() => handleDeleteColumn(col.id)}
-                                                                className="text-xs text-red-500"
-                                                            >
-                                                                <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                                                <span>Delete Column</span>
-                                                            </DropdownMenuItem>
-                                                        </DropdownMenuContent>
-                                                    </DropdownMenu>
-                                                </div>
-                                            );
-                                        })}
+                                                        {/* Delete */}
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleDeleteColumn(col.id)}
+                                                            className="text-xs text-red-500"
+                                                        >
+                                                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                                            <span>Delete Column</span>
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
+                                        ))}
 
                                         {/* + Column Button on Header */}
-                                        <button
-                                            onClick={onOpenNewColumn}
-                                            className="hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center px-2 py-2 transition-colors"
-                                            title="Add Dynamic Column"
-                                        >
-                                            <Plus className="h-3.5 w-3.5" />
-                                        </button>
+                                        <div className="flex items-center justify-center h-full">
+                                            <button
+                                                onClick={onOpenNewColumn}
+                                                className="hover:bg-muted text-muted-foreground hover:text-foreground flex h-full w-full items-center justify-center transition-colors"
+                                                title="Add Dynamic Column"
+                                            >
+                                                <Plus className="h-3.5 w-3.5" />
+                                            </button>
+                                        </div>
                                     </div>
 
                                     {/* Item Rows */}
@@ -441,48 +443,63 @@ export default function TableView({
                                             groups={groups}
                                             users={users}
                                             mirroredValues={mirroredValues[task.id] || {}}
+                                            gridTemplateColumns={gridTemplateColumns}
                                             onSelectTask={onSelectTask}
                                             onAddSubtaskColumn={() => setIsAddSubtaskColumnOpen(true)}
                                         />
                                     ))}
 
                                     {/* Inline Add Item Row */}
-                                    <form
-                                        onSubmit={(e) => handleQuickAdd(group.id, e)}
-                                        className="border-border/40 bg-card hover:bg-muted/10 flex items-center border-b transition-colors"
+                                    <div
+                                        className="border-border/40 bg-card hover:bg-muted/10 grid w-full items-stretch border-b transition-colors"
+                                        style={{ gridTemplateColumns }}
                                     >
-                                        <div className="w-1.5 flex-shrink-0 self-stretch" style={{ backgroundColor: group.color }} />
-                                        <div className="text-muted-foreground flex w-8 flex-shrink-0 items-center justify-center">
+                                        <div className="h-full" style={{ backgroundColor: group.color }} />
+                                        <div className="border-border/40 border-r text-muted-foreground flex items-center justify-center h-full">
                                             <Plus className="h-3.5 w-3.5" />
                                         </div>
-                                        <input
-                                            type="text"
-                                            placeholder="+ Add item"
-                                            value={quickAddTitles[group.id] || ''}
-                                            onChange={(e) =>
-                                                setQuickAddTitles((prev) => ({
-                                                    ...prev,
-                                                    [group.id]: e.target.value,
-                                                }))
-                                            }
-                                            className="placeholder:text-muted-foreground/60 flex-1 border-none bg-transparent px-2 py-2 text-xs focus:outline-none"
-                                        />
-                                    </form>
+                                        <div className="border-border/40 border-r px-2 py-1.5 flex items-center min-w-0 h-full">
+                                            <form onSubmit={(e) => handleQuickAdd(group.id, e)} className="w-full">
+                                                <input
+                                                    type="text"
+                                                    placeholder="+ Add item"
+                                                    value={quickAddTitles[group.id] || ''}
+                                                    onChange={(e) =>
+                                                        setQuickAddTitles((prev) => ({
+                                                            ...prev,
+                                                            [group.id]: e.target.value,
+                                                        }))
+                                                    }
+                                                    className="placeholder:text-muted-foreground/60 w-full border-none bg-transparent px-1 py-1 text-xs focus:outline-none"
+                                                />
+                                            </form>
+                                        </div>
+
+                                        {/* Matching cells for dynamic columns */}
+                                        {visibleColumns.map((col) => (
+                                            <div
+                                                key={`add_spacer_${col.id}`}
+                                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full bg-muted/5"
+                                            />
+                                        ))}
+                                        <div className="h-full bg-muted/5" />
+                                    </div>
 
                                     {/* Group Footer Summary */}
-                                    <div className="bg-muted/10 text-muted-foreground border-border/30 flex items-center border-t text-[11px] font-bold select-none">
-                                        <div className="w-1.5 self-stretch" style={{ backgroundColor: group.color }} />
-                                        <div className="w-8 flex-shrink-0" />
-                                        <div className="border-border/40 min-w-[200px] flex-1 border-r px-2 py-1.5">
+                                    <div
+                                        className="bg-muted/10 text-muted-foreground border-border/30 grid w-full items-stretch border-t text-[11px] font-bold select-none"
+                                        style={{ gridTemplateColumns }}
+                                    >
+                                        <div className="h-full" style={{ backgroundColor: group.color }} />
+                                        <div className="border-border/40 border-r flex items-center justify-center h-full" />
+                                        <div className="border-border/40 border-r px-3 py-1.5 flex items-center min-w-0 h-full">
                                             <span className="font-semibold text-emerald-500">
                                                 {doneTasks}/{totalTasks} Completed ({donePercent}%)
                                             </span>
                                         </div>
 
                                         {/* Dynamic Column Footers */}
-                                        {boardColumns.map((col) => {
-                                            if (!col.is_visible) return null;
-
+                                        {visibleColumns.map((col) => {
                                             // Number Column: calculate group sum
                                             if (col.type === 'number') {
                                                 const sum = groupTasks.reduce((acc, t) => {
@@ -493,8 +510,7 @@ export default function TableView({
                                                 return (
                                                     <div
                                                         key={`footer_${col.id}`}
-                                                        style={{ width: col.width || 130 }}
-                                                        className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5 font-mono text-xs font-bold"
+                                                        className="border-border/40 border-r px-2 py-1.5 flex items-center justify-center font-mono text-xs font-bold min-w-0 h-full truncate"
                                                         title={`Sum: ${sum}`}
                                                     >
                                                         <span>∑ {sum}</span>
@@ -504,14 +520,14 @@ export default function TableView({
 
                                             // Progress Column: show average progress
                                             if (col.type === 'progress') {
-                                                const avg = totalTasks > 0
-                                                    ? Math.round(groupTasks.reduce((acc, t) => acc + (t.progress || 0), 0) / totalTasks)
-                                                    : 0;
+                                                const avg =
+                                                    totalTasks > 0
+                                                        ? Math.round(groupTasks.reduce((acc, t) => acc + (t.progress || 0), 0) / totalTasks)
+                                                        : 0;
                                                 return (
                                                     <div
                                                         key={`footer_${col.id}`}
-                                                        style={{ width: col.width || 150 }}
-                                                        className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5 text-[10px] font-bold"
+                                                        className="border-border/40 border-r px-2 py-1.5 flex items-center justify-center text-[10px] font-bold min-w-0 h-full truncate"
                                                     >
                                                         <span>Avg {avg}%</span>
                                                     </div>
@@ -521,14 +537,13 @@ export default function TableView({
                                             return (
                                                 <div
                                                     key={`footer_${col.id}`}
-                                                    style={{ width: col.width || 140 }}
-                                                    className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5 text-[10px] text-muted-foreground/40"
+                                                    className="border-border/40 border-r px-2 py-1.5 flex items-center justify-center text-[10px] text-muted-foreground/40 min-w-0 h-full"
                                                 >
                                                     -
                                                 </div>
                                             );
                                         })}
-                                        <div className="w-8 flex-shrink-0" />
+                                        <div className="h-full" />
                                     </div>
                                 </div>
                             </div>

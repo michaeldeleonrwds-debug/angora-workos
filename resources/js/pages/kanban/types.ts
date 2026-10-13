@@ -255,3 +255,58 @@ export interface KanbanPageProps {
     selectedTask?: Task | null;
     mirroredValues?: Record<number, Record<string, any>>;
 }
+
+export const DEFAULT_TASK_TYPES = [
+    'Email Automation',
+    'Landing Page',
+    'Logo',
+    'Poster',
+    'Promotional Kit',
+    'Resolution & Image Quality',
+    'Social Media Post',
+    'Video',
+];
+
+export const DEFAULT_COLUMN_WIDTH = 140;
+
+export const getColumnWidth = (col: BoardColumn): number => {
+    if (col.width && col.width > 0) return col.width;
+    switch (col.type) {
+        case 'people':
+            return 150;
+        case 'status':
+            return 140;
+        case 'priority':
+            return 130;
+        case 'date':
+            return 140;
+        case 'timeline':
+            return 170;
+        case 'progress':
+            return 140;
+        case 'checkbox':
+            return 100;
+        case 'dropdown':
+            return 160;
+        case 'tags':
+            return 130;
+        case 'rating':
+            return 130;
+        case 'number':
+            return 130;
+        case 'connect_boards':
+            return 170;
+        case 'mirror':
+            return 140;
+        case 'long_text':
+            return 170;
+        default:
+            return DEFAULT_COLUMN_WIDTH;
+    }
+};
+
+export const getTableGridTemplate = (visibleColumns: BoardColumn[]): string => {
+    const dynamicTracks = visibleColumns.map((c) => `${getColumnWidth(c)}px`).join(' ');
+    return `6px 44px minmax(280px, 1fr) ${dynamicTracks} 40px`;
+};
+

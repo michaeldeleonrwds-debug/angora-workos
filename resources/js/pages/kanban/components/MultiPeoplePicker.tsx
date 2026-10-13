@@ -72,7 +72,7 @@ export default function MultiPeoplePicker({
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    className="hover:bg-muted/70 group flex items-center gap-1.5 rounded-lg p-1 transition-colors select-none focus:outline-none"
+                    className="hover:bg-muted/70 group flex max-w-full items-center justify-center gap-1.5 overflow-hidden rounded-lg p-1 transition-colors select-none focus:outline-none"
                     title={
                         assignedUsers.length > 0
                             ? `${badgeLabel ? `${badgeLabel}: ` : ''}${assignedUsers.map((u) => u.name).join(', ')}`
