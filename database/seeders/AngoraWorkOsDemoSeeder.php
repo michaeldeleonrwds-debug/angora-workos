@@ -12,6 +12,7 @@ use App\Models\KanbanTask;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
+use App\Services\TaskActivityService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
@@ -608,8 +609,8 @@ class AngoraWorkOsDemoSeeder extends Seeder
         $holdTasks = [
             [
                 'title' => 'MENICO1 — Kings of Kings | Static & Video',
-                'designer_id' => $mayaId,
-                'am_id' => $mariaId,
+                'designer_id' => [$mayaId, $leoId],
+                'am_id' => [$mariaId, $chrisId],
                 'status' => 'Hold',
                 'deadline' => $now->copy()->addDays(5)->toDateString(),
                 'client_deadline' => $now->copy()->addDays(7)->toDateString(),
@@ -732,7 +733,7 @@ class AngoraWorkOsDemoSeeder extends Seeder
         $inProgressTasks = [
             [
                 'title' => 'CASCADE — 3D Product Mockups for eCommerce Store',
-                'designer_id' => $leoId,
+                'designer_id' => [$leoId, $chloeId],
                 'am_id' => $mariaId,
                 'status' => 'Working on it',
                 'deadline' => $now->copy()->addDays(1)->toDateString(),
@@ -819,7 +820,7 @@ class AngoraWorkOsDemoSeeder extends Seeder
             ],
             [
                 'title' => 'ATLAS — Corporate LinkedIn Thought Leadership Carousels',
-                'designer_id' => $chloeId,
+                'designer_id' => [$chloeId, $leoId],
                 'am_id' => $chrisId,
                 'status' => 'For Review',
                 'deadline' => $now->copy()->toDateString(),
@@ -853,7 +854,7 @@ class AngoraWorkOsDemoSeeder extends Seeder
             [
                 'title' => 'STRATA — Event Rollup Banner Stand & Conference Backdrop',
                 'designer_id' => $chloeId,
-                'am_id' => $mariaId,
+                'am_id' => [$mariaId, $chrisId],
                 'status' => 'For Review',
                 'deadline' => $now->copy()->addDays(1)->toDateString(),
                 'client_deadline' => $now->copy()->addDays(3)->toDateString(),
@@ -951,6 +952,15 @@ class AngoraWorkOsDemoSeeder extends Seeder
                 $statusCol = $statusMap[$tData['status']] ?? $statusMap['New Task'];
                 $isDone = $tData['status'] === 'Done';
 
+                $designerArray = is_array($tData['designer_id'])
+                    ? $tData['designer_id']
+                    : ($tData['designer_id'] ? [$tData['designer_id']] : []);
+                $primaryDesigner = $designerArray[0] ?? null;
+
+                $amArray = is_array($tData['am_id'])
+                    ? $tData['am_id']
+                    : ($tData['am_id'] ? [$tData['am_id']] : []);
+
                 $task = KanbanTask::firstOrCreate(
                     [
                         'board_id' => $board->id,
@@ -959,14 +969,16 @@ class AngoraWorkOsDemoSeeder extends Seeder
                     ],
                     [
                         'column_id' => $statusCol->id,
-                        'assigned_to' => $tData['designer_id'], // Designer
+                        'assigned_to' => $primaryDesigner,
                         'priority' => $isDone ? 'Low' : ($tData['status'] === 'Hold' ? 'High' : 'Medium'),
                         'due_date' => $tData['deadline'],
                         'due_time' => $tData['deadline'] ? '17:00:00' : null,
                         'progress' => $isDone ? 100 : ($tData['status'] === 'Working on it' ? 60 : ($tData['status'] === 'For Review' ? 90 : 0)),
                         'completed_at' => $isDone ? $now : null,
                         'custom_values' => [
-                            'account_manager' => $tData['am_id'],
+                            'account_manager' => $amArray,
+                            'designer_ids' => $designerArray,
+                            'person' => $designerArray,
                             'client_deadline' => $tData['client_deadline'],
                             'service_type' => $tData['service'],
                             'simul_tasks' => $tData['simul'],
@@ -975,12 +987,75 @@ class AngoraWorkOsDemoSeeder extends Seeder
                     ]
                 );
 
+                // Ensure multi-assignees and custom values stay synchronized if task previously existed
+                $mergedCustom = array_merge($task->custom_values ?? [], [
+                    'account_manager' => $amArray,
+                    'designer_ids' => $designerArray,
+                    'person' => $designerArray,
+                    'client_deadline' => $tData['client_deadline'],
+                    'service_type' => $tData['service'],
+                    'simul_tasks' => $tData['simul'],
+                ]);
+                $task->update([
+                    'assigned_to' => $primaryDesigner,
+                    'custom_values' => $mergedCustom,
+                ]);
+
+                // Initial task creation activity log
+                TaskActivityService::log(
+                    task: $task,
+                    eventType: 'task_created',
+                    description: "{$admin->name} created task '{$task->title}' in group '{$group->title}'",
+                    user: $admin
+                );
+
+                // Designer assignment activity
+                if (!empty($designerArray)) {
+                    $dNames = User::whereIn('id', $designerArray)->pluck('name')->join(', ');
+                    TaskActivityService::log(
+                        task: $task,
+                        eventType: 'people_assignment_changed',
+                        description: "{$admin->name} assigned Designer(s): {$dNames}",
+                        fieldName: 'designer_ids',
+                        oldValue: 'Unassigned',
+                        newValue: $dNames,
+                        user: $admin
+                    );
+                }
+
+                // AM assignment activity
+                if (!empty($amArray)) {
+                    $amNames = User::whereIn('id', $amArray)->pluck('name')->join(', ');
+                    TaskActivityService::log(
+                        task: $task,
+                        eventType: 'people_assignment_changed',
+                        description: "{$admin->name} assigned Account Manager(s): {$amNames}",
+                        fieldName: 'account_manager',
+                        oldValue: 'Unassigned',
+                        newValue: $amNames,
+                        user: $admin
+                    );
+                }
+
+                // Status movement activity
+                if ($tData['status'] !== 'New Task') {
+                    TaskActivityService::log(
+                        task: $task,
+                        eventType: 'status_changed',
+                        description: "{$admin->name} moved status to '{$tData['status']}'",
+                        fieldName: 'status',
+                        oldValue: 'New Task',
+                        newValue: $tData['status'],
+                        user: $admin
+                    );
+                }
+
                 // Nested Subitems
                 foreach ($tData['subitems'] as $sData) {
                     $subStatusCol = $statusMap[$sData['status']] ?? $statusMap['New Task'];
                     $subIsDone = $sData['status'] === 'Done';
 
-                    KanbanTask::firstOrCreate(
+                    $sub = KanbanTask::firstOrCreate(
                         [
                             'board_id' => $board->id,
                             'parent_id' => $task->id,
@@ -995,32 +1070,63 @@ class AngoraWorkOsDemoSeeder extends Seeder
                             'created_by' => $admin->id,
                         ]
                     );
+
+                    TaskActivityService::log(
+                        task: $task,
+                        eventType: 'subitem_created',
+                        description: "{$admin->name} added subtask '{$sData['title']}'",
+                        fieldName: 'subitems',
+                        newValue: $sData['title'],
+                        user: $admin
+                    );
                 }
 
                 // Sample production update / comment
+                $commentUserId = !empty($amArray) ? $amArray[0] : (!empty($designerArray) ? $designerArray[0] : $admin->id);
                 if ($tData['status'] === 'Hold') {
-                    KanbanComment::firstOrCreate(
+                    $comment = KanbanComment::firstOrCreate(
                         [
                             'task_id' => $task->id,
-                            'user_id' => $tData['am_id'] ?? $admin->id,
+                            'user_id' => $commentUserId,
                             'message' => 'Client requested temporary hold awaiting high-resolution raw footage files from their internal server.',
                         ]
                     );
+                    TaskActivityService::log(
+                        task: $task,
+                        eventType: 'comment_added',
+                        description: "{$comment->user?->name} posted an update on the hold status",
+                        fieldName: 'comments',
+                        user: $comment->user
+                    );
                 } elseif ($tData['status'] === 'For Review') {
-                    KanbanComment::firstOrCreate(
+                    $comment = KanbanComment::firstOrCreate(
                         [
                             'task_id' => $task->id,
-                            'user_id' => $tData['designer_id'] ?? $admin->id,
+                            'user_id' => $commentUserId,
                             'message' => 'First cut ready for Account Manager & creative director inspection. Check color grading and typography placement.',
                         ]
                     );
+                    TaskActivityService::log(
+                        task: $task,
+                        eventType: 'comment_added',
+                        description: "{$comment->user?->name} posted review readiness notes",
+                        fieldName: 'comments',
+                        user: $comment->user
+                    );
                 } elseif ($tData['status'] === 'Needs Revision') {
-                    KanbanComment::firstOrCreate(
+                    $comment = KanbanComment::firstOrCreate(
                         [
                             'task_id' => $task->id,
-                            'user_id' => $tData['am_id'] ?? $admin->id,
+                            'user_id' => $commentUserId,
                             'message' => 'Client requested adjusting the background gradient to match their updated brand swatch #579BFC.',
                         ]
+                    );
+                    TaskActivityService::log(
+                        task: $task,
+                        eventType: 'comment_added',
+                        description: "{$comment->user?->name} posted client revision instructions",
+                        fieldName: 'comments',
+                        user: $comment->user
                     );
                 }
             }

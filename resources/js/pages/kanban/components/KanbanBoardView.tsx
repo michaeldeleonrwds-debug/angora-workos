@@ -305,6 +305,22 @@ export default function KanbanBoardView({
                                 const overdue = isOverdue(task);
                                 const commentCount = (task.comments || []).length;
 
+                                const designerIds: number[] = (() => {
+                                    const raw = task.custom_values?.['designer_ids'] ?? task.custom_values?.['person'];
+                                    if (Array.isArray(raw)) return raw.map(Number).filter(Boolean);
+                                    if (typeof raw === 'number' && raw > 0) return [raw];
+                                    return task.assigned_to ? [task.assigned_to] : [];
+                                })();
+                                const designerUsers = designerIds.map((id) => users.find((u) => u.id === id)).filter((u): u is User => Boolean(u));
+
+                                const amIds: number[] = (() => {
+                                    const raw = task.custom_values?.['account_manager'] ?? task.custom_values?.['am'];
+                                    if (Array.isArray(raw)) return raw.map(Number).filter(Boolean);
+                                    if (typeof raw === 'number' && raw > 0) return [raw];
+                                    return [];
+                                })();
+                                const amUsers = amIds.map((id) => users.find((u) => u.id === id)).filter((u): u is User => Boolean(u));
+
                                 return (
                                     <div
                                         key={task.id}
@@ -329,6 +345,12 @@ export default function KanbanBoardView({
                                                     <span className="flex items-center gap-0.5 rounded border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
                                                         <AlertCircle className="h-2.5 w-2.5" />
                                                         <span>Overdue</span>
+                                                    </span>
+                                                )}
+
+                                                {task.custom_values?.['service_type'] && (
+                                                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground truncate max-w-[120px]">
+                                                        {String(task.custom_values['service_type'])}
                                                     </span>
                                                 )}
                                             </div>
@@ -492,19 +514,59 @@ export default function KanbanBoardView({
                                                 )}
                                             </div>
 
-                                            {/* Assignee Avatar */}
-                                            {task.assignee ? (
-                                                <div
-                                                    className="bg-primary/20 text-primary flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
-                                                    title={task.assignee.name}
-                                                >
-                                                    {task.assignee.name.charAt(0)}
-                                                </div>
-                                            ) : (
-                                                <div className="border-border flex h-5 w-5 items-center justify-center rounded-full border border-dashed">
-                                                    <UserIcon className="h-2.5 w-2.5" />
-                                                </div>
-                                            )}
+                                            {/* Assignees (Designer & AM) */}
+                                            <div className="flex items-center gap-1.5">
+                                                {/* AM Avatars with Badge if present */}
+                                                {amUsers.length > 0 && (
+                                                    <div
+                                                        className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 rounded-full px-1.5 py-0.5"
+                                                        title={`Account Manager: ${amUsers.map((u) => u.name).join(', ')}`}
+                                                    >
+                                                        <span className="text-[8px] font-black text-amber-600 dark:text-amber-400">AM</span>
+                                                        <div className="flex -space-x-1">
+                                                            {amUsers.slice(0, 2).map((u) => (
+                                                                <div
+                                                                    key={u.id}
+                                                                    className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[8px] font-bold border border-background"
+                                                                >
+                                                                    {u.name.charAt(0).toUpperCase()}
+                                                                </div>
+                                                            ))}
+                                                            {amUsers.length > 2 && (
+                                                                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[8px] font-bold border border-background">
+                                                                    +{amUsers.length - 2}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Designer Avatars */}
+                                                {designerUsers.length > 0 ? (
+                                                    <div
+                                                        className="flex items-center -space-x-1"
+                                                        title={`Designer: ${designerUsers.map((u) => u.name).join(', ')}`}
+                                                    >
+                                                        {designerUsers.slice(0, 2).map((u) => (
+                                                            <div
+                                                                key={u.id}
+                                                                className="bg-primary/20 text-primary border-background flex h-5 w-5 items-center justify-center rounded-full border text-[9px] font-bold ring-1 ring-border"
+                                                            >
+                                                                {u.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                        ))}
+                                                        {designerUsers.length > 2 && (
+                                                            <div className="bg-muted text-muted-foreground border-background flex h-5 w-5 items-center justify-center rounded-full border text-[8px] font-bold ring-1 ring-border">
+                                                                +{designerUsers.length - 2}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="border-border flex h-5 w-5 items-center justify-center rounded-full border border-dashed" title="Unassigned">
+                                                        <UserIcon className="h-2.5 w-2.5 text-muted-foreground" />
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 );

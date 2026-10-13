@@ -15,11 +15,13 @@ use App\Models\KanbanColumn;
 use App\Models\KanbanComment;
 use App\Models\BoardItemRelationship;
 use App\Models\KanbanTask;
+use App\Models\TaskActivity;
 use App\Models\TaskDependency;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\AutomationEngineService;
 use App\Services\CrossBoardService;
+use App\Services\TaskActivityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -98,6 +100,7 @@ class KanbanController extends Controller
                         'attachments.user',
                         'dependencies.dependencyTask',
                         'dependents.task',
+                        'activities.user',
                     ]);
             },
             'groups.tasks' => function ($q) {
@@ -114,6 +117,7 @@ class KanbanController extends Controller
                         'attachments.user',
                         'dependencies.dependencyTask',
                         'dependents.task',
+                        'activities.user',
                     ]);
             },
             'boardColumns' => function ($q) {
@@ -155,6 +159,7 @@ class KanbanController extends Controller
                 'columns.tasks.attachments.user',
                 'columns.tasks.dependencies.dependencyTask',
                 'columns.tasks.dependents.task',
+                'columns.tasks.activities.user',
                 'columns.tasks.outgoingRelationships.targetBoard',
                 'columns.tasks.outgoingRelationships.targetTask.column',
                 'columns.tasks.outgoingRelationships.targetTask.assignee',
@@ -167,6 +172,7 @@ class KanbanController extends Controller
                 'groups.tasks.attachments.user',
                 'groups.tasks.dependencies.dependencyTask',
                 'groups.tasks.dependents.task',
+                'groups.tasks.activities.user',
                 'groups.tasks.outgoingRelationships.targetBoard',
                 'groups.tasks.outgoingRelationships.targetTask.column',
                 'groups.tasks.outgoingRelationships.targetTask.assignee',
@@ -196,6 +202,7 @@ class KanbanController extends Controller
                 'attachments.user',
                 'dependencies.dependencyTask',
                 'dependents.task',
+                'activities.user',
                 'outgoingRelationships.targetBoard',
                 'outgoingRelationships.targetTask.column',
                 'outgoingRelationships.targetTask.assignee',
@@ -805,6 +812,13 @@ class KanbanController extends Controller
             $task->parent?->recalculateProgressFromSubtasks();
         }
 
+        TaskActivityService::log(
+            task: $task,
+            eventType: 'task_created',
+            description: auth()->user()->name . " created this task",
+            metadata: ['title' => $task->title, 'board' => $board->title]
+        );
+
         AuditLog::log(
             action: 'KANBAN_TASK_CREATED',
             department: auth()->user()->department ?? 'Operations',
@@ -876,7 +890,116 @@ class KanbanController extends Controller
 
         $prevPriority = $task->priority;
         $prevAssigned = $task->assigned_to;
-        $prevColumn = $task->column?->title;
+        $prevColumn = $task->column_id;
+        $userName = auth()->user()->name;
+
+        // Activity logging for specific field mutations
+        if (isset($validated['title']) && $validated['title'] !== $task->title) {
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'task_renamed',
+                description: "{$userName} renamed task from '{$task->title}' to '{$validated['title']}'",
+                fieldName: 'title',
+                oldValue: $task->title,
+                newValue: $validated['title']
+            );
+        }
+
+        if (isset($validated['priority']) && $validated['priority'] !== $prevPriority) {
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'priority_changed',
+                description: "{$userName} changed priority from '{$prevPriority}' to '{$validated['priority']}'",
+                fieldName: 'priority',
+                oldValue: $prevPriority,
+                newValue: $validated['priority']
+            );
+        }
+
+        if (array_key_exists('assigned_to', $validated) && $validated['assigned_to'] !== $prevAssigned) {
+            $prevUser = $prevAssigned ? User::find($prevAssigned)?->name : 'Unassigned';
+            $newUser = $validated['assigned_to'] ? User::find($validated['assigned_to'])?->name : 'Unassigned';
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'assignee_changed',
+                description: "{$userName} assigned '{$newUser}' (was '{$prevUser}')",
+                fieldName: 'assigned_to',
+                oldValue: $prevUser,
+                newValue: $newUser
+            );
+        }
+
+        if (isset($validated['due_date']) && $validated['due_date'] !== $task->due_date) {
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'due_date_changed',
+                description: "{$userName} changed due date to {$validated['due_date']}",
+                fieldName: 'due_date',
+                oldValue: $task->due_date,
+                newValue: $validated['due_date']
+            );
+        }
+
+        if (isset($validated['progress']) && $validated['progress'] !== $task->progress) {
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'progress_updated',
+                description: "{$userName} updated progress to {$validated['progress']}%",
+                fieldName: 'progress',
+                oldValue: $task->progress,
+                newValue: $validated['progress']
+            );
+        }
+
+        if (isset($validated['description']) && $validated['description'] !== $task->description) {
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'description_updated',
+                description: "{$userName} updated task description",
+                fieldName: 'description'
+            );
+        }
+
+        // Custom column mutations logging (e.g. Account Manager, Service Type, Client Deadline, etc.)
+        if (isset($validated['custom_values']) && is_array($validated['custom_values'])) {
+            $boardCols = $task->board?->boardColumns->keyBy('key') ?? collect();
+            foreach ($validated['custom_values'] as $cKey => $cVal) {
+                $oldVal = ($task->custom_values ?? [])[$cKey] ?? null;
+                if ($oldVal !== $cVal) {
+                    $colDef = $boardCols->get($cKey);
+                    $colTitle = $colDef?->title ?? $cKey;
+
+                    // Human-readable format if it's people assignment (array or single ID)
+                    if ($colDef?->type === 'people') {
+                        $resolveNames = function ($v) {
+                            if (empty($v)) return 'None';
+                            $ids = is_array($v) ? $v : [$v];
+                            return User::whereIn('id', $ids)->pluck('name')->join(', ') ?: 'None';
+                        };
+                        $oldNames = $resolveNames($oldVal);
+                        $newNames = $resolveNames($cVal);
+
+                        TaskActivityService::log(
+                            task: $task,
+                            eventType: 'people_assignment_changed',
+                            description: "{$userName} updated {$colTitle} to {$newNames} (was {$oldNames})",
+                            fieldName: $cKey,
+                            oldValue: $oldNames,
+                            newValue: $newNames
+                        );
+                    } else {
+                        TaskActivityService::log(
+                            task: $task,
+                            eventType: 'custom_column_changed',
+                            description: "{$userName} updated {$colTitle} to " . (is_array($cVal) ? json_encode($cVal) : (string) $cVal),
+                            fieldName: $cKey,
+                            oldValue: $oldVal,
+                            newValue: $cVal
+                        );
+                    }
+                }
+            }
+        }
 
         $task->update($validated);
 
@@ -928,6 +1051,17 @@ class KanbanController extends Controller
 
         if ($task->parent_id) {
             $task->parent?->recalculateProgressFromSubtasks();
+        }
+
+        if ($prevColumn !== $newColumn) {
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'status_changed',
+                description: auth()->user()->name . " changed Status from '{$prevColumn}' to '{$newColumn}'",
+                fieldName: 'column_id',
+                oldValue: $prevColumn,
+                newValue: $newColumn
+            );
         }
 
         AuditLog::log(
@@ -982,11 +1116,24 @@ class KanbanController extends Controller
             'position' => 'nullable|integer',
         ]);
 
+        $prevGroup = $task->group?->title;
         $task->group_id = $validated['group_id'];
         if (isset($validated['position'])) {
             $task->position = $validated['position'];
         }
         $task->save();
+
+        $newGroup = BoardGroup::find($validated['group_id'])?->title;
+        if ($prevGroup !== $newGroup) {
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'group_changed',
+                description: auth()->user()->name . " moved task from group '{$prevGroup}' to '{$newGroup}'",
+                fieldName: 'group_id',
+                oldValue: $prevGroup,
+                newValue: $newGroup
+            );
+        }
 
         return back()->with('success', 'Task moved to group');
     }
@@ -1035,6 +1182,13 @@ class KanbanController extends Controller
 
         $task->recalculateProgressFromSubtasks();
 
+        TaskActivityService::log(
+            task: $task,
+            eventType: 'subitem_created',
+            description: auth()->user()->name . " added subitem '{$subitem->title}'",
+            metadata: ['subitem_id' => $subitem->id, 'subitem_title' => $subitem->title]
+        );
+
         return back()->with('success', 'Subitem added');
     }
 
@@ -1050,6 +1204,12 @@ class KanbanController extends Controller
         if ($parentId) {
             $parent = KanbanTask::find($parentId);
             $parent?->recalculateProgressFromSubtasks();
+
+            TaskActivityService::log(
+                task: $parent,
+                eventType: 'subitem_deleted',
+                description: auth()->user()->name . " deleted subitem '{$taskTitle}'"
+            );
         }
 
         AuditLog::log(
@@ -1079,6 +1239,13 @@ class KanbanController extends Controller
             'user_id' => auth()->id(),
             'message' => $validated['message'],
         ]);
+
+        TaskActivityService::log(
+            task: $task,
+            eventType: $comment->parent_id ? 'reply_added' : 'comment_added',
+            description: auth()->user()->name . ($comment->parent_id ? " replied to an update" : " posted an update"),
+            metadata: ['comment_id' => $comment->id]
+        );
 
         \App\Events\CommentAddedEvent::dispatch($comment);
 
@@ -1148,6 +1315,13 @@ class KanbanController extends Controller
             'mime_type' => $file->getClientMimeType() ?: 'application/octet-stream',
         ]);
 
+        TaskActivityService::log(
+            task: $task,
+            eventType: 'attachment_uploaded',
+            description: auth()->user()->name . " uploaded attachment '{$fileName}'",
+            metadata: ['file_name' => $fileName, 'file_size' => $file->getSize()]
+        );
+
         AuditLog::log(
             action: 'TASK_ATTACHMENT_UPLOADED',
             department: auth()->user()->department ?? 'Operations',
@@ -1163,10 +1337,21 @@ class KanbanController extends Controller
     {
         Gate::authorize('delete', $attachment);
 
+        $task = $attachment->task;
+        $fileName = $attachment->file_name;
+
         if (Storage::disk('public')->exists($attachment->file_path)) {
             Storage::disk('public')->delete($attachment->file_path);
         }
         $attachment->delete();
+
+        if ($task) {
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'attachment_deleted',
+                description: auth()->user()->name . " deleted attachment '{$fileName}'"
+            );
+        }
         return back()->with('success', 'Attachment deleted');
     }
 
@@ -1302,6 +1487,14 @@ class KanbanController extends Controller
             ]
         );
 
+        $targetTitle = KanbanTask::find($targetId)?->title ?? "#{$targetId}";
+        TaskActivityService::log(
+            task: $task,
+            eventType: 'dependency_added',
+            description: auth()->user()->name . " added dependency on '{$targetTitle}'",
+            metadata: ['target_id' => $targetId, 'target_title' => $targetTitle]
+        );
+
         return back()->with('success', 'Dependency added successfully');
     }
 
@@ -1312,7 +1505,16 @@ class KanbanController extends Controller
             Gate::authorize('update', $task);
         }
 
+        $targetTitle = $dependency->dependencyTask?->title ?? "#{$dependency->depends_on_task_id}";
         $dependency->delete();
+
+        if ($task) {
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'dependency_removed',
+                description: auth()->user()->name . " removed dependency on '{$targetTitle}'"
+            );
+        }
         return back()->with('success', 'Dependency removed');
     }
 

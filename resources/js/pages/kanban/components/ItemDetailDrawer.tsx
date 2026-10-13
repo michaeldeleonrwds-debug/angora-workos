@@ -20,8 +20,9 @@ import {
     User as UserIcon,
     X,
 } from 'lucide-react';
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { KanbanBoard, Task, User } from '../types';
+import MultiPeoplePicker from './MultiPeoplePicker';
 
 interface ItemDetailDrawerProps {
     task: Task | null;
@@ -65,6 +66,33 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
     // Field updates
     const handleUpdateField = (field: string, val: any) => {
         router.patch(`/kanban/tasks/${task.id}`, { [field]: val }, { preserveScroll: true });
+    };
+
+    const primaryAssigneeIds = useMemo(() => {
+        if (!task) return [];
+        if (Array.isArray(task.custom_values?.['designer_ids'])) {
+            return task.custom_values['designer_ids'].map(Number).filter(Boolean);
+        }
+        if (Array.isArray(task.custom_values?.['person'])) {
+            return task.custom_values['person'].map(Number).filter(Boolean);
+        }
+        return task.assigned_to ? [task.assigned_to] : [];
+    }, [task]);
+
+    const handlePrimaryAssigneeChange = (newIds: number[]) => {
+        if (!task) return;
+        router.patch(
+            `/kanban/tasks/${task.id}`,
+            {
+                assigned_to: newIds[0] ?? null,
+                custom_values: {
+                    ...(task.custom_values || {}),
+                    designer_ids: newIds,
+                    person: newIds,
+                },
+            },
+            { preserveScroll: true },
+        );
     };
 
     const handleTitleBlur = () => {
@@ -255,39 +283,17 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 </div>
                             </div>
 
-                            {/* Assignee */}
+                            {/* Assignee / Designer */}
                             <div className="grid grid-cols-3 items-center">
                                 <Label className="text-muted-foreground font-medium">Assignee</Label>
                                 <div className="col-span-2">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <button className="border-border bg-background hover:bg-muted flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs font-semibold">
-                                                {task.assignee ? (
-                                                    <>
-                                                        <div className="bg-primary/20 text-primary flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold">
-                                                            {task.assignee.name.charAt(0)}
-                                                        </div>
-                                                        <span className="max-w-[130px] truncate">{task.assignee.name}</span>
-                                                    </>
-                                                ) : (
-                                                    <span className="text-muted-foreground flex items-center gap-1">
-                                                        <UserIcon className="h-3.5 w-3.5" />
-                                                        <span>Unassigned</span>
-                                                    </span>
-                                                )}
-                                            </button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent className="w-48 rounded-xl">
-                                            <DropdownMenuItem onClick={() => handleUpdateField('assigned_to', null)}>
-                                                <span className="text-muted-foreground">Unassigned</span>
-                                            </DropdownMenuItem>
-                                            {users.map((u) => (
-                                                <DropdownMenuItem key={u.id} onClick={() => handleUpdateField('assigned_to', u.id)}>
-                                                    <span>{u.name}</span>
-                                                </DropdownMenuItem>
-                                            ))}
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
+                                    <MultiPeoplePicker
+                                        selectedUserIds={primaryAssigneeIds}
+                                        users={users}
+                                        onChange={handlePrimaryAssigneeChange}
+                                        placeholder="Unassigned"
+                                        align="start"
+                                    />
                                 </div>
                             </div>
 
@@ -453,23 +459,24 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                 </Label>
                                                 <div className="sm:col-span-2">
                                                     {col.type === 'people' ? (
-                                                        <select
-                                                            defaultValue={customVal || ''}
-                                                            onChange={(e) =>
+                                                        <MultiPeoplePicker
+                                                            selectedUserIds={
+                                                                Array.isArray(customVal)
+                                                                    ? customVal.map(Number).filter(Boolean)
+                                                                    : typeof customVal === 'number' && customVal > 0
+                                                                      ? [customVal]
+                                                                      : []
+                                                            }
+                                                            users={users}
+                                                            onChange={(newIds) =>
                                                                 handleUpdateField('custom_values', {
                                                                     ...(task.custom_values || {}),
-                                                                    [col.key]: e.target.value ? Number(e.target.value) : null,
+                                                                    [col.key]: newIds,
                                                                 })
                                                             }
-                                                            className="border-border bg-background h-8 w-full rounded-xl border px-2.5 text-xs"
-                                                        >
-                                                            <option value="">Unassigned</option>
-                                                            {users.map((u) => (
-                                                                <option key={u.id} value={u.id}>
-                                                                    {u.name}
-                                                                </option>
-                                                            ))}
-                                                        </select>
+                                                            placeholder="Assign..."
+                                                            align="start"
+                                                        />
                                                     ) : col.type === 'long_text' ? (
                                                         <textarea
                                                             rows={2}
@@ -942,29 +949,140 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                             {/* 3. ACTIVITY LOG TAB */}
                             {activeCollabTab === 'activity' && (
                                 <div className="space-y-3">
-                                    <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-3 text-xs">
-                                        <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-emerald-500" />
-                                        <div>
-                                            <span className="text-foreground font-bold">Task Created</span>
-                                            <p className="text-muted-foreground text-[10px]">
-                                                Created by {task.creator?.name || 'System'} on {formatDate(task.created_at)}
-                                            </p>
-                                        </div>
-                                    </div>
+                                    {task.activities && task.activities.length > 0 ? (
+                                        <div className="space-y-2.5">
+                                            {task.activities.map((act) => {
+                                                const getBadgeColor = (type: string) => {
+                                                    switch (type) {
+                                                        case 'task_created':
+                                                            return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20';
+                                                        case 'status_changed':
+                                                            return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+                                                        case 'priority_changed':
+                                                            return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
+                                                        case 'assignee_changed':
+                                                        case 'people_assignment_changed':
+                                                            return 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20';
+                                                        case 'due_date_changed':
+                                                            return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+                                                        case 'progress_updated':
+                                                            return 'bg-teal-500/10 text-teal-600 border-teal-500/20';
+                                                        case 'subitem_created':
+                                                        case 'subitem_deleted':
+                                                            return 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20';
+                                                        case 'comment_added':
+                                                        case 'reply_added':
+                                                            return 'bg-sky-500/10 text-sky-600 border-sky-500/20';
+                                                        case 'attachment_uploaded':
+                                                        case 'attachment_deleted':
+                                                            return 'bg-rose-500/10 text-rose-600 border-rose-500/20';
+                                                        case 'dependency_added':
+                                                        case 'dependency_removed':
+                                                            return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
+                                                        default:
+                                                            return 'bg-muted text-muted-foreground border-border';
+                                                    }
+                                                };
 
-                                    {task.completed_at && (
-                                        <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-3 text-xs">
-                                            <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-blue-500" />
-                                            <div>
-                                                <span className="text-foreground font-bold">Task Completed</span>
-                                                <p className="text-muted-foreground text-[10px]">Completed on {formatDate(task.completed_at)}</p>
+                                                const getDotBg = (type: string) => {
+                                                    switch (type) {
+                                                        case 'task_created':
+                                                            return 'bg-emerald-500';
+                                                        case 'status_changed':
+                                                            return 'bg-blue-500';
+                                                        case 'priority_changed':
+                                                            return 'bg-purple-500';
+                                                        case 'assignee_changed':
+                                                        case 'people_assignment_changed':
+                                                            return 'bg-indigo-500';
+                                                        case 'due_date_changed':
+                                                            return 'bg-amber-500';
+                                                        case 'progress_updated':
+                                                            return 'bg-teal-500';
+                                                        case 'subitem_created':
+                                                        case 'subitem_deleted':
+                                                            return 'bg-cyan-500';
+                                                        case 'comment_added':
+                                                        case 'reply_added':
+                                                            return 'bg-sky-500';
+                                                        case 'attachment_uploaded':
+                                                        case 'attachment_deleted':
+                                                            return 'bg-rose-500';
+                                                        case 'dependency_added':
+                                                        case 'dependency_removed':
+                                                            return 'bg-orange-500';
+                                                        default:
+                                                            return 'bg-slate-500';
+                                                    }
+                                                };
+
+                                                return (
+                                                    <div
+                                                        key={act.id}
+                                                        className="bg-card border-border flex items-start gap-3 rounded-2xl border p-3 text-xs shadow-2xs transition-colors hover:border-primary/40"
+                                                    >
+                                                        <div className="mt-0.5 flex flex-col items-center">
+                                                            {act.user ? (
+                                                                <div className="bg-primary/20 text-primary flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black">
+                                                                    {act.user.name.charAt(0).toUpperCase()}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="bg-muted text-muted-foreground flex h-6 w-6 items-center justify-center rounded-full text-[9px] font-bold">
+                                                                    SYS
+                                                                </div>
+                                                            )}
+                                                            <div className={`mt-1.5 h-1.5 w-1.5 rounded-full ${getDotBg(act.event_type)}`} />
+                                                        </div>
+
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                                                                <span
+                                                                    className={`rounded-full border px-2 py-0.2 text-[9px] font-bold uppercase tracking-wider ${getBadgeColor(
+                                                                        act.event_type,
+                                                                    )}`}
+                                                                >
+                                                                    {act.event_type.replace(/_/g, ' ')}
+                                                                </span>
+                                                                <span className="text-muted-foreground text-[10px]">
+                                                                    {formatDate(act.created_at)}
+                                                                </span>
+                                                            </div>
+
+                                                            <p className="text-foreground text-xs leading-relaxed font-medium break-words">
+                                                                {act.description}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-3 text-xs">
+                                                <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-emerald-500" />
+                                                <div>
+                                                    <span className="text-foreground font-bold">Task Created</span>
+                                                    <p className="text-muted-foreground text-[10px]">
+                                                        Created by {task.creator?.name || 'System'} on {formatDate(task.created_at)}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {task.completed_at && (
+                                                <div className="bg-card border-border flex items-center gap-3 rounded-xl border p-3 text-xs">
+                                                    <div className="h-2.5 w-2.5 flex-shrink-0 rounded-full bg-blue-500" />
+                                                    <div>
+                                                        <span className="text-foreground font-bold">Task Completed</span>
+                                                        <p className="text-muted-foreground text-[10px]">Completed on {formatDate(task.completed_at)}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="bg-muted/20 border-border/50 text-muted-foreground rounded-xl border p-3 text-xs">
+                                                All task mutations, status moves, people assignments, deadlines, subitems, and comments are recorded in real time.
                                             </div>
                                         </div>
                                     )}
-
-                                    <div className="bg-muted/20 border-border/50 text-muted-foreground rounded-xl border p-3 text-xs">
-                                        Detailed relational audit events are tracked in the centralized Audit Log trail.
-                                    </div>
                                 </div>
                             )}
                         </div>

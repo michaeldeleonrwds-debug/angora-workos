@@ -5,6 +5,7 @@ import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, Mo
 import { useState } from 'react';
 import { BoardColumn, BoardGroup, KanbanColumn, Task, User } from '../types';
 import ConnectBoardsModal from './ConnectBoardsModal';
+import MultiPeoplePicker from './MultiPeoplePicker';
 import SubitemTable from './SubitemTable';
 
 interface TableRowProps {
@@ -249,19 +250,35 @@ export default function TableRow({
                 {boardColumns.map((col) => {
                     if (!col.is_visible) return null;
 
-                    // 1. People / Assignee Column
+                    // 1. People / Assignee Column (Multi-person support for Designer, AM, etc.)
                     if (col.type === 'people') {
                         const isMainAssigneeCol = col.key === 'person' || col.key === 'assigned_to';
-                        const assignedUserId = isMainAssigneeCol ? task.assigned_to : (task.custom_values?.[col.key] as number | null);
-                        const assignedUser = isMainAssigneeCol
-                            ? task.assignee
-                            : users.find((u) => u.id === assignedUserId);
+                        let currentIds: number[] = [];
+                        const customVal = task.custom_values?.[col.key];
 
-                        const onAssign = (userId: number | null) => {
+                        if (Array.isArray(customVal)) {
+                            currentIds = customVal.map(Number).filter(Boolean);
+                        } else if (typeof customVal === 'number' && customVal > 0) {
+                            currentIds = [customVal];
+                        } else if (isMainAssigneeCol) {
+                            if (Array.isArray(task.custom_values?.['designer_ids'])) {
+                                currentIds = task.custom_values['designer_ids'].map(Number).filter(Boolean);
+                            } else if (task.assigned_to) {
+                                currentIds = [task.assigned_to];
+                            }
+                        }
+
+                        const handlePeopleChange = (newIds: number[]) => {
                             if (isMainAssigneeCol) {
-                                handleUpdateAssignee(userId);
+                                router.patch(`/kanban/tasks/${task.id}`, {
+                                    assigned_to: newIds[0] ?? null,
+                                    custom_values: {
+                                        [col.key]: newIds,
+                                        designer_ids: newIds,
+                                    },
+                                });
                             } else {
-                                handleUpdateCustomValue(col.key, userId);
+                                handleUpdateCustomValue(col.key, newIds);
                             }
                         };
 
@@ -271,36 +288,13 @@ export default function TableRow({
                                 style={{ width: col.width || 140 }}
                                 className="border-border/40 flex flex-shrink-0 items-center justify-center border-r px-2 py-1.5"
                             >
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <button className="hover:bg-muted/70 flex items-center gap-1.5 rounded-lg p-1 transition-colors">
-                                            {assignedUser ? (
-                                                <div className="flex items-center gap-1.5">
-                                                    <div className="bg-primary/20 text-primary flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold">
-                                                        {assignedUser.name.charAt(0)}
-                                                    </div>
-                                                    <span className="max-w-[80px] truncate text-xs font-medium">
-                                                        {assignedUser.name.split(' ')[0]}
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <div className="border-border text-muted-foreground flex h-6 w-6 items-center justify-center rounded-full border border-dashed">
-                                                    <UserIcon className="h-3.5 w-3.5" />
-                                                </div>
-                                            )}
-                                        </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="center" className="w-44 rounded-xl">
-                                        <DropdownMenuItem onClick={() => onAssign(null)}>
-                                            <span className="text-muted-foreground">Unassigned</span>
-                                        </DropdownMenuItem>
-                                        {users.map((u) => (
-                                            <DropdownMenuItem key={u.id} onClick={() => onAssign(u.id)}>
-                                                <span>{u.name}</span>
-                                            </DropdownMenuItem>
-                                        ))}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <MultiPeoplePicker
+                                    selectedUserIds={currentIds}
+                                    users={users}
+                                    onChange={handlePeopleChange}
+                                    placeholder="Assign..."
+                                    align="center"
+                                />
                             </div>
                         );
                     }

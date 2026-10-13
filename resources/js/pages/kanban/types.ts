@@ -102,6 +102,21 @@ export interface TaskComment {
     replies?: TaskComment[];
 }
 
+export interface TaskActivity {
+    id: number;
+    task_id: number;
+    board_id: number;
+    user_id?: number | null;
+    event_type: string;
+    description: string;
+    field_name?: string | null;
+    old_value?: any;
+    new_value?: any;
+    metadata?: Record<string, any> | null;
+    created_at: string;
+    user?: User | null;
+}
+
 export interface Task {
     id: number;
     board_id: number;
@@ -139,6 +154,7 @@ export interface Task {
     comments?: TaskComment[];
     attachments?: TaskAttachment[];
     subitems?: Task[];
+    activities?: TaskActivity[];
     dependencies?: TaskDependency[];
     dependents?: TaskDependency[];
     outgoingRelationships?: BoardItemRelationship[];

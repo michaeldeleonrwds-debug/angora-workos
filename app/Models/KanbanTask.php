@@ -145,6 +145,11 @@ class KanbanTask extends Model
             ->with(['sourceBoard', 'sourceTask.column', 'sourceTask.assignee']);
     }
 
+    public function activities()
+    {
+        return $this->hasMany(TaskActivity::class, 'task_id')->with('user')->latest();
+    }
+
     public function reminders()
     {
         return $this->hasMany(TaskReminder::class, 'task_id');
