@@ -12,6 +12,7 @@ interface LoginForm {
     email: string;
     password: string;
     remember: boolean;
+    [key: string]: any;
 }
 
 interface TestAccount {

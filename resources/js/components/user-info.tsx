@@ -4,7 +4,8 @@ import { type User } from '@/types';
 
 export function UserInfo({ user, showEmail = false }: { user: User; showEmail?: boolean }) {
     const getInitials = useInitials();
-    const roleLabel = user.role ? user.role.replace('_', ' ') : 'Team Member';
+    const roleString = typeof user.role === 'string' ? user.role : '';
+    const roleLabel = roleString ? roleString.replace('_', ' ') : 'Team Member';
 
     return (
         <>

@@ -38,9 +38,15 @@ class BoardPolicy
             return false;
         }
 
-        // If private board, must be creator or workspace owner/admin
+        // If private board, must be creator, workspace owner/admin, or explicitly invited in board settings/members
         if ($board->visibility === 'private') {
             if ($board->created_by === $user->id || $workspace->owner_id === $user->id) {
+                return true;
+            }
+
+            // Check if explicitly invited via board settings['invited_user_ids'] or settings['members']
+            $invitedUserIds = $board->settings['invited_user_ids'] ?? $board->settings['member_ids'] ?? [];
+            if (is_array($invitedUserIds) && in_array($user->id, $invitedUserIds, false)) {
                 return true;
             }
 

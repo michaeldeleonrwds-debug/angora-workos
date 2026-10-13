@@ -125,6 +125,7 @@ export interface Task {
     is_personal?: boolean;
     completed_at?: string | null;
     created_at?: string;
+    creator?: User | null;
     assignee?: User | null;
     column?: KanbanColumn;
     group?: BoardGroup;

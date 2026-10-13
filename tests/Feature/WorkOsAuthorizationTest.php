@@ -198,4 +198,84 @@ class WorkOsAuthorizationTest extends TestCase
         ])->assertSessionHas('success');
         $this->assertEquals('Admin Updated Task', $this->taskA->fresh()->title);
     }
+
+    public function test_private_board_supports_explicitly_invited_members(): void
+    {
+        // Private board created in Workspace A
+        $privateBoard = KanbanBoard::create([
+            'workspace_id' => $this->workspaceA->id,
+            'title' => 'Executive Confidential',
+            'visibility' => 'private',
+            'created_by' => $this->userA->id,
+            'settings' => [
+                'invited_user_ids' => [$this->userB->id],
+            ],
+        ]);
+
+        // User B joins Workspace A as a regular member
+        WorkspaceMember::create([
+            'workspace_id' => $this->workspaceA->id,
+            'user_id' => $this->userB->id,
+            'role' => 'member',
+        ]);
+
+        // User B is explicitly invited via settings.invited_user_ids -> can view
+        $this->assertTrue($this->userB->can('view', $privateBoard));
+
+        // Create User C who is in workspace but NOT invited to private board
+        $userC = User::factory()->create(['role' => 'developer']);
+        WorkspaceMember::create([
+            'workspace_id' => $this->workspaceA->id,
+            'user_id' => $userC->id,
+            'role' => 'member',
+        ]);
+
+        // User C cannot view the private board
+        $this->assertFalse($userC->can('view', $privateBoard));
+    }
+
+    public function test_guest_freelancer_scoped_permissions(): void
+    {
+        $guest = User::factory()->create([
+            'name' => 'Freelancer Dev',
+            'role' => 'guest',
+        ]);
+
+        // Add guest to workspace as viewer
+        WorkspaceMember::create([
+            'workspace_id' => $this->workspaceA->id,
+            'user_id' => $guest->id,
+            'role' => 'viewer',
+        ]);
+
+        // Guest cannot create workspace or boards
+        $this->assertFalse($guest->can('create', Workspace::class));
+        $this->assertFalse($guest->can('create', [KanbanBoard::class, $this->workspaceA]));
+
+        // Guest cannot update unassigned task
+        $this->assertFalse($guest->can('update', $this->taskA));
+
+        // Assign task to guest -> guest can now update their assigned task
+        $this->taskA->update(['assigned_to' => $guest->id]);
+        $this->assertTrue($guest->fresh()->can('update', $this->taskA));
+    }
+
+    public function test_client_account_isolated_from_unauthorized_internal_resources(): void
+    {
+        $client = User::factory()->create([
+            'name' => 'Acme Client User',
+            'role' => 'client',
+        ]);
+
+        // Client cannot create workspaces
+        $this->assertFalse($client->can('create', Workspace::class));
+
+        // Client cannot view Workspace A where they are not a member
+        $this->assertFalse($client->can('view', $this->workspaceA));
+
+        // Client cannot view or mutate Board A or Task A
+        $this->assertFalse($client->can('view', $this->boardA));
+        $this->assertFalse($client->can('update', $this->taskA));
+        $this->assertFalse($client->can('delete', $this->taskA));
+    }
 }
