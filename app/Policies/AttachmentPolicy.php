@@ -8,10 +8,14 @@ use App\Models\User;
 class AttachmentPolicy
 {
     /**
-     * Perform pre-authorization checks. Super admin can do anything.
+     * Perform pre-authorization checks. Super admin can do anything if active.
      */
     public function before(User $user, string $ability): ?bool
     {
+        if ($user->status === 'inactive' || $user->status === 'suspended') {
+            return false;
+        }
+
         if ($user->isSuperAdmin()) {
             return true;
         }

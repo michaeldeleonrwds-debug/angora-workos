@@ -7,6 +7,7 @@ use App\Models\AutomationExecution;
 use App\Models\BoardAutomation;
 use App\Models\BoardColumn;
 use App\Models\BoardGroup;
+use App\Models\BoardMember;
 use App\Models\BoardView;
 use App\Models\KanbanAttachment;
 use App\Models\KanbanBoard;
@@ -171,6 +172,8 @@ class KanbanController extends Controller
                 'groups.tasks.outgoingRelationships.targetTask.assignee',
                 'boardColumns',
                 'views',
+                'members.user',
+                'users',
                 'automations.creator',
                 'automationExecutions.triggeredBy',
                 'automationExecutions.task',
@@ -434,6 +437,49 @@ class KanbanController extends Controller
 
         return redirect()->route('kanban.index', ['workspace' => $workspaceId])
             ->with('success', 'Board deleted successfully');
+    }
+
+    public function addBoardMember(Request $request, KanbanBoard $board)
+    {
+        Gate::authorize('manageMembers', $board);
+
+        $validated = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'role' => 'required|in:owner,admin,editor,viewer,guest',
+        ]);
+
+        BoardMember::updateOrCreate(
+            ['board_id' => $board->id, 'user_id' => $validated['user_id']],
+            ['role' => $validated['role']]
+        );
+
+        return back()->with('success', 'Member added to board');
+    }
+
+    public function removeBoardMember(KanbanBoard $board, BoardMember $member)
+    {
+        Gate::authorize('manageMembers', $board);
+
+        if ($member->board_id === $board->id && $member->role !== 'owner') {
+            $member->delete();
+        }
+
+        return back()->with('success', 'Member removed from board');
+    }
+
+    public function updateBoardMemberRole(Request $request, KanbanBoard $board, BoardMember $member)
+    {
+        Gate::authorize('manageMembers', $board);
+
+        $validated = $request->validate([
+            'role' => 'required|in:owner,admin,editor,viewer,guest',
+        ]);
+
+        if ($member->board_id === $board->id && $member->role !== 'owner') {
+            $member->update(['role' => $validated['role']]);
+        }
+
+        return back()->with('success', 'Board member role updated');
     }
 
     // --- Workflow Stages (Kanban Columns) Management ---

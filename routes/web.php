@@ -38,6 +38,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/kanban/boards/{board}/duplicate', [KanbanController::class, 'duplicateBoard'])->name('kanban.boards.duplicate');
     Route::delete('/kanban/boards/{board}', [KanbanController::class, 'deleteBoard'])->name('kanban.boards.delete');
     Route::post('/kanban/boards/{board}/favorite', [KanbanController::class, 'toggleBoardFavorite'])->name('kanban.boards.favorite');
+    Route::post('/kanban/boards/{board}/members', [KanbanController::class, 'addBoardMember'])->name('kanban.boards.members.store');
+    Route::delete('/kanban/boards/{board}/members/{member}', [KanbanController::class, 'removeBoardMember'])->name('kanban.boards.members.delete');
+    Route::patch('/kanban/boards/{board}/members/{member}', [KanbanController::class, 'updateBoardMemberRole'])->name('kanban.boards.members.update');
 
     // Board Groups
     Route::post('/kanban/boards/{board}/groups', [KanbanController::class, 'storeGroup'])->name('kanban.groups.store');
@@ -98,7 +101,23 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/kanban/automations/{automation}/duplicate', [KanbanController::class, 'duplicateAutomation'])->name('kanban.automations.duplicate');
     Route::delete('/kanban/automations/{automation}', [KanbanController::class, 'deleteAutomation'])->name('kanban.automations.delete');
     Route::post('/kanban/automations/{automation}/test', [KanbanController::class, 'testAutomation'])->name('kanban.automations.test');
+
+    // 2. User Management & Administrative Operations
+    Route::get('/users', [\App\Http\Controllers\UserController::class, 'index'])->name('users.index');
+    Route::post('/users', [\App\Http\Controllers\UserController::class, 'store'])->name('users.store');
+    Route::match(['put', 'patch'], '/users/{user}', [\App\Http\Controllers\UserController::class, 'update'])->name('users.update');
+    Route::match(['post', 'patch'], '/users/{user}/status', [\App\Http\Controllers\UserController::class, 'toggleStatus'])->name('users.status');
+    Route::delete('/users/{user}', [\App\Http\Controllers\UserController::class, 'destroy'])->name('users.destroy');
+
+    // Invitations Admin
+    Route::post('/users/invite', [\App\Http\Controllers\UserController::class, 'invite'])->name('users.invite');
+    Route::post('/users/invitations/{invitation}/resend', [\App\Http\Controllers\UserController::class, 'resendInvitation'])->name('users.invitations.resend');
+    Route::delete('/users/invitations/{invitation}', [\App\Http\Controllers\UserController::class, 'revokeInvitation'])->name('users.invitations.revoke');
 });
+
+// Public Invitation Acceptance Routes (Guests & New Teammates)
+Route::get('/invitations/{token}', [\App\Http\Controllers\Auth\InvitationRedemptionController::class, 'show'])->name('invitations.show');
+Route::post('/invitations/{token}', [\App\Http\Controllers\Auth\InvitationRedemptionController::class, 'accept'])->name('invitations.accept');
 
 require __DIR__.'/settings.php';
 require __DIR__.'/auth.php';

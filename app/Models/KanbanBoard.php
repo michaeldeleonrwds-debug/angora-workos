@@ -38,6 +38,16 @@ class KanbanBoard extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function members()
+    {
+        return $this->hasMany(BoardMember::class, 'board_id');
+    }
+
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'board_members', 'board_id', 'user_id')->withPivot('role')->withTimestamps();
+    }
+
     public function columns()
     {
         return $this->hasMany(KanbanColumn::class, 'board_id')->orderBy('position');

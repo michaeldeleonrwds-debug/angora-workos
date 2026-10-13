@@ -8,10 +8,14 @@ use App\Models\Workspace;
 class WorkspacePolicy
 {
     /**
-     * Perform pre-authorization checks. Super admin can do anything.
+     * Perform pre-authorization checks. Super admin can do anything if active.
      */
     public function before(User $user, string $ability): ?bool
     {
+        if ($user->status === 'inactive' || $user->status === 'suspended') {
+            return false;
+        }
+
         if ($user->isSuperAdmin()) {
             return true;
         }
@@ -44,7 +48,7 @@ class WorkspacePolicy
      */
     public function create(User $user): bool
     {
-        return !in_array($user->role, ['client', 'guest'], true);
+        return in_array($user->role, ['super_admin', 'admin', 'project_manager', 'account_manager'], true);
     }
 
     /**
