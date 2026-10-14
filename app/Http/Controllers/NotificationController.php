@@ -16,7 +16,7 @@ class NotificationController extends Controller
     {
         $user = $request->user();
 
-        $query = SystemNotification::with('actor:id,name,email,avatar')
+        $query = SystemNotification::with('actor:id,name,email,avatar,avatar_url')
             ->where('user_id', $user->id);
 
         if ($request->query('tab') === 'unread') {

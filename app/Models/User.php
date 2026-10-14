@@ -25,6 +25,7 @@ class User extends Authenticatable
         'department',
         'phone',
         'avatar_url',
+        'avatar',
         'status',
         'timezone',
     ];
@@ -50,6 +51,28 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function getAvatarAttribute(?string $value): ?string
+    {
+        return $value ?? $this->avatar_url;
+    }
+
+    public function getAvatarUrlAttribute(?string $value): ?string
+    {
+        return $value ?? $this->attributes['avatar'] ?? null;
+    }
+
+    public function setAvatarAttribute(?string $value): void
+    {
+        $this->attributes['avatar'] = $value;
+        $this->attributes['avatar_url'] = $value;
+    }
+
+    public function setAvatarUrlAttribute(?string $value): void
+    {
+        $this->attributes['avatar_url'] = $value;
+        $this->attributes['avatar'] = $value;
     }
 
     public function hasRole(string|array $roles): bool

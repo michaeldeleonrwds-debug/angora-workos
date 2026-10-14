@@ -75,7 +75,7 @@ class DashboardController extends Controller
 
         // Recent Tasks
         $recentTasks = (clone $taskQuery)
-            ->with(['board:id,title', 'column:id,title,color', 'group:id,title,color', 'assignee:id,name,email,avatar'])
+            ->with(['board:id,title', 'column:id,title,color', 'group:id,title,color', 'assignee:id,name,email,avatar,avatar_url'])
             ->latest('updated_at')
             ->take(8)
             ->get();
@@ -117,7 +117,7 @@ class DashboardController extends Controller
         // Team Workload Analytics (active assignees with task counts)
         $teamMembers = User::where('status', 'active')
             ->whereIn('role', ['dept_user', 'project_manager', 'account_manager', 'admin'])
-            ->select('id', 'name', 'email', 'avatar', 'role', 'department')
+            ->select('id', 'name', 'email', 'avatar', 'avatar_url', 'role', 'department')
             ->get()
             ->map(function ($member) use ($taskQuery) {
                 $memberTaskQuery = (clone $taskQuery)->where('assigned_to', $member->id);

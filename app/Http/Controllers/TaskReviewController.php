@@ -121,7 +121,7 @@ class TaskReviewController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Round {$roundNumber} submitted for review.",
-            'cycle' => $cycle->load(['submitter:id,name,email,avatar', 'decisions.reviewer:id,name,email,avatar']),
+            'cycle' => $cycle->load(['submitter:id,name,email,avatar,avatar_url', 'decisions.reviewer:id,name,email,avatar,avatar_url']),
             'task' => $task->fresh(['column', 'group']),
         ]);
     }
@@ -244,8 +244,8 @@ class TaskReviewController extends Controller
         return response()->json([
             'success' => true,
             'message' => $validated['decision'] === 'approved' ? "Round {$cycle->round_number} approved!" : "Revision requested for Round {$cycle->round_number}.",
-            'decision' => $decision->load('reviewer:id,name,email,avatar'),
-            'cycle' => $cycle->fresh(['submitter:id,name,email,avatar', 'decisions.reviewer:id,name,email,avatar']),
+            'decision' => $decision->load('reviewer:id,name,email,avatar,avatar_url'),
+            'cycle' => $cycle->fresh(['submitter:id,name,email,avatar,avatar_url', 'decisions.reviewer:id,name,email,avatar,avatar_url']),
             'task' => $task->fresh(['column', 'group']),
         ]);
     }

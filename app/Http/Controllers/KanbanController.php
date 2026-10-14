@@ -1921,7 +1921,7 @@ class KanbanController extends Controller
         }
 
         // Get unread notifications
-        $notifications = \App\Models\SystemNotification::with('actor:id,name,avatar')
+        $notifications = \App\Models\SystemNotification::with('actor:id,name,avatar,avatar_url')
             ->where('user_id', $user->id)
             ->where('is_read', false)
             ->latest()

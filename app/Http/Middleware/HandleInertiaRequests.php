@@ -82,7 +82,7 @@ class HandleInertiaRequests extends Middleware
                 ]) : null,
             ],
             'unreadNotificationsCount' => $user ? \App\Models\SystemNotification::where('user_id', $user->id)->where('is_read', false)->count() : 0,
-            'recentNotifications' => $user ? \App\Models\SystemNotification::with('actor:id,name,avatar')->where('user_id', $user->id)->latest()->take(10)->get() : [],
+            'recentNotifications' => $user ? \App\Models\SystemNotification::with('actor:id,name,avatar,avatar_url')->where('user_id', $user->id)->latest()->take(10)->get() : [],
             'availablePersonas' => \App\Models\User::select('id', 'name', 'email', 'role', 'department')->orderBy('id')->get(),
             'userWorkspaces' => $userWorkspaces,
             'activeWorkspaceId' => $activeWorkspaceId,
