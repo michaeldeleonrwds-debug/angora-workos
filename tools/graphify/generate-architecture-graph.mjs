@@ -33,20 +33,27 @@ function addNode(id, label, type, file, metadata = {}) {
     nodes.set(id, {
       id,
       label,
-      type, // 'controller' | 'policy' | 'model' | 'route' | 'component' | 'test' | 'doc'
+      type, // 'controller' | 'policy' | 'service' | 'model' | 'route' | 'component' | 'test' | 'doc'
       file: file ? path.relative(rootDir, file).replace(/\\/g, '/') : null,
       ...metadata,
     });
+  } else if (file && !nodes.get(id).file) {
+    nodes.get(id).file = path.relative(rootDir, file).replace(/\\/g, '/');
   }
 }
 
 function addEdge(source, target, relationship, details = {}) {
-  edges.push({
-    source,
-    target,
-    relationship, // 'authorizes' | 'routes_to' | 'renders' | 'imports' | 'tests' | 'queries'
-    ...details,
-  });
+  const exists = edges.some(
+    e => e.source === source && e.target === target && e.relationship === relationship
+  );
+  if (!exists) {
+    edges.push({
+      source,
+      target,
+      relationship,
+      ...details,
+    });
+  }
 }
 
 // 1. Scan Routes from routes/web.php
@@ -55,51 +62,122 @@ if (fs.existsSync(routesFile)) {
   const content = fs.readFileSync(routesFile, 'utf8');
   addNode('routes:web', 'routes/web.php', 'route', routesFile);
 
-  const routeMatches = content.matchAll(/Route::(get|post|patch|put|delete)\(['"]([^'"]+)['"],\s*\[([^:]+)::class,\s*['"]([^'"]+)['"]\]\)(?:->name\(['"]([^'"]+)['"]\))?/g);
+  const routeMatches = content.matchAll(
+    /Route::(get|post|patch|put|delete)\(['"]([^'"]+)['"],\s*\[([^:]+)::class,\s*['"]([^'"]+)['"]\]\)(?:->name\(['"]([^'"]+)['"]\))?/g
+  );
   for (const match of routeMatches) {
     const [_, method, uri, controllerShort, action, name] = match;
     const routeId = `route:${method.toUpperCase()}:${uri}`;
-    addNode(routeId, `${method.toUpperCase()} ${uri}`, 'route', routesFile, { method, uri, name, action });
+    addNode(routeId, `${method.toUpperCase()} ${uri}`, 'route', routesFile, {
+      method,
+      uri,
+      name,
+      action,
+    });
     const controllerId = `controller:${controllerShort}`;
     addNode(controllerId, controllerShort, 'controller', null);
     addEdge(routeId, controllerId, 'routes_to', { action });
   }
 }
 
-// 2. Scan Controllers
+// 2. Scan Controllers in app/Http/Controllers
 const controllersDir = path.join(rootDir, 'app/Http/Controllers');
-if (fs.existsSync(controllersDir)) {
-  const files = fs.readdirSync(controllersDir);
-  for (const file of files) {
-    if (file.endsWith('.php')) {
-      const fullPath = path.join(controllersDir, file);
-      const name = file.replace('.php', '');
+function scanControllers(dir) {
+  if (!fs.existsSync(dir)) return;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      scanControllers(fullPath);
+    } else if (entry.name.endsWith('.php')) {
+      const name = entry.name.replace('.php', '');
       const controllerId = `controller:${name}`;
       const content = fs.readFileSync(fullPath, 'utf8');
 
       addNode(controllerId, name, 'controller', fullPath);
 
-      // Check policy authorization calls
-      const authMatches = content.matchAll(/\$this->authorize\(['"]([^'"]+)['"],\s*(?:\[)?([^\]\);]+)/g);
+      // Check Gate::authorize or $this->authorize
+      const authMatches = content.matchAll(
+        /(?:Gate::authorize|\$this->authorize)\(['"]([^'"]+)['"],\s*(?:\[)?([^\]\);]+)/g
+      );
       for (const m of authMatches) {
         const ability = m[1];
         const target = m[2].trim();
-        addEdge(controllerId, `policy_ability:${ability}`, 'authorizes_with', { ability, target });
+        addEdge(controllerId, `policy_ability:${ability}`, 'authorizes_with', {
+          ability,
+          target,
+        });
       }
 
       // Check Inertia renders
       const renderMatches = content.matchAll(/Inertia::render\(['"]([^'"]+)['"]/g);
       for (const m of renderMatches) {
         const page = m[1];
-        const pageId = `component:pages/${page}`;
-        addNode(pageId, page, 'component', null);
+        const pageCompName = path.basename(page);
+        const pageId = `component:${pageCompName}`;
+        addNode(pageId, pageCompName, 'component', null, { page });
         addEdge(controllerId, pageId, 'renders', { page });
+      }
+
+      // Check Services used
+      const serviceMatches = content.matchAll(/([A-Z][a-zA-Z0-9]+Service)/g);
+      for (const sm of serviceMatches) {
+        const sName = sm[1];
+        addEdge(controllerId, `service:${sName}`, 'calls_service');
+      }
+
+      // Check Models used
+      const modelMatches = content.matchAll(/([A-Z][a-zA-Z0-9]+)::(?:query|where|find|create)/g);
+      for (const mm of modelMatches) {
+        const mName = mm[1];
+        if (!['Inertia', 'Gate', 'Route', 'DB', 'Log', 'Carbon', 'Auth', 'Redirect'].includes(mName)) {
+          addEdge(controllerId, `model:${mName}`, 'queries_model');
+        }
       }
     }
   }
 }
+scanControllers(controllersDir);
 
-// 3. Scan Policies
+// 3. Scan Services in app/Services
+const servicesDir = path.join(rootDir, 'app/Services');
+function scanServices(dir) {
+  if (!fs.existsSync(dir)) return;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      scanServices(fullPath);
+    } else if (entry.name.endsWith('.php')) {
+      const name = entry.name.replace('.php', '');
+      const serviceId = `service:${name}`;
+      const content = fs.readFileSync(fullPath, 'utf8');
+
+      addNode(serviceId, name, 'service', fullPath);
+
+      // Check methods
+      const methodMatches = content.matchAll(/public function ([a-zA-Z0-9_]+)\s*\(/g);
+      for (const mm of methodMatches) {
+        const methodName = mm[1];
+        if (methodName !== '__construct') {
+          addEdge(serviceId, `service_method:${name}::${methodName}`, 'defines_method', { method: methodName });
+        }
+      }
+
+      // Check model references
+      const modelMatches = content.matchAll(/([A-Z][a-zA-Z0-9]+)::(?:query|where|find|create)/g);
+      for (const mm of modelMatches) {
+        const mName = mm[1];
+        if (!['Inertia', 'Gate', 'Route', 'DB', 'Log', 'Carbon', 'Auth', 'Redirect'].includes(mName)) {
+          addEdge(serviceId, `model:${mName}`, 'uses_model');
+        }
+      }
+    }
+  }
+}
+scanServices(servicesDir);
+
+// 4. Scan Policies in app/Policies
 const policiesDir = path.join(rootDir, 'app/Policies');
 if (fs.existsSync(policiesDir)) {
   const files = fs.readdirSync(policiesDir);
@@ -116,8 +194,11 @@ if (fs.existsSync(policiesDir)) {
       for (const m of methodMatches) {
         const ability = m[1];
         if (ability !== '__construct') {
-          const abilityId = `policy_ability:${ability}`;
-          addNode(abilityId, `${name}::${ability}`, 'policy_ability', fullPath, { ability, policy: name });
+          const abilityId = `policy_ability:${name}::${ability}`;
+          addNode(abilityId, `${name}::${ability}`, 'policy_ability', fullPath, {
+            ability,
+            policy: name,
+          });
           addEdge(policyId, abilityId, 'defines_ability', { ability });
         }
       }
@@ -125,7 +206,7 @@ if (fs.existsSync(policiesDir)) {
   }
 }
 
-// 4. Scan Models
+// 5. Scan Models in app/Models
 const modelsDir = path.join(rootDir, 'app/Models');
 if (fs.existsSync(modelsDir)) {
   const files = fs.readdirSync(modelsDir);
@@ -139,17 +220,17 @@ if (fs.existsSync(modelsDir)) {
   }
 }
 
-// 5. Scan React Kanban Components
-const kanbanDir = path.join(rootDir, 'resources/js/pages/kanban');
-function scanDir(dir) {
+// 6. Scan React Components in resources/js (pages and components)
+function scanComponents(dir) {
   if (!fs.existsSync(dir)) return;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      scanDir(full);
+      if (entry.name !== 'node_modules' && entry.name !== 'vendor') {
+        scanComponents(full);
+      }
     } else if (entry.name.endsWith('.tsx') || entry.name.endsWith('.ts')) {
-      const rel = path.relative(rootDir, full).replace(/\\/g, '/');
       const compName = entry.name.replace(/\.(tsx|ts)$/, '');
       const compId = `component:${compName}`;
       const content = fs.readFileSync(full, 'utf8');
@@ -157,27 +238,37 @@ function scanDir(dir) {
       addNode(compId, compName, 'component', full);
 
       // Check imports
-      const importMatches = content.matchAll(/import\s+(?:\{[^}]+\}|\* as [^;]+|[a-zA-Z0-9_]+)\s+from\s+['"]([^'"]+)['"]/g);
+      const importMatches = content.matchAll(
+        /import\s+(?:\{[^}]+\}|\* as [^;]+|[a-zA-Z0-9_]+)\s+from\s+['"]([^'"]+)['"]/g
+      );
       for (const m of importMatches) {
         const imp = m[1];
-        if (imp.startsWith('./') || imp.startsWith('../')) {
+        if (imp.startsWith('./') || imp.startsWith('../') || imp.startsWith('@/')) {
           const targetName = path.basename(imp).replace(/\.(tsx|ts)$/, '');
-          if (targetName) {
+          if (targetName && targetName !== compName) {
             addEdge(compId, `component:${targetName}`, 'imports');
           }
         }
       }
+
+      // Check API / Route calls in component
+      const routeMatches = content.matchAll(/['"`](\/kanban[a-zA-Z0-9_\-\/]*|\/dashboard|\/users|\/settings[a-zA-Z0-9_\-\/]*)['"`]/g);
+      for (const rm of routeMatches) {
+        const uri = rm[1];
+        addEdge(compId, `route:CALL:${uri}`, 'calls_route', { uri });
+      }
     }
   }
 }
-scanDir(kanbanDir);
+scanComponents(path.join(rootDir, 'resources/js/pages'));
+scanComponents(path.join(rootDir, 'resources/js/components'));
 
-// 6. Scan Test Suites
+// 7. Scan Test Suites in tests/Feature
 const testsDir = path.join(rootDir, 'tests/Feature');
 if (fs.existsSync(testsDir)) {
   const files = fs.readdirSync(testsDir);
   for (const file of files) {
-    if (file.startsWith('WorkOs') && file.endsWith('.php')) {
+    if (file.endsWith('.php')) {
       const fullPath = path.join(testsDir, file);
       const name = file.replace('.php', '');
       const testId = `test:${name}`;
@@ -185,28 +276,203 @@ if (fs.existsSync(testsDir)) {
 
       addNode(testId, name, 'test', fullPath);
 
-      // Test checks for policies or routes
-      if (content.includes('TaskPolicy') || content.includes('canEditTask') || content.includes('canMoveAssignedTask')) {
+      // Check policies tested
+      const policyMatches = content.matchAll(/([A-Z][a-zA-Z0-9]+Policy)/g);
+      for (const pm of policyMatches) {
+        addEdge(testId, `policy:${pm[1]}`, 'tests');
+      }
+
+      // Check services tested
+      const serviceMatches = content.matchAll(/([A-Z][a-zA-Z0-9]+Service)/g);
+      for (const sm of serviceMatches) {
+        addEdge(testId, `service:${sm[1]}`, 'tests');
+      }
+
+      // Check controllers / routes exercised
+      if (content.includes('/kanban')) {
+        addEdge(testId, 'controller:KanbanController', 'tests');
+      }
+      if (content.includes('/dashboard')) {
+        addEdge(testId, 'controller:DashboardController', 'tests');
+      }
+      if (content.includes('/users')) {
+        addEdge(testId, 'controller:UserController', 'tests');
+      }
+
+      // Semantic RBAC security test mappings
+      if (name.includes('Rbac') || name.includes('Security') || name.includes('EmployeeTaskMovement') || name.includes('RoleAware')) {
+        addEdge(testId, 'policy:TaskPolicy', 'tests');
+        addEdge(testId, 'policy:BoardPolicy', 'tests');
+        addEdge(testId, 'policy:WorkspacePolicy', 'tests');
+        addEdge(testId, 'service:WorkOsPermissionService', 'tests');
+      }
+
+      if (name.includes('EmployeeTaskModal')) {
+        addEdge(testId, 'component:EmployeeTaskPanel', 'tests');
+        addEdge(testId, 'component:ItemDetailDrawer', 'tests');
+        addEdge(testId, 'service:WorkOsPermissionService', 'tests');
         addEdge(testId, 'policy:TaskPolicy', 'tests');
       }
-      if (content.includes('BoardPolicy')) {
-        addEdge(testId, 'policy:BoardPolicy', 'tests');
-      }
+
+      // Check RBAC roles tested
       if (content.includes('designer')) {
         addEdge(testId, 'role:designer', 'audits_role', { role: 'designer' });
+      }
+      if (content.includes('project_manager')) {
+        addEdge(testId, 'role:project_manager', 'audits_role', { role: 'project_manager' });
       }
     }
   }
 }
 
-// 7. Communities / Logical Subsystems
+// 8. Explicit High-Value Architecture Connections
+// KanbanController connects to Policies, PermissionService, Models, and Views
+addEdge('controller:KanbanController', 'policy:TaskPolicy', 'authorizes_with');
+addEdge('controller:KanbanController', 'policy:BoardPolicy', 'authorizes_with');
+addEdge('controller:KanbanController', 'service:WorkOsPermissionService', 'calls_service');
+addEdge('controller:KanbanController', 'model:KanbanTask', 'queries_model');
+addEdge('controller:KanbanController', 'model:KanbanBoard', 'queries_model');
+addEdge('controller:KanbanController', 'component:index', 'renders');
+
+// DashboardController connects to PermissionService, Models, and Dashboard component
+addEdge('controller:DashboardController', 'component:dashboard', 'renders');
+addEdge('controller:DashboardController', 'service:WorkOsPermissionService', 'calls_service');
+addEdge('controller:DashboardController', 'model:KanbanTask', 'queries_model');
+addEdge('controller:DashboardController', 'model:KanbanBoard', 'queries_model');
+
+// WorkOsPermissionService connects to Policies and Models
+addEdge('service:WorkOsPermissionService', 'policy:TaskPolicy', 'implements_policy');
+addEdge('service:WorkOsPermissionService', 'policy:BoardPolicy', 'implements_policy');
+addEdge('service:WorkOsPermissionService', 'policy:WorkspacePolicy', 'implements_policy');
+addEdge('service:WorkOsPermissionService', 'model:KanbanTask', 'authorizes_model');
+addEdge('service:WorkOsPermissionService', 'model:KanbanBoard', 'authorizes_model');
+
+// Frontend components consume WorkOsPermissionService permissions
+addEdge('component:BoardUnifiedHeader', 'service:WorkOsPermissionService', 'consumes_permissions');
+addEdge('component:TableView', 'service:WorkOsPermissionService', 'consumes_permissions');
+addEdge('component:TableRow', 'service:WorkOsPermissionService', 'consumes_permissions');
+addEdge('component:KanbanBoardView', 'service:WorkOsPermissionService', 'consumes_permissions');
+addEdge('component:ItemDetailDrawer', 'service:WorkOsPermissionService', 'consumes_permissions');
+addEdge('component:EmployeeTaskPanel', 'service:WorkOsPermissionService', 'consumes_permissions');
+addEdge('component:dashboard', 'service:WorkOsPermissionService', 'consumes_permissions');
+addEdge('component:app-sidebar', 'service:WorkOsPermissionService', 'consumes_permissions');
+
+// Kanban components hierarchy
+addEdge('component:index', 'component:BoardUnifiedHeader', 'imports');
+addEdge('component:index', 'component:TableView', 'imports');
+addEdge('component:index', 'component:KanbanBoardView', 'imports');
+addEdge('component:index', 'component:ItemDetailDrawer', 'imports');
+addEdge('component:TableView', 'component:TableRow', 'imports');
+addEdge('component:ItemDetailDrawer', 'component:EmployeeTaskPanel', 'imports');
+
+// 9. Scan Obsidian Architecture Notes in docs/ai-knowledge
+const docsDir = path.join(rootDir, 'docs/ai-knowledge');
+if (fs.existsSync(docsDir)) {
+  const files = fs.readdirSync(docsDir);
+  for (const file of files) {
+    if (file.endsWith('.md')) {
+      const fullPath = path.join(docsDir, file);
+      const docName = file.replace('.md', '');
+      const docId = `doc:${docName}`;
+      addNode(docId, docName, 'doc', fullPath);
+
+      if (file.includes('RBAC') || file.includes('SECURITY')) {
+        addEdge(docId, 'cluster:rbac', 'documents');
+        addEdge(docId, 'service:WorkOsPermissionService', 'documents');
+        addEdge(docId, 'policy:TaskPolicy', 'documents');
+      } else if (file.includes('KANBAN')) {
+        addEdge(docId, 'cluster:kanban', 'documents');
+        addEdge(docId, 'controller:KanbanController', 'documents');
+      } else if (file.includes('FRONTEND')) {
+        addEdge(docId, 'cluster:frontend', 'documents');
+      }
+    }
+  }
+}
+
+// 10. Communities / Logical Subsystems
 const clusters = [
-  { id: 'rbac', label: 'RBAC & Authorization Engine', nodes: ['policy:TaskPolicy', 'policy:BoardPolicy', 'policy:TaskReviewPolicy', 'test:WorkOsRbacSecurityAuditTest', 'test:WorkOsEmployeeTaskMovementTest', 'test:WorkOsEmployeeTaskModalTest'] },
-  { id: 'kanban', label: 'Kanban Core & Canvas', nodes: ['controller:KanbanController', 'model:KanbanTask', 'model:KanbanColumn', 'model:BoardGroup', 'component:TableView', 'component:KanbanBoardView', 'component:BoardUnifiedHeader'] },
-  { id: 'task_modal', label: 'Task Details & Employee Panel', nodes: ['component:ItemDetailDrawer', 'component:EmployeeTaskPanel', 'component:SubitemTable'] },
-  { id: 'reviews', label: 'Review & Approval Workflow', nodes: ['controller:TaskReviewController', 'model:TaskReviewCycle', 'policy:TaskReviewPolicy'] },
-  { id: 'workload', label: 'Workload & Capacity Analytics', nodes: ['controller:WorkloadCapacityController', 'component:WorkloadView', 'test:WorkOsPhase5WorkloadCapacityTest'] },
-  { id: 'dependencies', label: 'Dependencies & Recurrence', nodes: ['model:TaskDependency', 'model:TaskRecurrenceRule', 'test:WorkOsPhase5TaskDependenciesTest', 'test:WorkOsPhase5TaskRecurrenceTest'] },
+  {
+    id: 'rbac',
+    label: 'RBAC & Authorization Engine',
+    nodes: [
+      'policy:TaskPolicy',
+      'policy:BoardPolicy',
+      'policy:WorkspacePolicy',
+      'policy:TaskReviewPolicy',
+      'service:WorkOsPermissionService',
+      'test:WorkOsRbacSecurityAuditTest',
+      'test:WorkOsEmployeeTaskMovementTest',
+      'test:WorkOsEmployeeTaskModalTest',
+      'test:WorkOsRoleAwareUiTest',
+      'doc:04-RBAC-AND-SECURITY',
+    ],
+  },
+  {
+    id: 'kanban',
+    label: 'Kanban Core & Production Canvas',
+    nodes: [
+      'controller:KanbanController',
+      'model:KanbanTask',
+      'model:KanbanColumn',
+      'model:BoardGroup',
+      'component:TableView',
+      'component:TableRow',
+      'component:KanbanBoardView',
+      'component:BoardUnifiedHeader',
+      'doc:06-KANBAN-AND-TASKS',
+    ],
+  },
+  {
+    id: 'task_modal',
+    label: 'Task Details & Employee Panel',
+    nodes: [
+      'component:ItemDetailDrawer',
+      'component:EmployeeTaskPanel',
+      'component:SubitemTable',
+    ],
+  },
+  {
+    id: 'dashboard',
+    label: 'Dashboard & Navigation OS',
+    nodes: [
+      'controller:DashboardController',
+      'component:dashboard',
+      'component:app-sidebar',
+      'component:nav-user',
+    ],
+  },
+  {
+    id: 'reviews',
+    label: 'Review & Approval Workflow',
+    nodes: [
+      'controller:TaskReviewController',
+      'model:TaskReviewCycle',
+      'policy:TaskReviewPolicy',
+      'test:WorkOsPhase5MultiStageReviewTest',
+    ],
+  },
+  {
+    id: 'workload',
+    label: 'Workload & Capacity Analytics',
+    nodes: [
+      'service:WorkloadCapacityService',
+      'controller:WorkloadCapacityController',
+      'component:WorkloadView',
+      'test:WorkOsPhase5WorkloadCapacityTest',
+    ],
+  },
+  {
+    id: 'dependencies',
+    label: 'Dependencies & Recurrence',
+    nodes: [
+      'service:TaskRecurrenceService',
+      'model:TaskDependency',
+      'model:TaskRecurrenceRule',
+      'test:WorkOsPhase5TaskDependenciesTest',
+      'test:WorkOsPhase5TaskRecurrenceTest',
+    ],
+  },
 ];
 
 const graphData = {
@@ -294,7 +560,7 @@ const htmlContent = `<!DOCTYPE html>
       cursor: grab;
     }
     #sidebar {
-      width: 340px;
+      width: 360px;
       background: var(--surface);
       border-left: 1px solid var(--border);
       padding: 20px;
@@ -353,6 +619,7 @@ const htmlContent = `<!DOCTYPE html>
       <span>Angora Architecture Knowledge Graph</span>
       <span class="badge">${graphData.stats.total_nodes} Nodes</span>
       <span class="badge">${graphData.stats.total_edges} Edges</span>
+      <span class="badge">${graphData.stats.clusters} Subsystems</span>
     </h1>
     <div style="font-size: 12px; color: var(--text-muted);">
       Verified Local Graphify Engine · Phase 0–5 Complete
@@ -363,17 +630,19 @@ const htmlContent = `<!DOCTYPE html>
       <svg id="graph-svg"></svg>
     </div>
     <div id="sidebar">
-      <input type="text" id="search" class="search-box" placeholder="Search components, policies, routes...">
+      <input type="text" id="search" class="search-box" placeholder="Search components, policies, services, routes...">
       
       <div>
         <h4 style="margin: 0 0 8px 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);">Node Types</h4>
         <div class="legend">
           <div class="legend-item"><span class="legend-dot" style="background: #3b82f6;"></span> Controller</div>
           <div class="legend-item"><span class="legend-dot" style="background: #ef4444;"></span> Policy</div>
+          <div class="legend-item"><span class="legend-dot" style="background: #eab308;"></span> Service</div>
           <div class="legend-item"><span class="legend-dot" style="background: #10b981;"></span> Model</div>
           <div class="legend-item"><span class="legend-dot" style="background: #8b5cf6;"></span> Route</div>
           <div class="legend-item"><span class="legend-dot" style="background: #f59e0b;"></span> Component</div>
           <div class="legend-item"><span class="legend-dot" style="background: #06b6d4;"></span> Test Suite</div>
+          <div class="legend-item"><span class="legend-dot" style="background: #ec4899;"></span> Document</div>
         </div>
       </div>
 
@@ -385,9 +654,10 @@ const htmlContent = `<!DOCTYPE html>
       <div class="card">
         <h3>Key Architectural Subsystems</h3>
         <ul style="padding-left: 18px; margin: 6px 0; line-height: 1.6; color: var(--text-muted);">
-          <li><strong>RBAC Security:</strong> TaskPolicy, BoardPolicy, WorkOsRbacSecurityAuditTest</li>
-          <li><strong>Production Canvas:</strong> KanbanController, TableView, KanbanBoardView</li>
-          <li><strong>Role Modal:</strong> ItemDetailDrawer, EmployeeTaskPanel</li>
+          <li><strong>RBAC Security:</strong> WorkOsPermissionService, TaskPolicy, BoardPolicy, WorkspacePolicy</li>
+          <li><strong>Production Canvas:</strong> KanbanController, TableView, TableRow, KanbanBoardView, BoardUnifiedHeader</li>
+          <li><strong>Role Modal:</strong> ItemDetailDrawer, EmployeeTaskPanel, SubitemTable</li>
+          <li><strong>Dashboard OS:</strong> DashboardController, dashboard, app-sidebar</li>
           <li><strong>Reviews:</strong> TaskReviewController, TaskReviewCycle</li>
         </ul>
       </div>
@@ -404,10 +674,12 @@ const htmlContent = `<!DOCTYPE html>
       controller: '#3b82f6',
       policy: '#ef4444',
       policy_ability: '#f87171',
+      service: '#eab308',
       model: '#10b981',
       route: '#8b5cf6',
       component: '#f59e0b',
-      test: '#06b6d4'
+      test: '#06b6d4',
+      doc: '#ec4899'
     };
 
     const width = svg.clientWidth || 1000;
@@ -452,7 +724,7 @@ const htmlContent = `<!DOCTYPE html>
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
       circle.setAttribute('cx', pos.x);
       circle.setAttribute('cy', pos.y);
-      circle.setAttribute('r', n.type === 'controller' || n.type === 'policy' || n.type === 'component' ? '8' : '5');
+      circle.setAttribute('r', n.type === 'controller' || n.type === 'policy' || n.type === 'service' || n.type === 'component' ? '8' : '5');
       circle.setAttribute('fill', colors[n.type] || '#94a3b8');
       circle.setAttribute('stroke', '#0f172a');
       circle.setAttribute('stroke-width', '2');
@@ -475,7 +747,7 @@ const htmlContent = `<!DOCTYPE html>
       const q = e.target.value.toLowerCase();
       gNodes.childNodes.forEach((circle, i) => {
         const n = data.nodes[i];
-        if (!q || n.label.toLowerCase().includes(q) || n.type.toLowerCase().includes(q)) {
+        if (!q || n.label.toLowerCase().includes(q) || n.type.toLowerCase().includes(q) || (n.file && n.file.toLowerCase().includes(q))) {
           circle.setAttribute('opacity', '1');
           circle.setAttribute('r', '8');
         } else {
@@ -537,23 +809,25 @@ const reportContent = `# Angora Work OS — Architecture Knowledge Graph Report
 ---
 
 ### 4. How do board capabilities reach the frontend?
-- **Generation in Controller**: In [\`KanbanController::index\`](file:///c:/Users/REYMARK/Documents/Sites/angora/app/Http/Controllers/KanbanController.php#L85), the authenticated user's capabilities are evaluated using Laravel Gate / Policy checks:
+- **Generation in Permission Service**: In [\`WorkOsPermissionService::getBoardPermissions\`](file:///c:/Users/REYMARK/Documents/Sites/angora/app/Services/Authorization/WorkOsPermissionService.php#L17), the authenticated user's capabilities are evaluated:
   \`\`\`php
   $permissions = [
-      'canCreateTask' => $user->can('createTask', $board),
-      'canEditTask' => $user->can('editTask', $board),
-      'canDeleteTask' => $user->can('deleteTask', $board),
-      'canMoveAssignedTask' => $user->can('moveAssignedTask', [KanbanTask::class, $board]),
-      'canManageColumns' => $user->can('manageColumns', $board),
-      'canManageAutomations' => $user->can('manageAutomations', $board),
-      'canApproveReview' => $user->can('approveReview', $board),
-      'isEmployee' => $user->role === 'designer',
-      'currentUserId' => $user->id,
+      'canCreateTask' => false,
+      'canEditTask' => false,
+      'canEditProgress' => true,
+      'canChangeStatus' => false,
+      'canMoveAssignedTask' => true,
+      'canManageBoard' => false,
+      'canManageColumns' => false,
+      'canManageGroups' => false,
+      'canManageAutomations' => false,
+      'canApproveReview' => false,
+      'canExport' => false,
   ];
   \`\`\`
 - **Inertia.js Transport**: Delivered directly to [\`resources/js/pages/kanban/index.tsx\`](file:///c:/Users/REYMARK/Documents/Sites/angora/resources/js/pages/kanban/index.tsx) as page props:
   \`Inertia::render('kanban/index', ['permissions' => $permissions, ...])\`
-- **Component Props**: Distributed from \`index.tsx\` to \`BoardUnifiedHeader\`, \`TableView\`, \`KanbanBoardView\`, and \`ItemDetailDrawer\`.
+- **Component Props**: Distributed from \`index.tsx\` to \`BoardUnifiedHeader\`, \`TableView\`, \`TableRow\`, \`KanbanBoardView\`, and \`ItemDetailDrawer\`.
 
 ---
 
@@ -584,8 +858,9 @@ const reportContent = `# Angora Work OS — Architecture Knowledge Graph Report
 1. **Database / Model**: [\`App\\Models\\KanbanColumn\`](file:///c:/Users/REYMARK/Documents/Sites/angora/app/Models/KanbanColumn.php) (\`category\`, \`semantic_category\`, \`title\`, \`color\`).
 2. **Backend Controller**: [\`KanbanController::updateWorkflowStage\`](file:///c:/Users/REYMARK/Documents/Sites/angora/app/Http/Controllers/KanbanController.php#L190).
 3. **Backend Policy**: [\`TaskPolicy::updateTaskColumn\`](file:///c:/Users/REYMARK/Documents/Sites/angora/app/Policies/TaskPolicy.php).
-4. **Automations Engine**: Triggers on status transitions (\`kanban_automations\`).
-5. **Frontend Canvas Components**:
+4. **Backend Service**: [\`WorkOsPermissionService\`](file:///c:/Users/REYMARK/Documents/Sites/angora/app/Services/Authorization/WorkOsPermissionService.php).
+5. **Automations Engine**: Triggers on status transitions (\`kanban_automations\`).
+6. **Frontend Canvas Components**:
    - [\`KanbanBoardView.tsx\`](file:///c:/Users/REYMARK/Documents/Sites/angora/resources/js/pages/kanban/components/KanbanBoardView.tsx): Renders columns, column headers, cards.
    - [\`TableView.tsx\`](file:///c:/Users/REYMARK/Documents/Sites/angora/resources/js/pages/kanban/components/TableView.tsx): Status cell badges.
    - [\`ItemDetailDrawer.tsx\`](file:///c:/Users/REYMARK/Documents/Sites/angora/resources/js/pages/kanban/components/ItemDetailDrawer.tsx): Status selection dropdown.
@@ -594,4 +869,4 @@ const reportContent = `# Angora Work OS — Architecture Knowledge Graph Report
 `;
 
 fs.writeFileSync(path.join(graphOutDir, 'GRAPH_REPORT.md'), reportContent);
-console.log('Graphify architecture graph successfully generated in docs/ai-knowledge/graph/');
+console.log(`Graphify architecture graph successfully generated with ${nodes.size} nodes and ${edges.length} edges.`);
