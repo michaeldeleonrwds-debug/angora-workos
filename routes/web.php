@@ -100,6 +100,13 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/kanban/dependencies/{dependency}', [KanbanController::class, 'deleteDependency'])->name('kanban.dependencies.delete');
     Route::patch('/kanban/tasks/{task}/schedule', [KanbanController::class, 'updateTaskSchedule'])->name('kanban.tasks.schedule.update');
 
+    // Task Recurrence Engine
+    Route::get('/kanban/tasks/{task}/recurrence', [KanbanController::class, 'getTaskRecurrence'])->name('kanban.tasks.recurrence.get');
+    Route::post('/kanban/tasks/{task}/recurrence', [KanbanController::class, 'storeTaskRecurrence'])->name('kanban.tasks.recurrence.store');
+    Route::post('/kanban/tasks/{task}/recurrence/toggle', [KanbanController::class, 'toggleTaskRecurrence'])->name('kanban.tasks.recurrence.toggle');
+    Route::delete('/kanban/tasks/{task}/recurrence', [KanbanController::class, 'deleteTaskRecurrence'])->name('kanban.tasks.recurrence.delete');
+    Route::post('/kanban/tasks/{task}/recurrence/run-now', [KanbanController::class, 'runTaskRecurrenceNow'])->name('kanban.tasks.recurrence.run-now');
+
     // Connect Boards & Cross-Board Relationships
     Route::get('/kanban/connected-items/search', [BoardRelationshipController::class, 'searchTargetItems'])->name('kanban.relationships.search');
     Route::post('/kanban/relationships', [BoardRelationshipController::class, 'store'])->name('kanban.relationships.store');

@@ -1,7 +1,7 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatDate, formatTime } from '@/lib/utils';
 import { router } from '@inertiajs/react';
-import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, ShieldAlert, Star, Trash2, User as UserIcon } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, Repeat, ShieldAlert, Star, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import { BoardColumn, BoardGroup, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../types';
 import ConnectBoardsModal from './ConnectBoardsModal';
@@ -203,6 +203,15 @@ export default function TableRow({
                                 >
                                     <ShieldAlert className="h-2.5 w-2.5" />
                                     Blocked
+                                </span>
+                            )}
+                            {(task.recurrence_rule || task.recurrenceRule || task.recurrence_rule_id) && (
+                                <span
+                                    title="Recurring task schedule active"
+                                    className="inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-semibold bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25"
+                                >
+                                    <Repeat className="h-2.5 w-2.5" />
+                                    Repeats
                                 </span>
                             )}
                             <span

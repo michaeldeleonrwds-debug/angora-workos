@@ -22,9 +22,13 @@ import {
     Link2,
     MessageCircle,
     Paperclip,
+    Pause,
+    Play,
+    Repeat,
     RotateCcw,
     Search,
     Send,
+    Settings2,
     ShieldAlert,
     ShieldCheck,
     Trash2,
@@ -34,7 +38,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { KanbanBoard, MediaAsset, Task, TaskReviewCycle, User } from '../types';
+import { KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
@@ -166,10 +170,148 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
         }
     };
 
+    // Recurrence state & helpers
+    const [recurrenceRule, setRecurrenceRule] = useState<TaskRecurrenceRule | null>(
+        task.recurrence_rule || task.recurrenceRule || null
+    );
+    const [recurrenceLogs, setRecurrenceLogs] = useState<TaskRecurrenceLog[]>([]);
+    const [isRecurrenceModalOpen, setIsRecurrenceModalOpen] = useState(false);
+    const [isSavingRecurrence, setIsSavingRecurrence] = useState(false);
+    const [isTogglingRecurrence, setIsTogglingRecurrence] = useState(false);
+    const [isRunningRecurrenceNow, setIsRunningRecurrenceNow] = useState(false);
+    const [recurrenceErrorMessage, setRecurrenceErrorMessage] = useState<string | null>(null);
+
+    // Form inputs for recurrence rule
+    const [recFreq, setRecFreq] = useState<'daily' | 'weekly' | 'monthly' | 'custom' | 'on_completion'>('weekly');
+    const [recInterval, setRecInterval] = useState(1);
+    const [recDaysOfWeek, setRecDaysOfWeek] = useState<number[]>([1]); // Monday default
+    const [recTimeOfDay, setRecTimeOfDay] = useState('09:00');
+    const [recEndType, setRecEndType] = useState<'never' | 'after_occurrences' | 'on_date'>('never');
+    const [recMaxOccurrences, setRecMaxOccurrences] = useState<number | ''>('');
+    const [recEndDate, setRecEndDate] = useState('');
+    const [recCopySubtasks, setRecCopySubtasks] = useState(true);
+    const [recCopyAssignees, setRecCopyAssignees] = useState(true);
+    const [recCopyCustomValues, setRecCopyCustomValues] = useState(true);
+
+    const initRecurrenceForm = (rule: TaskRecurrenceRule | null) => {
+        if (rule) {
+            setRecFreq(rule.frequency);
+            setRecInterval(rule.interval || 1);
+            setRecDaysOfWeek(rule.days_of_week || [1]);
+            setRecTimeOfDay(rule.time_of_day ? rule.time_of_day.slice(0, 5) : '09:00');
+            setRecEndType(rule.end_type);
+            setRecMaxOccurrences(rule.max_occurrences ?? '');
+            setRecEndDate(rule.end_date || '');
+            setRecCopySubtasks(Boolean(rule.copy_subtasks));
+            setRecCopyAssignees(Boolean(rule.copy_assignees));
+            setRecCopyCustomValues(Boolean(rule.copy_custom_values));
+        } else {
+            setRecFreq('weekly');
+            setRecInterval(1);
+            setRecDaysOfWeek([1]);
+            setRecTimeOfDay('09:00');
+            setRecEndType('never');
+            setRecMaxOccurrences('');
+            setRecEndDate('');
+            setRecCopySubtasks(true);
+            setRecCopyAssignees(true);
+            setRecCopyCustomValues(true);
+        }
+    };
+
+    const fetchRecurrence = async () => {
+        try {
+            const res = await axios.get(`/kanban/tasks/${task.id}/recurrence`);
+            if (res.data) {
+                setRecurrenceRule(res.data.rule || null);
+                setRecurrenceLogs(res.data.logs || []);
+                initRecurrenceForm(res.data.rule || null);
+            }
+        } catch (err) {
+            console.error('Failed to load recurrence details:', err);
+        }
+    };
+
+    const handleSaveRecurrence = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSavingRecurrence(true);
+        setRecurrenceErrorMessage(null);
+        try {
+            const res = await axios.post(`/kanban/tasks/${task.id}/recurrence`, {
+                frequency: recFreq,
+                interval: recInterval,
+                days_of_week: recFreq === 'weekly' ? recDaysOfWeek : null,
+                time_of_day: recTimeOfDay || null,
+                end_type: recEndType,
+                max_occurrences: recEndType === 'after_occurrences' && recMaxOccurrences ? Number(recMaxOccurrences) : null,
+                end_date: recEndType === 'on_date' && recEndDate ? recEndDate : null,
+                copy_subtasks: recCopySubtasks,
+                copy_assignees: recCopyAssignees,
+                copy_custom_values: recCopyCustomValues,
+            });
+
+            if (res.data?.rule) {
+                setRecurrenceRule(res.data.rule);
+                setIsRecurrenceModalOpen(false);
+                await fetchRecurrence();
+                router.reload({ only: ['boards', 'tasks'] });
+            }
+        } catch (err: any) {
+            const msg = err.response?.data?.message || 'Failed to save recurrence rule';
+            setRecurrenceErrorMessage(msg);
+        } finally {
+            setIsSavingRecurrence(false);
+        }
+    };
+
+    const handleToggleRecurrence = async () => {
+        setIsTogglingRecurrence(true);
+        try {
+            const res = await axios.post(`/kanban/tasks/${task.id}/recurrence/toggle`);
+            if (res.data?.rule) {
+                setRecurrenceRule(res.data.rule);
+                router.reload({ only: ['boards', 'tasks'] });
+            }
+        } catch (err) {
+            console.error('Failed to toggle recurrence:', err);
+        } finally {
+            setIsTogglingRecurrence(false);
+        }
+    };
+
+    const handleDeleteRecurrence = async () => {
+        if (!confirm('Are you sure you want to remove the recurrence schedule for this task?')) return;
+        try {
+            await axios.delete(`/kanban/tasks/${task.id}/recurrence`);
+            setRecurrenceRule(null);
+            setIsRecurrenceModalOpen(false);
+            router.reload({ only: ['boards', 'tasks'] });
+        } catch (err) {
+            console.error('Failed to delete recurrence rule:', err);
+        }
+    };
+
+    const handleRunRecurrenceNow = async () => {
+        setIsRunningRecurrenceNow(true);
+        try {
+            const res = await axios.post(`/kanban/tasks/${task.id}/recurrence/run-now`);
+            if (res.data?.rule) {
+                setRecurrenceRule(res.data.rule);
+                await fetchRecurrence();
+                router.reload({ only: ['boards', 'tasks'] });
+            }
+        } catch (err) {
+            console.error('Failed to trigger recurrence:', err);
+        } finally {
+            setIsRunningRecurrenceNow(false);
+        }
+    };
+
     useEffect(() => {
         if (task.id) {
             fetchReviewCycles();
             fetchDependencies();
+            fetchRecurrence();
         }
     }, [task.id]);
 
@@ -684,6 +826,77 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         <option value="60">1 hour before</option>
                                         <option value="1440">1 day before</option>
                                     </select>
+                                </div>
+                            </div>
+
+                            {/* Recurrence Schedule */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-1 sm:gap-0">
+                                <Label className="text-muted-foreground font-medium flex items-center gap-1.5">
+                                    <Repeat className="h-3.5 w-3.5 text-primary" />
+                                    Recurrence
+                                </Label>
+                                <div className="sm:col-span-2 flex items-center justify-between gap-2 min-w-0">
+                                    {recurrenceRule ? (
+                                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                            <span
+                                                className={`px-1.5 py-0.5 rounded text-[10px] font-bold capitalize ${
+                                                    recurrenceRule.is_active
+                                                        ? 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20'
+                                                        : 'bg-muted text-muted-foreground'
+                                                }`}
+                                            >
+                                                {recurrenceRule.is_active ? 'Active' : 'Paused'}
+                                            </span>
+                                            <span className="text-xs truncate text-foreground font-medium">
+                                                {recurrenceRule.frequency === 'daily' && `Every ${recurrenceRule.interval}d`}
+                                                {recurrenceRule.frequency === 'weekly' && `Weekly (${recurrenceRule.interval}w)`}
+                                                {recurrenceRule.frequency === 'monthly' && `Monthly (${recurrenceRule.interval}m)`}
+                                                {recurrenceRule.frequency === 'custom' && `Every ${recurrenceRule.interval}d`}
+                                                {recurrenceRule.frequency === 'on_completion' && `On Complete (+${recurrenceRule.interval}d)`}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs text-muted-foreground italic">None configured</span>
+                                    )}
+
+                                    <div className="flex items-center gap-1 shrink-0">
+                                        {recurrenceRule && (
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleToggleRecurrence}
+                                                    disabled={isTogglingRecurrence}
+                                                    title={recurrenceRule.is_active ? 'Pause recurrence' : 'Resume recurrence'}
+                                                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                                >
+                                                    {recurrenceRule.is_active ? (
+                                                        <Pause className="h-3.5 w-3.5 text-amber-600" />
+                                                    ) : (
+                                                        <Play className="h-3.5 w-3.5 text-emerald-600" />
+                                                    )}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleRunRecurrenceNow}
+                                                    disabled={isRunningRecurrenceNow}
+                                                    title="Spawn task instance now"
+                                                    className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                                >
+                                                    <Repeat className={`h-3.5 w-3.5 ${isRunningRecurrenceNow ? 'animate-spin text-primary' : ''}`} />
+                                                </button>
+                                            </>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                initRecurrenceForm(recurrenceRule);
+                                                setIsRecurrenceModalOpen(true);
+                                            }}
+                                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-colors"
+                                        >
+                                            {recurrenceRule ? 'Edit' : 'Set Up'}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
@@ -2163,6 +2376,280 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                     </DialogContent>
                 </Dialog>
             )}
+
+            {/* Recurrence Configuration Modal */}
+            <Dialog open={isRecurrenceModalOpen} onOpenChange={setIsRecurrenceModalOpen}>
+                <DialogContent className="max-w-lg rounded-2xl p-6 sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                            <Repeat className="h-5 w-5 text-primary" />
+                            Recurring Task Schedule
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {recurrenceErrorMessage && (
+                        <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-2.5 text-xs text-rose-700 dark:bg-rose-950/30 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                            <AlertCircle className="h-4 w-4 shrink-0" />
+                            <span>{recurrenceErrorMessage}</span>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSaveRecurrence} className="space-y-4 text-xs">
+                        {/* Frequency & Interval */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                                    Frequency
+                                </Label>
+                                <select
+                                    value={recFreq}
+                                    onChange={(e) => setRecFreq(e.target.value as any)}
+                                    className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="daily">Daily</option>
+                                    <option value="weekly">Weekly</option>
+                                    <option value="monthly">Monthly</option>
+                                    <option value="custom">Custom (Days)</option>
+                                    <option value="on_completion">On Completion</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <Label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                                    Repeat Every
+                                </Label>
+                                <div className="flex items-center gap-1.5">
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        value={recInterval}
+                                        onChange={(e) => setRecInterval(Math.max(1, parseInt(e.target.value) || 1))}
+                                        className="h-8 text-xs"
+                                    />
+                                    <span className="text-[11px] text-muted-foreground font-medium shrink-0">
+                                        {recFreq === 'daily' && (recInterval === 1 ? 'day' : 'days')}
+                                        {recFreq === 'weekly' && (recInterval === 1 ? 'week' : 'weeks')}
+                                        {recFreq === 'monthly' && (recInterval === 1 ? 'month' : 'months')}
+                                        {recFreq === 'custom' && 'days'}
+                                        {recFreq === 'on_completion' && 'days after done'}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Days of Week (Weekly only) */}
+                        {recFreq === 'weekly' && (
+                            <div>
+                                <Label className="text-[11px] font-semibold text-muted-foreground mb-1.5 block">
+                                    Days of the Week
+                                </Label>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                    {[
+                                        { id: 1, label: 'Mon' },
+                                        { id: 2, label: 'Tue' },
+                                        { id: 3, label: 'Wed' },
+                                        { id: 4, label: 'Thu' },
+                                        { id: 5, label: 'Fri' },
+                                        { id: 6, label: 'Sat' },
+                                        { id: 7, label: 'Sun' },
+                                    ].map((d) => {
+                                        const isSelected = recDaysOfWeek.includes(d.id);
+                                        return (
+                                            <button
+                                                key={d.id}
+                                                type="button"
+                                                onClick={() => {
+                                                    if (isSelected) {
+                                                        if (recDaysOfWeek.length > 1) {
+                                                            setRecDaysOfWeek(recDaysOfWeek.filter((x) => x !== d.id));
+                                                        }
+                                                    } else {
+                                                        setRecDaysOfWeek([...recDaysOfWeek, d.id]);
+                                                    }
+                                                }}
+                                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors border ${
+                                                    isSelected
+                                                        ? 'bg-primary text-primary-foreground border-primary'
+                                                        : 'bg-background hover:bg-muted text-muted-foreground border-input'
+                                                }`}
+                                            >
+                                                {d.label}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Preferred Time of Day */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <Label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                                    Spawn Time (Target)
+                                </Label>
+                                <Input
+                                    type="time"
+                                    value={recTimeOfDay}
+                                    onChange={(e) => setRecTimeOfDay(e.target.value)}
+                                    className="h-8 text-xs"
+                                />
+                            </div>
+
+                            <div>
+                                <Label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                                    Ends
+                                </Label>
+                                <select
+                                    value={recEndType}
+                                    onChange={(e) => setRecEndType(e.target.value as any)}
+                                    className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="never">Never</option>
+                                    <option value="after_occurrences">After Occurrences</option>
+                                    <option value="on_date">On Specific Date</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Conditional End Controls */}
+                        {recEndType === 'after_occurrences' && (
+                            <div>
+                                <Label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                                    Total Occurrences
+                                </Label>
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    value={recMaxOccurrences}
+                                    onChange={(e) => setRecMaxOccurrences(e.target.value ? parseInt(e.target.value) : '')}
+                                    placeholder="e.g. 10"
+                                    className="h-8 text-xs max-w-[160px]"
+                                />
+                            </div>
+                        )}
+
+                        {recEndType === 'on_date' && (
+                            <div>
+                                <Label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
+                                    End Date
+                                </Label>
+                                <Input
+                                    type="date"
+                                    value={recEndDate}
+                                    onChange={(e) => setRecEndDate(e.target.value)}
+                                    className="h-8 text-xs max-w-[200px]"
+                                />
+                            </div>
+                        )}
+
+                        {/* Preservation Flags */}
+                        <div className="space-y-2 border-t border-border/60 pt-3">
+                            <Label className="text-[11px] font-semibold text-muted-foreground block">
+                                Instance Duplication Options
+                            </Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <label className="flex items-center gap-2 cursor-pointer text-xs">
+                                    <input
+                                        type="checkbox"
+                                        checked={recCopySubtasks}
+                                        onChange={(e) => setRecCopySubtasks(e.target.checked)}
+                                        className="rounded border-input text-primary focus:ring-primary"
+                                    />
+                                    <span>Copy Subtasks</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer text-xs">
+                                    <input
+                                        type="checkbox"
+                                        checked={recCopyAssignees}
+                                        onChange={(e) => setRecCopyAssignees(e.target.checked)}
+                                        className="rounded border-input text-primary focus:ring-primary"
+                                    />
+                                    <span>Preserve Assignees</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer text-xs">
+                                    <input
+                                        type="checkbox"
+                                        checked={recCopyCustomValues}
+                                        onChange={(e) => setRecCopyCustomValues(e.target.checked)}
+                                        className="rounded border-input text-primary focus:ring-primary"
+                                    />
+                                    <span>Custom Columns</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Recent Execution Logs */}
+                        {recurrenceLogs.length > 0 && (
+                            <div className="space-y-2 border-t border-border/60 pt-3">
+                                <Label className="text-[11px] font-semibold text-muted-foreground block">
+                                    Recent Recurrence History ({recurrenceLogs.length})
+                                </Label>
+                                <div className="max-h-28 overflow-y-auto rounded-lg border border-border/70 divide-y divide-border/40 text-[11px]">
+                                    {recurrenceLogs.map((log) => (
+                                        <div key={log.id} className="p-2 flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className={`h-1.5 w-1.5 rounded-full ${
+                                                        log.status === 'success' ? 'bg-emerald-500' : 'bg-rose-500'
+                                                    }`}
+                                                />
+                                                <span className="text-foreground font-medium">
+                                                    {log.executed_at ? formatDate(log.executed_at) : 'Executed'}
+                                                </span>
+                                                {log.generated_task_id && (
+                                                    <span className="text-muted-foreground">
+                                                        Task #{log.generated_task_id}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <span className="capitalize text-muted-foreground text-[10px]">
+                                                {log.status}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Modal Footer Controls */}
+                        <div className="flex items-center justify-between border-t border-border/60 pt-4">
+                            <div>
+                                {recurrenceRule && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleDeleteRecurrence}
+                                        className="h-8 text-xs text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 border-rose-200"
+                                    >
+                                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                                        Delete Schedule
+                                    </Button>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsRecurrenceModalOpen(false)}
+                                    className="h-8 text-xs"
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    type="submit"
+                                    size="sm"
+                                    disabled={isSavingRecurrence}
+                                    className="h-8 text-xs font-semibold"
+                                >
+                                    {isSavingRecurrence ? 'Saving...' : 'Save Schedule'}
+                                </Button>
+                            </div>
+                        </div>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -10,3 +10,7 @@ Artisan::command('inspire', function () {
 \Illuminate\Support\Facades\Schedule::command('automations:run-scheduled')
     ->everyMinute()
     ->withoutOverlapping();
+
+\Illuminate\Support\Facades\Schedule::command('tasks:process-recurring')
+    ->everyMinute()
+    ->withoutOverlapping();

@@ -34,6 +34,7 @@ class KanbanTask extends Model
         'reminder_lead_minutes',
         'reminder_sent_at',
         'completed_at',
+        'recurrence_rule_id',
     ];
 
     protected $casts = [
@@ -179,6 +180,16 @@ class KanbanTask extends Model
     public function latestReviewCycle()
     {
         return $this->hasOne(TaskReviewCycle::class, 'task_id')->latestOfMany('round_number')->with(['submitter', 'decisions.reviewer']);
+    }
+
+    public function recurrenceRule()
+    {
+        return $this->hasOne(TaskRecurrenceRule::class, 'task_id');
+    }
+
+    public function spawnedFromRule()
+    {
+        return $this->belongsTo(TaskRecurrenceRule::class, 'recurrence_rule_id');
     }
 
     public function outgoingRelationships()

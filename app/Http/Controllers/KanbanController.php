@@ -33,17 +33,20 @@ class KanbanController extends Controller
     protected CrossBoardService $crossBoardService;
     protected \App\Services\NotificationService $notificationService;
     protected \App\Services\TaskDependencyService $dependencyService;
+    protected \App\Services\TaskRecurrenceService $recurrenceService;
 
     public function __construct(
         AutomationEngineService $automationEngine,
         CrossBoardService $crossBoardService,
         \App\Services\NotificationService $notificationService,
-        \App\Services\TaskDependencyService $dependencyService
+        \App\Services\TaskDependencyService $dependencyService,
+        \App\Services\TaskRecurrenceService $recurrenceService
     ) {
         $this->automationEngine = $automationEngine;
         $this->crossBoardService = $crossBoardService;
         $this->notificationService = $notificationService;
         $this->dependencyService = $dependencyService;
+        $this->recurrenceService = $recurrenceService;
     }
     public function index(Request $request)
     {
@@ -132,6 +135,7 @@ class KanbanController extends Controller
                 'comments.user',
                 'comments.replies.user',
                 'attachments.user',
+                'recurrenceRule',
                 'dependencies.dependencyTask.column',
                 'dependents.task.column',
                 'activities' => function ($aq) {
@@ -1096,6 +1100,17 @@ class KanbanController extends Controller
         $this->automationEngine->dispatch('item_updated', $task, [], auth()->user());
         \App\Events\TaskUpdatedEvent::dispatch($task, 'updated', auth()->id());
 
+        if ($task->completed_at !== null) {
+            $this->recurrenceService->handleTaskCompleted($task);
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Task updated',
+                'task' => $task->fresh(['column', 'group']),
+            ]);
+        }
+
         return back()->with('success', 'Task updated');
     }
 
@@ -1170,6 +1185,10 @@ class KanbanController extends Controller
         ], auth()->user());
 
         \App\Events\TaskUpdatedEvent::dispatch($task, 'status_changed', auth()->id());
+
+        if ($task->completed_at !== null) {
+            $this->recurrenceService->handleTaskCompleted($task);
+        }
 
         return back()->with('success', 'Task updated');
     }
@@ -1676,6 +1695,123 @@ class KanbanController extends Controller
         }
 
         return back()->with('success', 'Dependency removed');
+    }
+
+    public function getTaskRecurrence(KanbanTask $task)
+    {
+        Gate::authorize('view', $task);
+
+        $rule = $task->recurrenceRule()->with('logs')->first();
+        if (!$rule && $task->recurrence_rule_id) {
+            $rule = \App\Models\TaskRecurrenceRule::with('logs')->find($task->recurrence_rule_id);
+        }
+
+        return response()->json([
+            'rule' => $rule,
+            'logs' => $rule?->logs ?? [],
+        ]);
+    }
+
+    public function storeTaskRecurrence(Request $request, KanbanTask $task)
+    {
+        Gate::authorize('update', $task);
+
+        $validated = $request->validate([
+            'frequency' => 'required|string|in:daily,weekly,monthly,custom,on_completion',
+            'interval' => 'required|integer|min:1',
+            'days_of_week' => 'nullable|array',
+            'days_of_week.*' => 'integer|between:1,7',
+            'time_of_day' => 'nullable|string|max:10',
+            'end_type' => 'required|string|in:never,after_occurrences,on_date',
+            'max_occurrences' => 'nullable|integer|min:1',
+            'end_date' => 'nullable|date',
+            'is_active' => 'nullable|boolean',
+            'copy_subtasks' => 'nullable|boolean',
+            'copy_assignees' => 'nullable|boolean',
+            'copy_custom_values' => 'nullable|boolean',
+        ]);
+
+        $rule = $this->recurrenceService->createOrUpdateRule($task, $validated, $request->user());
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Recurrence rule saved successfully',
+                'rule' => $rule,
+            ]);
+        }
+
+        return back()->with('success', 'Recurrence rule saved successfully');
+    }
+
+    public function toggleTaskRecurrence(Request $request, KanbanTask $task)
+    {
+        Gate::authorize('update', $task);
+
+        $rule = $task->recurrenceRule;
+        if (!$rule && $task->recurrence_rule_id) {
+            $rule = \App\Models\TaskRecurrenceRule::find($task->recurrence_rule_id);
+        }
+
+        if (!$rule) {
+            return response()->json(['message' => 'No recurrence rule found for this task'], 404);
+        }
+
+        $rule = $this->recurrenceService->togglePause($rule, $request->user());
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => $rule->is_active ? 'Recurrence rule resumed' : 'Recurrence rule paused',
+                'rule' => $rule,
+            ]);
+        }
+
+        return back()->with('success', $rule->is_active ? 'Recurrence rule resumed' : 'Recurrence rule paused');
+    }
+
+    public function deleteTaskRecurrence(Request $request, KanbanTask $task)
+    {
+        Gate::authorize('update', $task);
+
+        $rule = $task->recurrenceRule;
+        if (!$rule && $task->recurrence_rule_id) {
+            $rule = \App\Models\TaskRecurrenceRule::find($task->recurrence_rule_id);
+        }
+
+        if ($rule) {
+            $this->recurrenceService->deleteRule($rule, $request->user());
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Recurrence rule removed successfully']);
+        }
+
+        return back()->with('success', 'Recurrence rule removed');
+    }
+
+    public function runTaskRecurrenceNow(Request $request, KanbanTask $task)
+    {
+        Gate::authorize('update', $task);
+
+        $rule = $task->recurrenceRule;
+        if (!$rule && $task->recurrence_rule_id) {
+            $rule = \App\Models\TaskRecurrenceRule::find($task->recurrence_rule_id);
+        }
+
+        if (!$rule) {
+            return response()->json(['message' => 'No recurrence rule found to execute'], 404);
+        }
+
+        $newTask = $this->recurrenceService->spawnNextTask($rule, force: true);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'New recurring task instance spawned successfully',
+                'task' => $newTask,
+                'rule' => $rule->fresh(),
+            ]);
+        }
+
+        return back()->with('success', 'New recurring task spawned');
     }
 
     public function updateTaskSchedule(Request $request, KanbanTask $task)

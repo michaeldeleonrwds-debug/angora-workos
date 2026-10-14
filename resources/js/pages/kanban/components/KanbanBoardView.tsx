@@ -18,6 +18,7 @@ import {
     MessageCircle,
     MoreHorizontal,
     Plus,
+    Repeat,
     ShieldAlert,
     Star,
     Trash2,
@@ -356,6 +357,16 @@ export default function KanbanBoardView({
                                                     >
                                                         <ShieldAlert className="h-2.5 w-2.5" />
                                                         <span>Blocked</span>
+                                                    </span>
+                                                )}
+
+                                                {(task.recurrence_rule || task.recurrenceRule || task.recurrence_rule_id) && (
+                                                    <span
+                                                        title="Recurring task schedule active"
+                                                        className="flex items-center gap-0.5 rounded border border-blue-500/25 bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600 dark:text-blue-400"
+                                                    >
+                                                        <Repeat className="h-2.5 w-2.5" />
+                                                        <span>Repeats</span>
                                                     </span>
                                                 )}
 

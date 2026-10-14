@@ -55,6 +55,40 @@ export interface TaskDependency {
     dependencyTask?: Task;
 }
 
+export interface TaskRecurrenceRule {
+    id: number;
+    task_id: number;
+    workspace_id: number;
+    frequency: 'daily' | 'weekly' | 'monthly' | 'custom' | 'on_completion';
+    interval: number;
+    days_of_week?: number[] | null;
+    time_of_day?: string | null;
+    end_type: 'never' | 'after_occurrences' | 'on_date';
+    max_occurrences?: number | null;
+    occurrences_count: number;
+    end_date?: string | null;
+    next_run_at?: string | null;
+    last_run_at?: string | null;
+    is_active: boolean;
+    copy_subtasks: boolean;
+    copy_assignees: boolean;
+    copy_custom_values: boolean;
+    created_by?: number | null;
+    created_at?: string;
+    updated_at?: string;
+    logs?: TaskRecurrenceLog[];
+}
+
+export interface TaskRecurrenceLog {
+    id: number;
+    recurrence_rule_id: number;
+    source_task_id: number;
+    generated_task_id?: number | null;
+    executed_at: string;
+    status: 'success' | 'skipped' | 'failed';
+    notes?: string | null;
+}
+
 export interface BoardView {
     id: number;
     board_id: number;
@@ -202,6 +236,9 @@ export interface Task {
     incomingRelationships?: BoardItemRelationship[];
     review_cycles?: TaskReviewCycle[];
     latest_review_cycle?: TaskReviewCycle;
+    recurrence_rule_id?: number | null;
+    recurrence_rule?: TaskRecurrenceRule | null;
+    recurrenceRule?: TaskRecurrenceRule | null;
 }
 
 export interface TaskReviewDecision {
