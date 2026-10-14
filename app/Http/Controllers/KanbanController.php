@@ -1074,6 +1074,19 @@ class KanbanController extends Controller
                             oldValue: $oldNames,
                             newValue: $newNames
                         );
+
+                        // Notify newly assigned users
+                        $oldIds = is_array($oldVal) ? $oldVal : ($oldVal ? [$oldVal] : []);
+                        $newIds = is_array($cVal) ? $cVal : ($cVal ? [$cVal] : []);
+                        $addedIds = array_diff($newIds, $oldIds);
+                        foreach ($addedIds as $newUserId) {
+                            if ((int) $newUserId !== (int) auth()->id()) {
+                                $userObj = User::find($newUserId);
+                                if ($userObj) {
+                                    $this->notificationService->notifyAssignment($task, $userObj, auth()->user());
+                                }
+                            }
+                        }
                     } else {
                         TaskActivityService::log(
                             task: $task,

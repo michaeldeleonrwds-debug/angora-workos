@@ -90,10 +90,22 @@ export default function KanbanPage({
 
         let cursor: string | null = null;
         let isPolling = false;
+        let currentIntervalMs = 15000;
+        let timerId: ReturnType<typeof setTimeout> | null = null;
+        let isMounted = true;
+
+        const scheduleNext = (delayMs: number) => {
+            if (!isMounted) return;
+            if (timerId) clearTimeout(timerId);
+            timerId = setTimeout(runPoll, delayMs);
+        };
 
         const runPoll = async () => {
             // Pause polling when browser tab is hidden to conserve resources
-            if (document.hidden || isPolling) return;
+            if (document.hidden || isPolling || !isMounted) {
+                scheduleNext(currentIntervalMs);
+                return;
+            }
 
             try {
                 isPolling = true;
@@ -116,26 +128,34 @@ export default function KanbanPage({
                         cursor = data.cursor;
                     }
 
+                    // Reset backoff to base 15s on success
+                    currentIntervalMs = 15000;
+
                     // If changes detected on current active board, trigger lightweight Inertia reload for board only
                     if (data.tasks && data.tasks.length > 0) {
                         router.reload({
                             only: ['activeBoard', 'boards'],
                         });
                     }
+                } else {
+                    // Backoff on non-OK response (up to 60s)
+                    currentIntervalMs = Math.min(currentIntervalMs * 1.5, 60000);
                 }
             } catch (err) {
-                // Silently swallow network drops
+                // Backoff on network drop (up to 60s)
+                currentIntervalMs = Math.min(currentIntervalMs * 1.5, 60000);
             } finally {
                 isPolling = false;
+                scheduleNext(currentIntervalMs);
             }
         };
 
-        // Poll every 15 seconds when active
-        const interval = setInterval(runPoll, 15000);
+        // Start polling cycle
+        scheduleNext(15000);
 
         // Resume immediately when returning to tab
         const handleVisibilityChange = () => {
-            if (!document.hidden) {
+            if (!document.hidden && isMounted) {
                 runPoll();
             }
         };
@@ -143,7 +163,8 @@ export default function KanbanPage({
         document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
-            clearInterval(interval);
+            isMounted = false;
+            if (timerId) clearTimeout(timerId);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
     }, [board.id]);

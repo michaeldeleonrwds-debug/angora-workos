@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, useSidebar } fro
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Check, CheckSquare, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus } from 'lucide-react';
+import { Check, CheckSquare, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface NavItem {
@@ -42,6 +42,24 @@ export function AppSidebar() {
     const page = usePage<SharedData>();
     const { state, isMobile } = useSidebar();
     const isCollapsed = state === 'collapsed' && !isMobile;
+
+    const userRole = page.props.auth?.user?.role;
+    const roleString = typeof userRole === 'string' ? userRole : '';
+    const canManageUsers = ['super_admin', 'admin', 'project_manager', 'account_manager'].includes(roleString);
+
+    const navItems: NavItem[] = [
+        ...mainNavItems,
+        ...(canManageUsers
+            ? [
+                  {
+                      title: 'User Management',
+                      url: '/users',
+                      icon: Users,
+                      color: '#a25ddc',
+                  },
+              ]
+            : []),
+    ];
 
     const userWorkspaces = ((page.props as any).userWorkspaces as WorkspaceItem[]) || [];
     const activeWorkspaceId = ((page.props as any).activeWorkspaceId as number) || userWorkspaces[0]?.id;
@@ -150,7 +168,7 @@ export function AppSidebar() {
 
                 {/* Primary Navigation Items */}
                 <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
-                    {mainNavItems.map((item) => {
+                    {navItems.map((item) => {
                         const isActive = page.url === item.url || (item.url !== '/dashboard' && page.url.startsWith(item.url));
 
                         const linkContent = (

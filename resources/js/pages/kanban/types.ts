@@ -379,3 +379,68 @@ export const getTableGridTemplate = (visibleColumns: BoardColumn[]): string => {
     return `6px 44px 250px ${dynamicTracks} 40px`;
 };
 
+/**
+ * Check whether a specific user is assigned to a task either via the legacy
+ * assigned_to column or via custom dynamic columns (e.g. Designer, AM) or subtasks.
+ */
+export const isUserAssignedToTask = (task: Task, userId: string | number): boolean => {
+    const targetId = Number(userId);
+    if (!targetId || isNaN(targetId)) return false;
+
+    // 1. Direct legacy assigned_to
+    if (Number(task.assigned_to) === targetId) return true;
+
+    // 2. Custom values (e.g. people columns like Designer, AM, etc.)
+    if (task.custom_values && typeof task.custom_values === 'object') {
+        for (const val of Object.values(task.custom_values)) {
+            if (Array.isArray(val)) {
+                if (val.some((id) => Number(id) === targetId)) return true;
+            } else if (typeof val === 'number' || (typeof val === 'string' && val.trim() !== '')) {
+                if (Number(val) === targetId) return true;
+            }
+        }
+    }
+
+    // 3. Subtasks if present
+    if (task.subitems && Array.isArray(task.subitems)) {
+        for (const sub of task.subitems) {
+            if (Number(sub.assigned_to) === targetId) return true;
+            if (sub.custom_values && typeof sub.custom_values === 'object') {
+                for (const val of Object.values(sub.custom_values)) {
+                    if (Array.isArray(val)) {
+                        if (val.some((id) => Number(id) === targetId)) return true;
+                    } else if (typeof val === 'number' || (typeof val === 'string' && val.trim() !== '')) {
+                        if (Number(val) === targetId) return true;
+                    }
+                }
+            }
+        }
+    }
+
+    return false;
+};
+
+/**
+ * Extract all unique assigned user IDs across assigned_to and people columns.
+ */
+export const getTaskAssignedUserIds = (task: Task): number[] => {
+    const ids = new Set<number>();
+    if (task.assigned_to) {
+        ids.add(Number(task.assigned_to));
+    }
+    if (task.custom_values && typeof task.custom_values === 'object') {
+        for (const val of Object.values(task.custom_values)) {
+            if (Array.isArray(val)) {
+                val.forEach((id) => {
+                    const num = Number(id);
+                    if (!isNaN(num) && num > 0) ids.add(num);
+                });
+            } else if (typeof val === 'number' && val > 0) {
+                ids.add(val);
+            }
+        }
+    }
+    return Array.from(ids);
+};
+
+

@@ -165,16 +165,24 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
 
     const completedSubitems = subitems.filter((s) => s.completed_at || s.progress === 100).length;
 
-    // Dismiss drawer on Escape key
+    // Dismiss drawer on Escape key (allowing nested popovers/dialogs to close first)
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
+                if (e.defaultPrevented || isMediaModalOpen || lightboxAsset) {
+                    return;
+                }
+                // If any child dialog, popover, or dropdown menu is open, let it close first
+                const hasOpenFloating = document.querySelector('[data-state="open"]:not([data-drawer-root])');
+                if (hasOpenFloating) {
+                    return;
+                }
                 onClose();
             }
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [onClose]);
+    }, [onClose, isMediaModalOpen, lightboxAsset]);
 
     // Field updates
     const handleUpdateField = (field: string, val: any) => {
@@ -360,6 +368,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
 
     return (
         <div
+            data-drawer-root="true"
             onClick={onClose}
             className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs duration-200 sm:p-6"
         >
@@ -386,7 +395,8 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                     <div className="flex items-center gap-2">
                         <button
                             onClick={onClose}
-                            className="hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl p-1.5 transition-colors"
+                            className="hover:bg-muted text-muted-foreground hover:text-foreground flex h-9 w-9 items-center justify-center rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            aria-label="Close task details"
                         >
                             <X className="h-5 w-5" />
                         </button>

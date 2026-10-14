@@ -23,7 +23,7 @@ import {
     User as UserIcon,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { KanbanBoard, KanbanColumn, Task, User } from '../types';
+import { isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
 
 interface KanbanBoardViewProps {
     board: KanbanBoard;
@@ -151,7 +151,7 @@ export default function KanbanBoardView({
             const matchesDesc = (task.description || '').toLowerCase().includes(term);
             if (!matchesTitle && !matchesDesc) return false;
         }
-        if (personFilter !== 'all' && String(task.assigned_to) !== personFilter) {
+        if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter)) {
             return false;
         }
         if (priorityFilter !== 'all' && task.priority !== priorityFilter) {

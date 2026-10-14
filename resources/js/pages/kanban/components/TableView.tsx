@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { router } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
-import { BoardColumn, getTableGridTemplate, KanbanBoard, Task, User } from '../types';
+import { BoardColumn, getTableGridTemplate, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 import AddColumnModal from './AddColumnModal';
 import TableRow from './TableRow';
 
@@ -149,7 +149,7 @@ export default function TableView({
             const matchesDesc = (task.description || '').toLowerCase().includes(term);
             if (!matchesTitle && !matchesDesc) return false;
         }
-        if (personFilter !== 'all' && String(task.assigned_to) !== personFilter) {
+        if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter)) {
             return false;
         }
         if (priorityFilter !== 'all' && task.priority !== priorityFilter) {

@@ -1,7 +1,7 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { AlertCircle, Users } from 'lucide-react';
 import { useMemo } from 'react';
-import { KanbanBoard, Task, User } from '../types';
+import { getTaskAssignedUserIds, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
 interface WorkloadViewProps {
     board: KanbanBoard;
@@ -25,7 +25,7 @@ export default function WorkloadView({ board, searchTerm, personFilter, priority
                     const term = searchTerm.toLowerCase();
                     if (!task.title.toLowerCase().includes(term)) return false;
                 }
-                if (personFilter !== 'all' && String(task.assigned_to) !== personFilter) return false;
+                if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter)) return false;
                 if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
                 return true;
             });
@@ -62,24 +62,29 @@ export default function WorkloadView({ board, searchTerm, personFilter, priority
         });
 
         // Add an "Unassigned" placeholder if there are unassigned tasks
-        const unassignedTasks = tasks.filter((t) => !t.assigned_to);
+        const unassignedTasks = tasks.filter((t) => getTaskAssignedUserIds(t).length === 0);
 
         tasks.forEach((t) => {
-            if (t.assigned_to && result[t.assigned_to]) {
-                const item = result[t.assigned_to];
-                item.tasks.push(t);
-                const taskHours = Number(t.estimated_hours) || (t.priority === 'Urgent' ? 12 : 8);
-                item.totalEstimatedHours += taskHours;
+            const assignedIds = getTaskAssignedUserIds(t);
+            assignedIds.forEach((uid) => {
+                if (result[uid]) {
+                    const item = result[uid];
+                    if (!item.tasks.some((existing) => existing.id === t.id)) {
+                        item.tasks.push(t);
+                        const taskHours = Number(t.estimated_hours) || (t.priority === 'Urgent' ? 12 : 8);
+                        item.totalEstimatedHours += taskHours;
 
-                if (t.completed_at) {
-                    item.completedTasksCount++;
-                } else {
-                    item.activeTasksCount++;
-                    if (t.due_date && t.due_date < today) {
-                        item.overdueTasksCount++;
+                        if (t.completed_at) {
+                            item.completedTasksCount++;
+                        } else {
+                            item.activeTasksCount++;
+                            if (t.due_date && t.due_date < today) {
+                                item.overdueTasksCount++;
+                            }
+                        }
                     }
                 }
-            }
+            });
         });
 
         // Calculate utilization % against standard 40h weekly baseline
