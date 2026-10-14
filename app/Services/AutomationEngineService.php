@@ -296,12 +296,8 @@ class AutomationEngineService
                     $col = KanbanColumn::where('board_id', $task->board_id)
                         ->whereRaw('LOWER(title) = ?', [strtolower(trim($stageTitle))])
                         ->first();
-                    if ($col) {
-                        $task->column_id = $col->id;
-                        if (strtolower($col->title) === 'done' || strtolower($col->title) === 'completed') {
-                            $task->completed_at = now();
-                            $task->progress = 100;
-                        }
+                    if ($col && !$col->is_archived) {
+                        $task->applyWorkflowStatus($col);
                         $task->save();
                     }
                 }
@@ -463,12 +459,8 @@ class AutomationEngineService
                             ->orWhereRaw('LOWER(title) LIKE ?', ['%' . strtolower($targetValue) . '%']);
                     })
                     ->first();
-                if ($targetCol) {
-                    $targetTask->column_id = $targetCol->id;
-                    if (str_contains(strtolower($targetCol->title), 'done') || str_contains(strtolower($targetCol->title), 'complete')) {
-                        $targetTask->completed_at = now();
-                        $targetTask->progress = 100;
-                    }
+                if ($targetCol && !$targetCol->is_archived) {
+                    $targetTask->applyWorkflowStatus($targetCol);
                     $targetTask->save();
                 }
             } elseif ($targetField === 'priority') {

@@ -152,6 +152,15 @@ class TaskPolicy
             return true;
         }
 
+        // Client / external users can review if the active stage specifies client required_role
+        if (in_array($user->role, ['client', 'external_user'], true)) {
+            $activeCycle = $task->reviewCycles()->where('state', 'pending')->latest('round_number')->first();
+            $currentStage = $activeCycle?->stages()->where('stage_index', $activeCycle->current_stage_index ?? 1)->first();
+            if ($currentStage && $currentStage->required_role === 'client') {
+                return true;
+            }
+        }
+
         return false;
     }
 }

@@ -118,6 +118,12 @@ class BoardPolicy
         return false;
     }
 
+    public function manageStatuses(User $user, KanbanBoard $board): bool
+    {
+        return in_array($user->role, ['admin', 'admin_manager', 'project_manager'], true)
+            && $this->update($user, $board);
+    }
+
     /**
      * Determine whether the user can delete the board.
      */

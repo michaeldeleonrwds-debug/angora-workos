@@ -114,7 +114,7 @@ class WorkloadCapacityService
                 ? round($rawHours / count($assignedUserIds), 2)
                 : $rawHours;
 
-            $isCompleted = !empty($task->completed_at) || strtolower($task->column?->title ?? '') === 'done';
+            $isCompleted = !empty($task->completed_at) || $task->column?->isCompletionStatus();
             $isOverdue = !$isCompleted && $task->due_date && Carbon::parse($task->due_date)->isPast();
 
             foreach ($assignedUserIds as $uid) {

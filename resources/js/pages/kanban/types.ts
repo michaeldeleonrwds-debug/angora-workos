@@ -255,17 +255,35 @@ export interface TaskReviewDecision {
     reviewer?: User;
 }
 
+export interface TaskReviewStage {
+    id: number;
+    review_cycle_id: number;
+    stage_index: number;
+    name: string;
+    required_role?: string | null;
+    status: 'pending' | 'in_progress' | 'approved' | 'revision_requested';
+    reviewer_id?: number | null;
+    reviewer?: User;
+    feedback?: string | null;
+    decided_at?: string | null;
+    created_at?: string;
+}
+
 export interface TaskReviewCycle {
     id: number;
     task_id: number;
     round_number: number;
     submitted_by: number;
     state: 'pending' | 'approved' | 'revision_requested';
+    total_stages?: number;
+    current_stage_index?: number;
     notes?: string | null;
     submitted_at?: string | null;
     resolved_at?: string | null;
     created_at?: string;
     submitter?: User;
+    stages?: TaskReviewStage[];
+    current_stage?: TaskReviewStage;
     decisions?: TaskReviewDecision[];
     latest_decision?: TaskReviewDecision;
 }

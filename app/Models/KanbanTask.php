@@ -59,11 +59,11 @@ class KanbanTask extends Model
 
     public function getIsBlockedAttribute(): bool
     {
-        if ($this->completed_at !== null || (int) $this->progress === 100) {
+        if ($this->completed_at !== null || $this->column?->isCompletionStatus()) {
             return false;
         }
 
-        if ($this->relationLoaded('column') && $this->column && in_array(strtolower($this->column->title), ['done', 'completed'])) {
+        if ($this->column?->isCompletionStatus()) {
             return false;
         }
 
@@ -77,9 +77,7 @@ class KanbanTask extends Model
             }
             $t = $dep->dependencyTask;
             if ($t) {
-                $isDone = $t->completed_at !== null 
-                    || (int) $t->progress === 100 
-                    || ($t->column && in_array(strtolower($t->column->title), ['done', 'completed']));
+                $isDone = $t->completed_at !== null || $t->column?->isCompletionStatus();
                 if (!$isDone) {
                     return true;
                 }
@@ -332,7 +330,7 @@ class KanbanTask extends Model
         $now = now()->setTimezone('UTC');
 
         // Check if completed
-        $isCompleted = !empty($this->completed_at) || ($this->progress ?? 0) === 100;
+        $isCompleted = !empty($this->completed_at) || $this->column?->isCompletionStatus();
         if ($isCompleted) {
             $completedAt = $this->completed_at ? \Illuminate\Support\Carbon::parse($this->completed_at)->setTimezone('UTC') : $now;
             return $completedAt->lte($dueUtc) ? 'completed_on_time' : 'completed_late';
@@ -373,7 +371,8 @@ class KanbanTask extends Model
                 ->where(function ($q) {
                     $q->whereNotNull('completed_at')
                         ->orWhereHas('column', function ($sq) {
-                            $sq->whereRaw('LOWER(title) LIKE ?', ['%done%'])
+                            $sq->where('semantic_category', 'completed')
+                                ->orWhereRaw('LOWER(title) LIKE ?', ['%done%'])
                                 ->orWhereRaw('LOWER(title) LIKE ?', ['%completed%']);
                         });
                 })->count();
@@ -384,5 +383,13 @@ class KanbanTask extends Model
                 'completed_at' => $newProgress === 100 ? ($this->completed_at ?? now()) : null,
             ]);
         }
+    }
+
+    public function applyWorkflowStatus(KanbanColumn $status): void
+    {
+        $this->column_id = $status->id;
+        $this->completed_at = $status->isCompletionStatus()
+            ? ($this->completed_at ?? now())
+            : null;
     }
 }

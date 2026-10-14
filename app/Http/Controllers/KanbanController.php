@@ -24,6 +24,7 @@ use App\Services\CrossBoardService;
 use App\Services\TaskActivityService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -533,11 +534,12 @@ class KanbanController extends Controller
     // --- Workflow Stages (Kanban Columns) Management ---
     public function storeWorkflowStage(Request $request, KanbanBoard $board)
     {
-        Gate::authorize('update', $board);
+        Gate::authorize('manageStatuses', $board);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             'color' => 'nullable|string|max:20',
+            'semantic_category' => 'nullable|in:not_started,in_progress,blocked,in_review,completed,cancelled',
         ]);
 
         $stage = KanbanColumn::create([
@@ -545,6 +547,8 @@ class KanbanController extends Controller
             'title' => $validated['title'],
             'color' => $validated['color'] ?? '#64748b',
             'position' => $board->columns()->count(),
+            'semantic_category' => $validated['semantic_category'] ?? KanbanColumn::categoryForLegacyLabel($validated['title']),
+            'is_default' => !$board->columns()->exists(),
         ]);
 
         return back()->with('success', 'Stage created');
@@ -553,16 +557,44 @@ class KanbanController extends Controller
     public function updateWorkflowStage(Request $request, KanbanColumn $column)
     {
         $board = $column->board;
-        if ($board) {
-            Gate::authorize('update', $board);
-        }
+        abort_unless($board, 404);
+        Gate::authorize('manageStatuses', $board);
 
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'color' => 'nullable|string|max:20',
+            'semantic_category' => 'sometimes|in:not_started,in_progress,blocked,in_review,completed,cancelled',
+            'is_default' => 'sometimes|boolean',
+            'is_archived' => 'sometimes|boolean',
         ]);
 
-        $column->update($validated);
+        if (($validated['is_archived'] ?? false) && $column->is_default && !($validated['is_default'] ?? false)) {
+            return back()->withErrors(['status' => 'Choose another default status before archiving this one.']);
+        }
+        if (($validated['is_default'] ?? false) && ($validated['is_archived'] ?? $column->is_archived)) {
+            return back()->withErrors(['status' => 'An archived status cannot be the default.']);
+        }
+
+        $categoryChanged = isset($validated['semantic_category'])
+            && $validated['semantic_category'] !== $column->semantic_category;
+        DB::transaction(function () use ($board, $column, $validated, $categoryChanged) {
+            if ($validated['is_default'] ?? false) {
+                $board->columns()->update(['is_default' => false]);
+            }
+            $column->update($validated);
+            if ($categoryChanged) {
+                $completed = $column->isCompletionStatus();
+                $tasksToUpdate = $column->tasks();
+                if ($completed) {
+                    $tasksToUpdate->whereNull('completed_at')->update(['completed_at' => now()]);
+                } else {
+                    $tasksToUpdate->update(['completed_at' => null]);
+                }
+                foreach ($column->tasks()->whereNotNull('parent_id')->with('parent')->get() as $subtask) {
+                    $subtask->parent?->recalculateProgressFromSubtasks();
+                }
+            }
+        });
 
         return back()->with('success', 'Stage updated');
     }
@@ -570,28 +602,29 @@ class KanbanController extends Controller
     public function deleteWorkflowStage(KanbanColumn $column)
     {
         $board = $column->board;
-        if ($board) {
-            Gate::authorize('update', $board);
-        }
+        abort_unless($board, 404);
+        Gate::authorize('manageStatuses', $board);
+        abort_if($column->is_default, 422, 'Choose another default status first.');
+        abort_if($board->columns()->where('is_archived', false)->count() <= 1, 422, 'A board needs an active status.');
+        $column->update(['is_archived' => true]);
 
-        $boardId = $column->board_id;
-        $fallback = KanbanColumn::where('board_id', $boardId)->where('id', '!=', $column->id)->first();
-        if ($fallback) {
-            KanbanTask::where('column_id', $column->id)->update(['column_id' => $fallback->id]);
-        }
-        $column->delete();
-
-        return back()->with('success', 'Stage deleted');
+        return back()->with('success', 'Status archived');
     }
 
     public function reorderWorkflowStages(Request $request, KanbanBoard $board)
     {
-        Gate::authorize('update', $board);
+        Gate::authorize('manageStatuses', $board);
 
         $validated = $request->validate([
             'stage_ids' => 'required|array',
-            'stage_ids.*' => 'exists:kanban_columns,id',
+            'stage_ids.*' => 'distinct|exists:kanban_columns,id',
         ]);
+
+        abort_unless(
+            KanbanColumn::whereIn('id', $validated['stage_ids'])->where('board_id', $board->id)->count() === count($validated['stage_ids']),
+            422,
+            'Statuses must belong to this board.'
+        );
 
         foreach ($validated['stage_ids'] as $idx => $id) {
             KanbanColumn::where('id', $id)->where('board_id', $board->id)->update(['position' => $idx]);
@@ -921,15 +954,12 @@ class KanbanController extends Controller
         }
 
         if (isset($validated['column_id'])) {
-            $colTitle = KanbanColumn::find($validated['column_id'])?->title;
-            if ($colTitle && (strtolower($colTitle) === 'done' || strtolower($colTitle) === 'completed')) {
-                $task->completed_at = now();
-                if (!isset($validated['progress'])) {
-                    $validated['progress'] = 100;
-                }
-            } else {
-                $task->completed_at = null;
-            }
+            $status = KanbanColumn::where('board_id', $task->board_id)->findOrFail($validated['column_id']);
+            abort_if($status->is_archived && $status->id !== $task->column_id, 422, 'Archived statuses cannot be assigned.');
+            $task->applyWorkflowStatus($status);
+        }
+        if (isset($validated['group_id'])) {
+            abort_unless(BoardGroup::where('board_id', $task->board_id)->whereKey($validated['group_id'])->exists(), 422);
         }
 
         if (isset($validated['custom_values'])) {
@@ -939,7 +969,7 @@ class KanbanController extends Controller
 
         $prevPriority = $task->priority;
         $prevAssigned = $task->assigned_to;
-        $prevColumn = $task->column_id;
+        $prevColumn = $task->getOriginal('column_id');
         $userName = auth()->user()->name;
 
         // Activity logging for specific field mutations
@@ -1124,12 +1154,14 @@ class KanbanController extends Controller
         ]);
 
         $prevColumn = $task->column?->title;
-        $task->column_id = $validated['column_id'];
+        $status = KanbanColumn::where('board_id', $task->board_id)->findOrFail($validated['column_id']);
+        abort_if($status->is_archived && $status->id !== $task->column_id, 422, 'Archived statuses cannot be assigned.');
+        $task->applyWorkflowStatus($status);
         if (isset($validated['position'])) {
             $task->position = $validated['position'];
         }
 
-        $newColumn = KanbanColumn::find($validated['column_id'])?->title;
+        $newColumn = $status->title;
 
         // Cross-view sync: if board groups correspond to stages, sync group_id
         if ($newColumn && $task->board_id) {
@@ -1142,13 +1174,6 @@ class KanbanController extends Controller
             if ($matchingGroup && $task->group_id !== $matchingGroup->id) {
                 $task->group_id = $matchingGroup->id;
             }
-        }
-
-        if (strtolower($newColumn ?? '') === 'completed' || strtolower($newColumn ?? '') === 'done') {
-            $task->completed_at = now();
-            $task->progress = 100;
-        } else {
-            $task->completed_at = null;
         }
 
         $task->save();

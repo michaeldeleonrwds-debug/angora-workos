@@ -25,7 +25,11 @@ class TaskReviewController extends Controller
         \Illuminate\Support\Facades\Gate::authorize('view', $task);
 
         $cycles = $task->reviewCycles()
-            ->with(['submitter:id,name,email,avatar', 'decisions.reviewer:id,name,email,avatar'])
+            ->with([
+                'submitter:id,name,email,avatar',
+                'stages.reviewer:id,name,email,avatar',
+                'decisions.reviewer:id,name,email,avatar',
+            ])
             ->get();
 
         return response()->json([
@@ -54,19 +58,39 @@ class TaskReviewController extends Controller
 
         $validated = $request->validate([
             'notes' => 'nullable|string|max:2000',
+            'stages' => 'nullable|array|min:1',
+            'stages.*.name' => 'required|string|max:100',
+            'stages.*.required_role' => 'nullable|string|max:50',
         ]);
 
         $latestCycle = $task->reviewCycles()->latest('round_number')->first();
         $roundNumber = $latestCycle ? ($latestCycle->round_number + 1) : 1;
+
+        $stagesSpec = $validated['stages'] ?? [
+            ['name' => 'Internal Review', 'required_role' => null],
+        ];
 
         $cycle = TaskReviewCycle::create([
             'task_id' => $task->id,
             'round_number' => $roundNumber,
             'submitted_by' => $user->id,
             'state' => 'pending',
+            'total_stages' => count($stagesSpec),
+            'current_stage_index' => 1,
             'notes' => $validated['notes'] ?? null,
             'submitted_at' => now(),
         ]);
+
+        foreach ($stagesSpec as $sIdx => $sData) {
+            $stageNum = $sIdx + 1;
+            \App\Models\TaskReviewStage::create([
+                'review_cycle_id' => $cycle->id,
+                'stage_index' => $stageNum,
+                'name' => $sData['name'] ?? "Stage {$stageNum}",
+                'required_role' => $sData['required_role'] ?? null,
+                'status' => $stageNum === 1 ? 'in_progress' : 'pending',
+            ]);
+        }
 
         // Find review column if exists on the board
         $board = $task->board;
@@ -155,6 +179,26 @@ class TaskReviewController extends Controller
             ], 403);
         }
 
+        $currentStage = $cycle->stages()->where('stage_index', $cycle->current_stage_index ?? 1)->first();
+
+        // Stage role gating: if stage specifies required_role, enforce it (unless super_admin or admin)
+        if ($currentStage && !empty($currentStage->required_role) && !in_array($user->role, ['super_admin', 'admin'])) {
+            $allowedRole = $currentStage->required_role;
+            if ($allowedRole === 'client' && $user->role !== 'client' && $user->role !== 'external_user') {
+                return response()->json([
+                    'error' => "Stage '{$currentStage->name}' requires client authorization.",
+                ], 403);
+            } elseif ($allowedRole === 'project_manager' && !in_array($user->role, ['project_manager', 'admin_manager', 'admin', 'super_admin'])) {
+                return response()->json([
+                    'error' => "Stage '{$currentStage->name}' requires project manager authorization.",
+                ], 403);
+            } elseif ($allowedRole !== 'any' && $allowedRole !== 'client' && $allowedRole !== 'project_manager' && $user->role !== $allowedRole) {
+                return response()->json([
+                    'error' => "Stage '{$currentStage->name}' requires '{$allowedRole}' role authorization.",
+                ], 403);
+            }
+        }
+
         $decision = TaskReviewDecision::create([
             'review_cycle_id' => $cycle->id,
             'reviewer_id' => $user->id,
@@ -164,22 +208,27 @@ class TaskReviewController extends Controller
             'decided_at' => now(),
         ]);
 
-        $cycle->update([
-            'state' => $validated['decision'],
-            'resolved_at' => now(),
-        ]);
+        if ($currentStage) {
+            $currentStage->update([
+                'status' => $validated['decision'],
+                'reviewer_id' => $user->id,
+                'feedback' => $validated['feedback'] ?? null,
+                'decided_at' => now(),
+            ]);
+        }
 
         $board = $task->board;
-        if ($board) {
-            if ($validated['decision'] === 'approved') {
-                $targetCol = $board->columns()
-                    ->where(function ($q) {
-                        $q->where('title', 'like', '%Done%')
-                          ->orWhere('title', 'like', '%Approved%')
-                          ->orWhere('title', 'like', '%Completed%');
-                    })
-                    ->first();
-            } else {
+        $isCycleComplete = false;
+        $cycleFinalStatus = $validated['decision'];
+
+        if ($validated['decision'] === 'revision_requested') {
+            $isCycleComplete = true;
+            $cycle->update([
+                'state' => 'revision_requested',
+                'resolved_at' => now(),
+            ]);
+
+            if ($board) {
                 $targetCol = $board->columns()
                     ->where(function ($q) {
                         $q->where('title', 'like', '%Revision%')
@@ -187,49 +236,103 @@ class TaskReviewController extends Controller
                           ->orWhere('title', 'like', '%Changes%');
                     })
                     ->first();
+
+                if ($targetCol) {
+                    $oldStatus = $task->column?->title;
+                    $task->column_id = $targetCol->id;
+
+                    $matchingGroup = $board->groups()->where('title', 'like', '%' . $targetCol->title . '%')->first();
+                    if ($matchingGroup) {
+                        $task->group_id = $matchingGroup->id;
+                    }
+                    $task->save();
+
+                    TaskActivityService::log(
+                        task: $task,
+                        eventType: 'status_changed',
+                        description: "Status changed to {$targetCol->title}",
+                        fieldName: 'status',
+                        oldValue: $oldStatus,
+                        newValue: $targetCol->title,
+                        actor: $user
+                    );
+                }
             }
+        } else {
+            // Stage approved: check if there are subsequent stages
+            $hasNextStage = $currentStage && ($cycle->current_stage_index < $cycle->total_stages);
 
-            if ($targetCol) {
-                $oldStatus = $task->column?->title;
-                $task->column_id = $targetCol->id;
+            if ($hasNextStage) {
+                $nextIndex = $cycle->current_stage_index + 1;
+                $cycle->update([
+                    'current_stage_index' => $nextIndex,
+                ]);
 
-                if (in_array(strtolower($targetCol->title), ['done', 'completed', 'approved'])) {
-                    $task->completed_at = now();
-                    $task->progress = 100;
+                $nextStage = $cycle->stages()->where('stage_index', $nextIndex)->first();
+                if ($nextStage) {
+                    $nextStage->update(['status' => 'in_progress']);
                 }
+            } else {
+                // Final stage approved -> cycle complete!
+                $isCycleComplete = true;
+                $cycle->update([
+                    'state' => 'approved',
+                    'resolved_at' => now(),
+                ]);
 
-                // Sync group_id if matching group exists
-                $matchingGroup = $board->groups()->where('title', 'like', '%' . $targetCol->title . '%')->first();
-                if ($matchingGroup) {
-                    $task->group_id = $matchingGroup->id;
+                if ($board) {
+                    $targetCol = $board->columns()
+                        ->where(function ($q) {
+                            $q->where('title', 'like', '%Done%')
+                              ->orWhere('title', 'like', '%Approved%')
+                              ->orWhere('title', 'like', '%Completed%');
+                        })
+                        ->first();
+
+                    if ($targetCol) {
+                        $oldStatus = $task->column?->title;
+                        $task->column_id = $targetCol->id;
+
+                        if (in_array(strtolower($targetCol->title), ['done', 'completed', 'approved'])) {
+                            $task->completed_at = now();
+                            $task->progress = 100;
+                        }
+
+                        $matchingGroup = $board->groups()->where('title', 'like', '%' . $targetCol->title . '%')->first();
+                        if ($matchingGroup) {
+                            $task->group_id = $matchingGroup->id;
+                        }
+                        $task->save();
+
+                        TaskActivityService::log(
+                            task: $task,
+                            eventType: 'status_changed',
+                            description: "Status changed to {$targetCol->title}",
+                            fieldName: 'status',
+                            oldValue: $oldStatus,
+                            newValue: $targetCol->title,
+                            actor: $user
+                        );
+                    }
                 }
-                $task->save();
-
-                TaskActivityService::log(
-                    task: $task,
-                    eventType: 'status_changed',
-                    description: "Status changed to {$targetCol->title}",
-                    fieldName: 'status',
-                    oldValue: $oldStatus,
-                    newValue: $targetCol->title,
-                    actor: $user
-                );
             }
         }
 
+        $stageName = $currentStage ? $currentStage->name : "Round {$cycle->round_number}";
         $activityType = $validated['decision'] === 'approved' ? 'review_approved' : 'revision_requested';
         $actionDesc = $validated['decision'] === 'approved' ? 'approved' : 'requested revisions for';
 
         TaskActivityService::log(
             task: $task,
             eventType: $activityType,
-            description: "{$user->name} {$actionDesc} Round {$cycle->round_number}.",
+            description: "{$user->name} {$actionDesc} '{$stageName}' (Round {$cycle->round_number}).",
             fieldName: 'review_decision',
             oldValue: 'pending',
             newValue: $validated['decision'],
             metadata: [
                 'cycle_id' => $cycle->id,
                 'round' => $cycle->round_number,
+                'stage_index' => $currentStage?->stage_index ?? 1,
                 'feedback' => $validated['feedback'] ?? null,
             ],
             actor: $user
@@ -243,9 +346,15 @@ class TaskReviewController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => $validated['decision'] === 'approved' ? "Round {$cycle->round_number} approved!" : "Revision requested for Round {$cycle->round_number}.",
+            'message' => $isCycleComplete
+                ? ($validated['decision'] === 'approved' ? "Round {$cycle->round_number} fully approved!" : "Revision requested for Round {$cycle->round_number}.")
+                : "Stage '{$stageName}' approved. Advanced to next stage.",
             'decision' => $decision->load('reviewer:id,name,email,avatar,avatar_url'),
-            'cycle' => $cycle->fresh(['submitter:id,name,email,avatar,avatar_url', 'decisions.reviewer:id,name,email,avatar,avatar_url']),
+            'cycle' => $cycle->fresh([
+                'submitter:id,name,email,avatar,avatar_url',
+                'stages.reviewer:id,name,email,avatar,avatar_url',
+                'decisions.reviewer:id,name,email,avatar,avatar_url',
+            ]),
             'task' => $task->fresh(['column', 'group']),
         ]);
     }

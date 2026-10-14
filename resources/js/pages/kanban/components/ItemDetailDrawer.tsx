@@ -12,6 +12,7 @@ import {
     AtSign,
     Check,
     CheckCircle2,
+    Clock,
     CornerDownRight,
     Download,
     ExternalLink,
@@ -66,6 +67,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
     const [decisionFeedback, setDecisionFeedback] = useState('');
     const [isDeciding, setIsDeciding] = useState(false);
     const [reviewErrorMessage, setReviewErrorMessage] = useState<string | null>(null);
+    const [reviewPipelinePreset, setReviewPipelinePreset] = useState<'single' | 'two_stage' | 'three_stage'>('single');
 
     // Dependencies & Blockers state
     const [dependencySummary, setDependencySummary] = useState<{
@@ -318,12 +320,32 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
     const currentCycle = reviewCycles.length > 0 ? reviewCycles[reviewCycles.length - 1] : null;
     const isPendingReview = currentCycle?.state === 'pending';
     const isSubmitter = currentCycle?.submitted_by === currentUser?.id;
-    const canDecideReview = isPendingReview && (isReviewerRole && (!isSubmitter || isSuperAdminOrAdmin));
+    const activeStage = currentCycle?.stages?.find(s => s.stage_index === (currentCycle.current_stage_index || 1));
+    const isStageRoleAuthorized = !activeStage?.required_role || isSuperAdminOrAdmin ||
+        (activeStage.required_role === 'client' && (currentUser?.role === 'client' || currentUser?.role === 'external_user')) ||
+        (activeStage.required_role === 'project_manager' && ['project_manager', 'admin_manager', 'admin', 'super_admin'].includes(currentUser?.role || '')) ||
+        (activeStage.required_role === currentUser?.role);
+    const canDecideReview = isPendingReview && (isReviewerRole && (!isSubmitter || isSuperAdminOrAdmin) && isStageRoleAuthorized);
 
     const handleSubmitReview = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSubmittingReview(true);
         setReviewErrorMessage(null);
+
+        let stagesPayload: Array<{ name: string; required_role?: string | null }> | undefined = undefined;
+        if (reviewPipelinePreset === 'two_stage') {
+            stagesPayload = [
+                { name: 'Internal QA', required_role: null },
+                { name: 'Manager Sign-off', required_role: 'project_manager' },
+            ];
+        } else if (reviewPipelinePreset === 'three_stage') {
+            stagesPayload = [
+                { name: 'Internal QA', required_role: null },
+                { name: 'Manager Sign-off', required_role: 'project_manager' },
+                { name: 'Client Final Approval', required_role: 'client' },
+            ];
+        }
+
         try {
             const res = await fetch(`/kanban/tasks/${task.id}/review/submit`, {
                 method: 'POST',
@@ -332,7 +354,10 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                     Accept: 'application/json',
                     'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
                 },
-                body: JSON.stringify({ notes: submitNotes.trim() }),
+                body: JSON.stringify({
+                    notes: submitNotes.trim(),
+                    stages: stagesPayload,
+                }),
             });
             const data = await res.json();
             if (res.ok) {
@@ -1804,6 +1829,60 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                 </span>
                                             </div>
 
+                                            {/* Multi-Stage Approval Pipeline Progress */}
+                                            {currentCycle?.stages && currentCycle.stages.length > 0 && (
+                                                <div className="space-y-2 py-1">
+                                                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+                                                        <span>Approval Pipeline ({currentCycle.stages.length} Stages)</span>
+                                                        <span className="text-[10px] lowercase font-normal">
+                                                            Stage {currentCycle.current_stage_index || 1} of {currentCycle.stages.length}
+                                                        </span>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                        {currentCycle.stages.map((stg) => {
+                                                            const isCurrent = stg.stage_index === (currentCycle.current_stage_index || 1);
+                                                            const isApproved = stg.status === 'approved';
+                                                            const isRevision = stg.status === 'revision_requested';
+                                                            return (
+                                                                <div
+                                                                    key={stg.id}
+                                                                    className={`rounded-xl border p-2.5 text-xs transition-all ${
+                                                                        isApproved
+                                                                            ? 'bg-emerald-50/80 border-emerald-300 text-emerald-900 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300'
+                                                                            : isRevision
+                                                                            ? 'bg-rose-50/80 border-rose-300 text-rose-900 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300'
+                                                                            : isCurrent
+                                                                            ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-400/20 text-amber-950 dark:bg-amber-950/40 dark:border-amber-700 dark:text-amber-200'
+                                                                            : 'bg-slate-50/60 border-slate-200 text-slate-500 dark:bg-slate-900/40 dark:border-slate-800 dark:text-slate-400'
+                                                                    }`}
+                                                                >
+                                                                    <div className="flex items-center justify-between font-bold text-[11px] mb-1">
+                                                                        <span className="flex items-center gap-1.5 truncate">
+                                                                            <span className="flex h-4 w-4 items-center justify-center rounded-full bg-black/10 dark:bg-white/10 text-[9px] shrink-0">
+                                                                                {stg.stage_index}
+                                                                            </span>
+                                                                            <span className="truncate">{stg.name}</span>
+                                                                        </span>
+                                                                        {isApproved && <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />}
+                                                                        {isRevision && <RotateCcw className="h-3.5 w-3.5 text-rose-600 shrink-0" />}
+                                                                        {isCurrent && <Clock className="h-3.5 w-3.5 text-amber-600 animate-pulse shrink-0" />}
+                                                                    </div>
+                                                                    <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                                                                        <span className="truncate">{stg.required_role ? `Role: ${stg.required_role}` : 'Any Reviewer'}</span>
+                                                                        <span className="capitalize font-semibold">{stg.status.replace('_', ' ')}</span>
+                                                                    </div>
+                                                                    {stg.reviewer && (
+                                                                        <div className="mt-1 text-[9px] text-slate-400 truncate">
+                                                                            By {stg.reviewer.name}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {currentCycle?.notes && (
                                                 <div className="rounded-xl bg-white p-3 text-xs text-slate-700 shadow-2xs dark:bg-[#1E1E2F] dark:text-slate-300">
                                                     <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
@@ -1816,9 +1895,19 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                             {/* Decision Form for Authorized Reviewers */}
                                             {canDecideReview ? (
                                                 <div className="space-y-3 pt-2 border-t border-amber-200/70 dark:border-amber-900/40">
-                                                    <Label className="text-xs font-bold text-[#191927] dark:text-white">
-                                                        Reviewer Decision & Feedback
-                                                    </Label>
+                                                    <div className="flex items-center justify-between">
+                                                        <Label className="text-xs font-bold text-[#191927] dark:text-white">
+                                                            Reviewer Decision & Feedback
+                                                            {activeStage && ` (Stage ${activeStage.stage_index}: ${activeStage.name})`}
+                                                        </Label>
+                                                        {activeStage && (
+                                                            <span className="text-[10px] text-slate-400">
+                                                                {activeStage.stage_index === (currentCycle?.total_stages || 1)
+                                                                    ? 'Final Stage Approval'
+                                                                    : `Advances to Stage ${(activeStage.stage_index || 1) + 1}`}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <textarea
                                                         rows={3}
                                                         value={decisionFeedback}
@@ -1847,7 +1936,11 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                             className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 shadow-2xs"
                                                         >
                                                             <CheckCircle2 className="h-3.5 w-3.5" />
-                                                            <span>Approve Deliverable</span>
+                                                            <span>
+                                                                {activeStage && activeStage.stage_index < (currentCycle?.total_stages || 1)
+                                                                    ? `Approve Stage ${activeStage.stage_index}`
+                                                                    : 'Approve Deliverable'}
+                                                            </span>
                                                         </Button>
                                                     </div>
                                                 </div>
@@ -1876,6 +1969,51 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                 <span className="text-[11px] font-semibold text-slate-400">
                                                     Round {reviewCycles.length + 1}
                                                 </span>
+                                            </div>
+
+                                            {/* Approval Pipeline Preset Selector */}
+                                            <div className="space-y-1.5">
+                                                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                                                    Approval Pipeline Stages
+                                                </Label>
+                                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setReviewPipelinePreset('single')}
+                                                        className={`rounded-xl border p-2 text-left text-xs transition-all ${
+                                                            reviewPipelinePreset === 'single'
+                                                                ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
+                                                                : 'border-border bg-background hover:bg-muted/40 text-slate-600 dark:text-slate-300'
+                                                        }`}
+                                                    >
+                                                        <div className="font-semibold text-[11px]">Single-Stage</div>
+                                                        <div className="text-[10px] text-muted-foreground font-normal">Internal Review</div>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setReviewPipelinePreset('two_stage')}
+                                                        className={`rounded-xl border p-2 text-left text-xs transition-all ${
+                                                            reviewPipelinePreset === 'two_stage'
+                                                                ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
+                                                                : 'border-border bg-background hover:bg-muted/40 text-slate-600 dark:text-slate-300'
+                                                        }`}
+                                                    >
+                                                        <div className="font-semibold text-[11px]">2-Stage Pipeline</div>
+                                                        <div className="text-[10px] text-muted-foreground font-normal">Internal QA → Manager</div>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setReviewPipelinePreset('three_stage')}
+                                                        className={`rounded-xl border p-2 text-left text-xs transition-all ${
+                                                            reviewPipelinePreset === 'three_stage'
+                                                                ? 'border-primary bg-primary/10 text-primary font-bold shadow-2xs'
+                                                                : 'border-border bg-background hover:bg-muted/40 text-slate-600 dark:text-slate-300'
+                                                        }`}
+                                                    >
+                                                        <div className="font-semibold text-[11px]">3-Stage Enterprise</div>
+                                                        <div className="text-[10px] text-muted-foreground font-normal">QA → PM → Client</div>
+                                                    </button>
+                                                </div>
                                             </div>
 
                                             <textarea

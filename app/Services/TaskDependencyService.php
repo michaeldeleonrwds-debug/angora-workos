@@ -214,10 +214,7 @@ class TaskDependencyService
      */
     public function isTaskBlocked(KanbanTask $task): bool
     {
-        if ($task->completed_at !== null || (int) $task->progress === 100) {
-            return false;
-        }
-        if ($task->relationLoaded('column') && $task->column && in_array(strtolower($task->column->title), ['done', 'completed'])) {
+        if ($task->completed_at !== null || $task->column?->isCompletionStatus()) {
             return false;
         }
 
@@ -229,9 +226,7 @@ class TaskDependencyService
         foreach ($blockers as $dep) {
             $t = $dep->dependencyTask;
             if ($t) {
-                $isDone = $t->completed_at !== null 
-                    || (int) $t->progress === 100 
-                    || ($t->column && in_array(strtolower($t->column->title), ['done', 'completed']));
+                $isDone = $t->completed_at !== null || $t->column?->isCompletionStatus();
                 if (!$isDone) {
                     return true;
                 }
@@ -256,7 +251,7 @@ class TaskDependencyService
             ->get()
             ->map(function ($d) {
                 $t = $d->dependencyTask;
-                $isDone = $t && ($t->completed_at !== null || (int) $t->progress === 100 || ($t->column && in_array(strtolower($t->column->title), ['done', 'completed'])));
+                $isDone = $t && ($t->completed_at !== null || $t->column?->isCompletionStatus());
                 return [
                     'id' => $d->id,
                     'task_id' => $t?->id,
@@ -278,7 +273,7 @@ class TaskDependencyService
             ->get()
             ->map(function ($d) {
                 $t = $d->task;
-                $isDone = $t && ($t->completed_at !== null || (int) $t->progress === 100 || ($t->column && in_array(strtolower($t->column->title), ['done', 'completed'])));
+                $isDone = $t && ($t->completed_at !== null || $t->column?->isCompletionStatus());
                 return [
                     'id' => $d->id,
                     'task_id' => $t?->id,
