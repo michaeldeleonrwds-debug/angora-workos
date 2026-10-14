@@ -123,6 +123,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'getPreferences'])->name('notifications.preferences');
     Route::put('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'updatePreferences'])->name('notifications.preferences.update');
 
+    // Production Management & Quality Control
+    Route::get('/production', [\App\Http\Controllers\ProductionController::class, 'index'])->name('production.index');
+    Route::post('/production/work-orders', [\App\Http\Controllers\ProductionController::class, 'storeWorkOrder'])->name('production.work-orders.store');
+    Route::patch('/production/work-orders/{order}', [\App\Http\Controllers\ProductionController::class, 'updateWorkOrderStatus'])->name('production.work-orders.update');
+    Route::post('/production/qc', [\App\Http\Controllers\ProductionController::class, 'storeQualityCheck'])->name('production.qc.store');
+    Route::post('/production/incidents', [\App\Http\Controllers\ProductionController::class, 'storeIncident'])->name('production.incidents.store');
+
     // Review & Approval Workflow
     Route::get('/kanban/tasks/{task}/review', [\App\Http\Controllers\TaskReviewController::class, 'index'])->name('kanban.tasks.review.index');
     Route::post('/kanban/tasks/{task}/review/submit', [\App\Http\Controllers\TaskReviewController::class, 'submit'])->name('kanban.tasks.review.submit');

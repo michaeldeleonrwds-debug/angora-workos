@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Bell, Mail, Check, AlertCircle, Sparkles } from 'lucide-react';
+import { csrfHeaders } from '@/lib/utils';
 
 interface NotificationPref {
     category: string;
@@ -101,7 +102,7 @@ export function NotificationPreferencesModal({ open, onOpenChange }: Notificatio
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                    ...csrfHeaders(),
                 },
                 body: JSON.stringify({ preferences }),
             });

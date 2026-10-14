@@ -81,3 +81,25 @@ export function formatTime(timeVal: string | Date | null | undefined, fallback: 
         return String(timeVal);
     }
 }
+
+/**
+ * Retrieve CSRF token from document meta tag or XSRF-TOKEN cookie.
+ */
+export function getCsrfToken(): string {
+    if (typeof document === 'undefined') return '';
+    const meta = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
+    if (meta) return meta;
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+/**
+ * Return headers with CSRF tokens for fetch requests.
+ */
+export function csrfHeaders(): Record<string, string> {
+    const token = getCsrfToken();
+    return {
+        'X-CSRF-TOKEN': token,
+        'X-XSRF-TOKEN': token,
+    };
+}

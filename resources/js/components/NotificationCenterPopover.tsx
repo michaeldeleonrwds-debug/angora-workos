@@ -20,6 +20,7 @@ import {
     Zap,
 } from 'lucide-react';
 import { NotificationPreferencesModal } from './NotificationPreferencesModal';
+import { csrfHeaders } from '@/lib/utils';
 
 interface NotificationItem {
     id: number;
@@ -97,7 +98,7 @@ export function NotificationCenterPopover() {
                 method: 'PATCH',
                 headers: {
                     Accept: 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                    ...csrfHeaders(),
                 },
             });
             if (res.ok) {
@@ -120,7 +121,7 @@ export function NotificationCenterPopover() {
                 method: 'POST',
                 headers: {
                     Accept: 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                    ...csrfHeaders(),
                 },
             });
             if (res.ok) {
@@ -139,7 +140,7 @@ export function NotificationCenterPopover() {
                 method: 'DELETE',
                 headers: {
                     Accept: 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                    ...csrfHeaders(),
                 },
             });
             if (res.ok) {
