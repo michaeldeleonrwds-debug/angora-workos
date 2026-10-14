@@ -357,4 +357,49 @@ class WorkOsPhase3SchedulingAndDeadlinesTest extends TestCase
 
         $res->assertStatus(403);
     }
+
+    /** 11. Date-only update preserves previously stored start and due times */
+    public function test_date_only_update_preserves_stored_time(): void
+    {
+        $this->actingAs($this->user);
+
+        $task = KanbanTask::create([
+            'board_id' => $this->board->id,
+            'column_id' => $this->column->id,
+            'group_id' => $this->group->id,
+            'title' => 'Preserved Time Task',
+            'start_date' => '2026-10-10',
+            'start_time' => '09:30',
+            'due_date' => '2026-10-18',
+            'due_time' => '17:00',
+            'created_by' => $this->user->id,
+            'custom_values' => ['client_deadline' => '2026-10-20'],
+        ]);
+
+        // When updating only the due date (simulating DatePickerCell in TableRow)
+        $res = $this->patch("/kanban/tasks/{$task->id}", [
+            'due_date' => '2026-10-25',
+        ]);
+
+        $res->assertSessionHasNoErrors();
+        $task->refresh();
+
+        // Ensure date updated while stored times remain intact
+        $this->assertEquals('2026-10-25', $task->due_date);
+        $this->assertEquals('17:00', $task->due_time);
+        $this->assertEquals('2026-10-10', $task->start_date);
+        $this->assertEquals('09:30', $task->start_time);
+
+        // Updating custom date column preserves times and merges values correctly
+        $resCustom = $this->patch("/kanban/tasks/{$task->id}", [
+            'custom_values' => ['client_deadline' => '2026-10-28'],
+        ]);
+        $resCustom->assertSessionHasNoErrors();
+        $task->refresh();
+
+        $this->assertEquals('2026-10-28', $task->custom_values['client_deadline']);
+        $this->assertEquals('17:00', $task->due_time);
+        $this->assertEquals('09:30', $task->start_time);
+    }
 }
+

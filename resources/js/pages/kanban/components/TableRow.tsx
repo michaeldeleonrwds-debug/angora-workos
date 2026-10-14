@@ -1,10 +1,11 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatTime } from '@/lib/utils';
 import { router } from '@inertiajs/react';
 import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, Star, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import { BoardColumn, BoardGroup, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../types';
 import ConnectBoardsModal from './ConnectBoardsModal';
+import DatePickerCell from './DatePickerCell';
 import EditableDropdownCell from './EditableDropdownCell';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import SubitemTable from './SubitemTable';
@@ -378,39 +379,37 @@ export default function TableRow({
                         const isOverdue = isMainDueDateCol && task.deadline_status === 'overdue';
                         const isDueToday = isMainDueDateCol && task.deadline_status === 'due_today';
 
-                        const onDateChange = (val: string) => {
+                        const onDateChange = (val: string | null) => {
                             if (isMainDueDateCol) {
-                                handleUpdateDate(val);
+                                handleUpdateDate(val || '');
                             } else {
-                                handleUpdateCustomValue(col.key, val || null);
+                                handleUpdateCustomValue(col.key, val);
                             }
                         };
 
                         return (
                             <div
                                 key={col.id}
-                                className={`border-border/40 text-foreground border-r px-1.5 py-1 flex items-center justify-center gap-1 min-w-0 h-full font-medium overflow-hidden ${
+                                className={`border-border/40 text-foreground border-r px-1 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden ${
                                     isOverdue ? 'bg-red-500/10' : isDueToday ? 'bg-amber-500/10' : ''
                                 }`}
                             >
-                                <input
-                                    type="date"
-                                    value={dateVal}
-                                    onChange={(e) => onDateChange(e.target.value)}
-                                    className={`cursor-pointer border-none bg-transparent text-center text-xs focus:outline-none ${
-                                        isOverdue ? 'font-bold text-red-600' : isDueToday ? 'font-bold text-amber-600' : ''
-                                    }`}
-                                />
-                                {isMainDueDateCol && task.due_time && (
-                                    <span className="text-muted-foreground text-[10px] font-medium">
-                                        {task.due_time}
-                                    </span>
-                                )}
-                                {isMainDueDateCol && task.is_milestone && (
-                                    <span title="Milestone">
-                                        <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
-                                    </span>
-                                )}
+                                <div className="flex items-center w-full min-w-0">
+                                    <div className="flex-1 min-w-0">
+                                        <DatePickerCell
+                                            value={dateVal}
+                                            onChange={onDateChange}
+                                            isOverdue={isOverdue}
+                                            isDueToday={isDueToday}
+                                            placeholder="Set date"
+                                        />
+                                    </div>
+                                    {isMainDueDateCol && task.is_milestone && (
+                                        <span title="Milestone" className="mr-1.5 shrink-0">
+                                            <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         );
                     }
@@ -430,9 +429,9 @@ export default function TableRow({
                                 >
                                     <span className="truncate">
                                         {task.start_date ? formatDate(task.start_date) : 'Start'}
-                                        {task.start_time ? ` ${task.start_time}` : ''} –{' '}
+                                        {task.start_time ? ` ${formatTime(task.start_time)}` : ''} –{' '}
                                         {task.due_date ? formatDate(task.due_date) : 'End'}
-                                        {task.due_time ? ` ${task.due_time}` : ''}
+                                        {task.due_time ? ` ${formatTime(task.due_time)}` : ''}
                                     </span>
                                 </div>
                             </div>

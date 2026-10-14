@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { formatTime } from '@/lib/utils';
 import { router } from '@inertiajs/react';
 import { ChevronDown, ChevronRight, CornerDownRight, Link2 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
@@ -278,7 +279,7 @@ export default function GanttView({ board, searchTerm, personFilter, priorityFil
                                                     left: `${leftPercent}%`,
                                                     backgroundColor: isDone ? '#00c875' : '#f59e0b',
                                                 }}
-                                                title={`Milestone: ${task.title} (Due: ${task.due_date || 'N/A'}${task.due_time ? ' ' + task.due_time : ''})`}
+                                                title={`Milestone: ${task.title} (Due: ${task.due_date || 'N/A'}${task.due_time ? ' ' + formatTime(task.due_time) : ''})`}
                                             />
                                         ) : (
                                             <div
@@ -288,7 +289,7 @@ export default function GanttView({ board, searchTerm, personFilter, priorityFil
                                                     width: `${widthPercent}%`,
                                                     backgroundColor: isDone ? '#00c875' : task.priority === 'Urgent' ? '#e2445c' : '#579bfc',
                                                 }}
-                                                title={`${task.title} (${task.start_date || ''}${task.start_time ? ' ' + task.start_time : ''} – ${task.due_date || ''}${task.due_time ? ' ' + task.due_time : ''})`}
+                                                title={`${task.title} (${task.start_date || ''}${task.start_time ? ' ' + formatTime(task.start_time) : ''} – ${task.due_date || ''}${task.due_time ? ' ' + formatTime(task.due_time) : ''})`}
                                             >
                                                 <span className="truncate">{task.progress || 0}%</span>
 

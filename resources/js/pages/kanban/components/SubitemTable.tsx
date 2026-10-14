@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatTime } from '@/lib/utils';
 import { router } from '@inertiajs/react';
 import {
     Calendar,
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { BoardColumn, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../types';
+import DatePickerCell from './DatePickerCell';
 import EditableDropdownCell from './EditableDropdownCell';
 import MultiPeoplePicker from './MultiPeoplePicker';
 
@@ -477,14 +478,13 @@ export default function SubitemTable({
                                                 return (
                                                     <div
                                                         key={col.id}
-                                                        style={{ width: col.width || 130 }}
-                                                        className="border-border/30 flex flex-shrink-0 items-center justify-center border-r px-2 py-1 text-center"
+                                                        style={{ width: col.width || 140 }}
+                                                        className="border-border/30 flex flex-shrink-0 items-center justify-center border-r px-1 py-1 text-center min-w-0 overflow-hidden"
                                                     >
-                                                        <input
-                                                            type="date"
+                                                        <DatePickerCell
                                                             value={dateVal ? String(dateVal).split('T')[0] : ''}
-                                                            onChange={(e) => handleUpdateDate(sub, col.key, e.target.value)}
-                                                            className="hover:bg-muted/40 cursor-pointer rounded border-none bg-transparent px-1.5 py-0.5 text-center text-[11px] font-medium text-foreground transition-colors focus:outline-none"
+                                                            onChange={(newDate) => handleUpdateDate(sub, col.key, newDate || '')}
+                                                            placeholder="Set date"
                                                         />
                                                     </div>
                                                 );

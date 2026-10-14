@@ -58,15 +58,28 @@ export function formatDateTime(dateVal: string | Date | null | undefined, fallba
 }
 
 /**
- * Format time only (e.g. "08:30 AM")
+ * Format time strings (e.g. "17:00", "09:30:00") or Date objects into 12-hour AM/PM format (e.g. "5:00 PM", "9:30 AM")
  */
-export function formatTime(dateVal: string | Date | null | undefined, fallback: string = '-'): string {
-    if (!dateVal) return fallback;
+export function formatTime(timeVal: string | Date | null | undefined, fallback: string = '-'): string {
+    if (!timeVal) return fallback;
     try {
-        const d = typeof dateVal === 'string' ? new Date(dateVal) : dateVal;
-        if (isNaN(d.getTime())) return String(dateVal);
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        if (typeof timeVal === 'string') {
+            const trimmed = timeVal.trim();
+            // Check for HH:mm or HH:mm:ss format
+            const match = trimmed.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+            if (match) {
+                let hour = parseInt(match[1], 10);
+                const minute = match[2];
+                const ampm = hour >= 12 ? 'PM' : 'AM';
+                hour = hour % 12;
+                if (hour === 0) hour = 12;
+                return `${hour}:${minute} ${ampm}`;
+            }
+        }
+        const d = typeof timeVal === 'string' ? new Date(timeVal) : timeVal;
+        if (isNaN(d.getTime())) return String(timeVal);
+        return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
     } catch {
-        return String(dateVal);
+        return String(timeVal);
     }
 }

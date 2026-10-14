@@ -279,7 +279,7 @@ export const getColumnWidth = (col: BoardColumn): number => {
         case 'priority':
             return 130;
         case 'date':
-            return 140;
+            return 150;
         case 'timeline':
             return 170;
         case 'progress':

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { formatTime } from '@/lib/utils';
 import { ChevronLeft, ChevronRight, Clock, Plus, Star, User as UserIcon } from 'lucide-react';
 import React, { useState } from 'react';
 import { KanbanBoard, Task, User } from '../types';
@@ -281,7 +282,7 @@ export default function CalendarView({
                                                     <div className="flex items-center gap-1 flex-shrink-0">
                                                         {task.due_time && (
                                                             <span className="text-muted-foreground text-[9px] font-normal">
-                                                                {task.due_time}
+                                                                {formatTime(task.due_time)}
                                                             </span>
                                                         )}
                                                         {task.assignee && (
@@ -368,16 +369,16 @@ export default function CalendarView({
                                                     {task.priority}
                                                 </span>
 
-                                                <div className="flex items-center gap-1">
-                                                    {task.is_milestone && (
-                                                        <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
-                                                    )}
-                                                    {task.due_time && (
-                                                        <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
-                                                            <Clock className="h-2.5 w-2.5" /> {task.due_time}
-                                                        </span>
-                                                    )}
-                                                </div>
+                                                    <div className="flex items-center gap-1">
+                                                        {task.is_milestone && (
+                                                            <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+                                                        )}
+                                                        {task.due_time && (
+                                                            <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
+                                                                <Clock className="h-2.5 w-2.5" /> {formatTime(task.due_time)}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                             </div>
 
                                             <h4 className="text-foreground line-clamp-2 text-xs font-bold">{task.title}</h4>

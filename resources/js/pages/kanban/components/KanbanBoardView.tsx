@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatTime } from '@/lib/utils';
 import { router } from '@inertiajs/react';
 import {
     AlertCircle,
@@ -495,7 +495,7 @@ export default function KanbanBoardView({
                                                         <Calendar className="h-3 w-3" />
                                                         <span>{formatDate(task.due_date)}</span>
                                                         {task.due_time && (
-                                                            <span className="text-[10px] opacity-80">{task.due_time}</span>
+                                                            <span className="text-[10px] opacity-80">{formatTime(task.due_time)}</span>
                                                         )}
                                                     </div>
                                                 )}
