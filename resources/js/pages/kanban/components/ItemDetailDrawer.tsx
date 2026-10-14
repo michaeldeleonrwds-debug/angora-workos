@@ -528,13 +528,15 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 <div className="sm:col-span-2 flex items-center gap-2 min-w-0">
                                     <Input
                                         type="date"
+                                        key={`start-date-${task.id}-${task.start_date || ''}`}
                                         defaultValue={task.start_date || ''}
                                         onChange={(e) => handleUpdateField('start_date', e.target.value || null)}
                                         className="h-8 flex-1 min-w-0 px-2 text-xs"
                                     />
                                     <Input
                                         type="time"
-                                        defaultValue={task.start_time || ''}
+                                        key={`start-time-${task.id}-${task.start_time || ''}`}
+                                        defaultValue={task.start_time ? task.start_time.slice(0, 5) : ''}
                                         onChange={(e) => handleUpdateField('start_time', e.target.value || null)}
                                         className="h-8 w-[118px] shrink-0 px-2 text-xs"
                                     />
@@ -547,13 +549,15 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 <div className="sm:col-span-2 flex items-center gap-2 min-w-0">
                                     <Input
                                         type="date"
+                                        key={`due-date-${task.id}-${task.due_date || ''}`}
                                         defaultValue={task.due_date || ''}
                                         onChange={(e) => handleUpdateField('due_date', e.target.value || null)}
                                         className="h-8 flex-1 min-w-0 px-2 text-xs"
                                     />
                                     <Input
                                         type="time"
-                                        defaultValue={task.due_time || ''}
+                                        key={`due-time-${task.id}-${task.due_time || ''}`}
+                                        defaultValue={task.due_time ? task.due_time.slice(0, 5) : ''}
                                         onChange={(e) => handleUpdateField('due_time', e.target.value || null)}
                                         className="h-8 w-[118px] shrink-0 px-2 text-xs"
                                     />
@@ -702,17 +706,63 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                             className="h-8 text-xs"
                                                         />
                                                     ) : col.type === 'date' ? (
-                                                        <Input
-                                                            type="date"
-                                                            defaultValue={customVal}
-                                                            onChange={(e) =>
+                                                        (() => {
+                                                            let curDate = '';
+                                                            let curTime = '';
+                                                            if (typeof customVal === 'object' && customVal !== null) {
+                                                                curDate = customVal.date || '';
+                                                                curTime = customVal.time ? String(customVal.time).slice(0, 5) : '';
+                                                            } else if (typeof customVal === 'string') {
+                                                                if (customVal.includes(' ') || customVal.includes('T')) {
+                                                                    const parts = customVal.replace('T', ' ').split(' ');
+                                                                    curDate = parts[0] || '';
+                                                                    curTime = parts[1]?.slice(0, 5) || '';
+                                                                } else {
+                                                                    curDate = customVal;
+                                                                }
+                                                            }
+
+                                                            const handleCustomDateChange = (newD: string) => {
+                                                                const dateStr = newD || null;
+                                                                const timeStr = curTime || null;
+                                                                const finalVal = dateStr && timeStr ? { date: dateStr, time: timeStr } : dateStr;
                                                                 handleUpdateField('custom_values', {
                                                                     ...(task.custom_values || {}),
-                                                                    [col.key]: e.target.value || null,
-                                                                })
-                                                            }
-                                                            className="h-8 text-xs"
-                                                        />
+                                                                    [col.key]: finalVal,
+                                                                });
+                                                            };
+
+                                                            const handleCustomTimeChange = (newT: string) => {
+                                                                const dateStr = curDate || null;
+                                                                const timeStr = newT || null;
+                                                                const finalVal = dateStr && timeStr ? { date: dateStr, time: timeStr } : dateStr;
+                                                                handleUpdateField('custom_values', {
+                                                                    ...(task.custom_values || {}),
+                                                                    [col.key]: finalVal,
+                                                                });
+                                                            };
+
+                                                            return (
+                                                                <div className="flex items-center gap-2 min-w-0">
+                                                                    <Input
+                                                                        type="date"
+                                                                        key={`custom-date-${task.id}-${col.key}-${curDate}`}
+                                                                        defaultValue={curDate}
+                                                                        onChange={(e) => handleCustomDateChange(e.target.value)}
+                                                                        className="h-8 flex-1 min-w-0 px-2 text-xs"
+                                                                    />
+                                                                    {!col.config?.date_only && (
+                                                                        <Input
+                                                                            type="time"
+                                                                            key={`custom-time-${task.id}-${col.key}-${curTime}`}
+                                                                            defaultValue={curTime}
+                                                                            onChange={(e) => handleCustomTimeChange(e.target.value)}
+                                                                            className="h-8 w-[118px] shrink-0 px-2 text-xs"
+                                                                        />
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })()
                                                     ) : col.type === 'image' ? (
                                                         <div className="flex items-center">
                                                             <ImageCell task={task} column={col} workspaceId={board.workspace_id} />

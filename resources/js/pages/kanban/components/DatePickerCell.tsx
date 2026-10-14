@@ -250,13 +250,11 @@ export default function DatePickerCell({
         setViewDate(new Date(currentYear, currentMonth + 1, 1));
     };
 
-    // Selecting a date preserves existing time (if time mode is enabled or in dateOnly mode)
+    // Selecting a date updates local working date (preserves existing time if time mode is active)
     const handleSelectDay = (dateStr: string, e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setSelectedDate(dateStr);
-        const timeToKeep = dateOnly ? (propTime || activeTime) : (isTimeMode ? (selectedTime || '09:00') : null);
-        onChange(dateStr, timeToKeep);
     };
 
     // Selecting today's date
@@ -267,34 +265,28 @@ export default function DatePickerCell({
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         setSelectedDate(todayStr);
         setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
-        const timeToKeep = dateOnly ? (propTime || activeTime) : (isTimeMode ? (selectedTime || '09:00') : null);
-        onChange(todayStr, timeToKeep);
     };
 
-    // Toggle Time Mode on/off
+    // Toggle Time Mode on/off in local working state
     const handleToggleTimeMode = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
         if (isTimeMode) {
-            // Turning time mode OFF
             setIsTimeMode(false);
             setSelectedTime(null);
-            onChange(selectedDate, null);
         } else {
-            // Turning time mode ON
             setIsTimeMode(true);
             const defaultTime = selectedTime || '09:00';
             setSelectedTime(defaultTime);
-            const targetDate = selectedDate || (() => {
+            if (!selectedDate) {
                 const today = new Date();
-                return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            })();
-            setSelectedDate(targetDate);
-            onChange(targetDate, defaultTime);
+                const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                setSelectedDate(todayStr);
+            }
         }
     };
 
-    // Updating time component (hour, minute, period)
+    // Updating time component (hour, minute, period) in local working state
     const handleUpdateTimePart = (
         newHour12: number,
         newMinute: string,
@@ -308,15 +300,37 @@ export default function DatePickerCell({
         const time24 = to24Hour(newHour12, newMinute, newPeriod);
         setSelectedTime(time24);
         setIsTimeMode(true);
-        const targetDate = selectedDate || (() => {
+        if (!selectedDate) {
             const today = new Date();
-            return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-        })();
-        setSelectedDate(targetDate);
-        onChange(targetDate, time24);
+            const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            setSelectedDate(todayStr);
+        }
     };
 
-    // Clear everything
+    // Save and commit changes
+    const handleSave = (e?: React.MouseEvent) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const finalTime = !dateOnly && isTimeMode && selectedTime ? selectedTime : null;
+        onChange(selectedDate, finalTime);
+        setOpen(false);
+    };
+
+    // Cancel and discard local changes
+    const handleCancel = (e?: React.MouseEvent) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        setSelectedDate(activeDate);
+        setSelectedTime(activeTime);
+        setIsTimeMode(Boolean(activeTime));
+        setOpen(false);
+    };
+
+    // Clear everything explicitly
     const handleClearAll = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -327,22 +341,21 @@ export default function DatePickerCell({
         setOpen(false);
     };
 
-    // Remove time only (keep date)
+    // Remove time only (keep date) in local working state
     const handleRemoveTime = (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setSelectedTime(null);
         setIsTimeMode(false);
-        onChange(selectedDate, null);
     };
 
-    // Cell display text in table (Main Table in dateOnly mode never shows time values)
+    // Cell display text in table (e.g. "14 Oct 2026 · 5:00 PM" or "14 Oct 2026")
     const cellDisplayText = useMemo(() => {
         if (!activeDate) return null;
         const formattedDate = formatDate(activeDate);
         if (!dateOnly && activeTime) {
             const formattedTime = formatTime(activeTime);
-            return `${formattedDate}, ${formattedTime}`;
+            return `${formattedDate} · ${formattedTime}`;
         }
         return formattedDate;
     }, [activeDate, activeTime, dateOnly]);
@@ -609,9 +622,9 @@ export default function DatePickerCell({
                     </div>
                 )}
 
-                {/* 7. Footer: Clear Button */}
-                <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between gap-2">
-                    {(selectedDate || selectedTime) ? (
+                {/* 7. Footer: Clear, Cancel, Save */}
+                <div className="mt-3 pt-2 border-t border-border/40 flex items-center justify-between gap-1.5">
+                    {(selectedDate || selectedTime || activeDate || activeTime) ? (
                         <Button
                             type="button"
                             variant="ghost"
@@ -626,15 +639,25 @@ export default function DatePickerCell({
                         <div />
                     )}
 
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setOpen(false)}
-                        className="h-7 px-2.5 text-[11px] font-semibold text-foreground hover:bg-muted"
-                    >
-                        Done
-                    </Button>
+                    <div className="flex items-center gap-1.5">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCancel}
+                            className="h-7 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            onClick={handleSave}
+                            className="h-7 px-3 text-[11px] font-semibold bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs"
+                        >
+                            Save
+                        </Button>
+                    </div>
                 </div>
             </DropdownMenuContent>
         </DropdownMenu>

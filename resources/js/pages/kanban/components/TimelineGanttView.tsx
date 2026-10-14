@@ -1,4 +1,4 @@
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatTime } from '@/lib/utils';
 import { Clock } from 'lucide-react';
 import { KanbanBoard, Task } from '../types';
 
@@ -73,7 +73,7 @@ export default function TimelineGanttView({ board, searchTerm, personFilter, pri
 
                                 <div className="text-muted-foreground min-w-[120px] text-right text-[11px] font-semibold">
                                     {task.start_date ? formatDate(task.start_date) : 'Start'} –{' '}
-                                    {task.due_date ? formatDate(task.due_date) : 'Due date'}
+                                    {task.due_date ? `${formatDate(task.due_date)}${task.due_time ? ' · ' + formatTime(task.due_time) : ''}` : 'Due date'}
                                 </div>
                             </div>
                         </div>

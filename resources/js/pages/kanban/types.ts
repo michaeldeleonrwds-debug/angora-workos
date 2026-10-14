@@ -335,7 +335,7 @@ export const DEFAULT_COLUMN_WIDTH = 140;
 
 export const getColumnWidth = (col: BoardColumn): number => {
     if (col.type === 'date') {
-        return Math.max(col.width || 0, 160);
+        return Math.max(col.width || 0, 180);
     }
     if (col.width && col.width > 0) return col.width;
     switch (col.type) {
@@ -346,7 +346,7 @@ export const getColumnWidth = (col: BoardColumn): number => {
         case 'priority':
             return 130;
         case 'date':
-            return 160;
+            return 180;
         case 'timeline':
             return 170;
         case 'progress':

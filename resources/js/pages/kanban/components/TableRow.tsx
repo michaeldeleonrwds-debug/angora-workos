@@ -433,7 +433,7 @@ export default function TableRow({
                                             isOverdue={isOverdue}
                                             isDueToday={isDueToday}
                                             placeholder="Set date"
-                                            dateOnly={true}
+                                            dateOnly={Boolean(col.config?.date_only)}
                                         />
                                     </div>
                                     {isMainDueDateCol && task.is_milestone && (
