@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,7 +11,10 @@ import {
     Check,
     CornerDownRight,
     Download,
+    ExternalLink,
+    Eye,
     FileText,
+    Image as ImageIcon,
     Link2,
     MessageCircle,
     Paperclip,
@@ -21,8 +25,11 @@ import {
     X,
 } from 'lucide-react';
 import React, { useMemo, useRef, useState } from 'react';
-import { KanbanBoard, Task, User } from '../types';
+import axios from 'axios';
+import { KanbanBoard, MediaAsset, Task, User } from '../types';
 import MultiPeoplePicker from './MultiPeoplePicker';
+import ImageCell from './ImageCell';
+import MediaPickerModal from '@/components/media/MediaPickerModal';
 
 interface ItemDetailDrawerProps {
     task: Task | null;
@@ -42,11 +49,15 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
     const [replyText, setReplyText] = useState('');
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [isUploading, setIsUploading] = useState(false);
+    const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+    const [mediaTarget, setMediaTarget] = useState<'task_attachment' | 'comment'>('task_attachment');
+    const [lightboxAsset, setLightboxAsset] = useState<MediaAsset | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const comments = task.comments || [];
     const subitems = task.subitems || [];
     const attachments = task.attachments || [];
+    const mediaUsages = task.media_usages || task.mediaUsages || [];
     const boardColumns = board.board_columns || [];
     const statusColumns = board.columns || [];
 
@@ -66,6 +77,52 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
     // Field updates
     const handleUpdateField = (field: string, val: any) => {
         router.patch(`/kanban/tasks/${task.id}`, { [field]: val }, { preserveScroll: true });
+    };
+
+    // Parse and render inline images for comments
+    const renderCommentContent = (text: string) => {
+        if (!text) return null;
+        const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+        const parts = [];
+        let lastIndex = 0;
+        let match;
+
+        while ((match = imgRegex.exec(text)) !== null) {
+            if (match.index > lastIndex) {
+                parts.push(<span key={lastIndex}>{text.substring(lastIndex, match.index)}</span>);
+            }
+            const alt = match[1] || 'image';
+            const src = match[2];
+            parts.push(
+                <div key={match.index} className="my-2 max-w-sm rounded-xl overflow-hidden border border-border/70 shadow-2xs">
+                    <img
+                        src={src}
+                        alt={alt}
+                        onClick={() =>
+                            setLightboxAsset({
+                                id: 0,
+                                media_uuid: '',
+                                disk: 'public',
+                                file_path: src,
+                                original_filename: alt,
+                                mime_type: 'image/png',
+                                file_size_bytes: 0,
+                                url: src,
+                                created_at: '',
+                            })
+                        }
+                        className="max-h-56 w-auto cursor-pointer rounded-lg object-contain hover:opacity-95"
+                    />
+                </div>
+            );
+            lastIndex = match.index + match[0].length;
+        }
+
+        if (lastIndex < text.length) {
+            parts.push(<span key={lastIndex}>{text.substring(lastIndex)}</span>);
+        }
+
+        return parts.length > 0 ? parts : text;
     };
 
     const primaryAssigneeIds = useMemo(() => {
@@ -544,6 +601,10 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                             }
                                                             className="h-8 text-xs"
                                                         />
+                                                    ) : col.type === 'image' ? (
+                                                        <div className="flex items-center">
+                                                            <ImageCell task={task} column={col} workspaceId={board.workspace_id} />
+                                                        </div>
                                                     ) : (
                                                         <Input
                                                             type="text"
@@ -757,6 +818,21 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
 
+                                            <div className="flex items-center gap-1.5 ml-2 mr-auto">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setMediaTarget('comment');
+                                                        setIsMediaModalOpen(true);
+                                                    }}
+                                                    className="text-muted-foreground hover:text-primary hover:bg-muted flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold"
+                                                    title="Attach image from media library"
+                                                >
+                                                    <ImageIcon className="h-3.5 w-3.5" />
+                                                    <span>Image</span>
+                                                </button>
+                                            </div>
+
                                             <Button type="submit" size="sm" className="h-8 gap-1 px-4 text-xs font-bold">
                                                 <Send className="h-3 w-3" />
                                                 <span>Update</span>
@@ -796,7 +872,9 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                     </div>
 
                                                     {/* Message */}
-                                                    <p className="text-foreground text-xs leading-relaxed whitespace-pre-wrap">{comment.message}</p>
+                                                    <div className="text-foreground text-xs leading-relaxed whitespace-pre-wrap">
+                                                        {renderCommentContent(comment.message)}
+                                                    </div>
 
                                                     {/* Reaction Badges & Actions */}
                                                     <div className="border-border/40 flex items-center gap-2 border-t pt-2 text-xs">
@@ -846,7 +924,9 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                                             {formatDate(rep.created_at)}
                                                                         </span>
                                                                     </div>
-                                                                    <p className="text-foreground/90 whitespace-pre-wrap">{rep.message}</p>
+                                                                    <div className="text-foreground/90 whitespace-pre-wrap">
+                                                                        {renderCommentContent(rep.message)}
+                                                                    </div>
                                                                 </div>
                                                             ))}
                                                         </div>
@@ -886,21 +966,94 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                             {/* 2. FILES TAB */}
                             {activeCollabTab === 'files' && (
                                 <div className="space-y-4">
-                                    {/* Upload Trigger */}
-                                    <div
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className="border-border hover:border-primary/60 hover:bg-muted/10 cursor-pointer rounded-2xl border-2 border-dashed p-6 text-center transition-all"
-                                    >
-                                        <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
-                                        <Upload className="text-primary mx-auto mb-2 h-8 w-8 opacity-80" />
-                                        <div className="text-foreground text-xs font-bold">
-                                            {isUploading ? 'Uploading file...' : 'Click to upload files'}
+                                    {/* Upload & Media Library Triggers */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        <div
+                                            onClick={() => fileInputRef.current?.click()}
+                                            className="border-border hover:border-primary/60 hover:bg-muted/10 cursor-pointer rounded-2xl border-2 border-dashed p-4 text-center transition-all"
+                                        >
+                                            <input ref={fileInputRef} type="file" onChange={handleFileChange} className="hidden" />
+                                            <Upload className="text-primary mx-auto mb-1.5 h-6 w-6 opacity-80" />
+                                            <div className="text-foreground text-xs font-bold">
+                                                {isUploading ? 'Uploading file...' : 'Upload File'}
+                                            </div>
+                                            <p className="text-muted-foreground mt-0.5 text-[10px]">PDF, PNG, JPG, ZIP up to 20MB</p>
                                         </div>
-                                        <p className="text-muted-foreground mt-0.5 text-[10px]">PDF, PNG, JPG, ZIP, DOCX up to 20MB</p>
+
+                                        <div
+                                            onClick={() => {
+                                                setMediaTarget('task_attachment');
+                                                setIsMediaModalOpen(true);
+                                            }}
+                                            className="border-border hover:border-primary/60 hover:bg-muted/10 cursor-pointer rounded-2xl border-2 border-dashed p-4 text-center transition-all"
+                                        >
+                                            <ImageIcon className="text-primary mx-auto mb-1.5 h-6 w-6 opacity-80" />
+                                            <div className="text-foreground text-xs font-bold">Media Library</div>
+                                            <p className="text-muted-foreground mt-0.5 text-[10px]">Reusable team images & assets</p>
+                                        </div>
                                     </div>
 
-                                    {/* Attachments List */}
+                                    {/* Attachments & Media Assets List */}
                                     <div className="space-y-2">
+                                        {/* 1. Media Assets */}
+                                        {mediaUsages.map((usage) => {
+                                            const asset = usage.media_asset || usage.mediaAsset;
+                                            if (!asset) return null;
+                                            return (
+                                                <div
+                                                    key={`media-${usage.id}`}
+                                                    className="border-border bg-card flex items-center justify-between rounded-xl border p-2.5 text-xs shadow-xs"
+                                                >
+                                                    <div className="flex flex-1 items-center gap-3 truncate">
+                                                        <img
+                                                            src={asset.url}
+                                                            alt={asset.original_filename}
+                                                            onClick={() => setLightboxAsset(asset)}
+                                                            className="h-9 w-9 rounded-lg object-cover cursor-pointer border border-border/60 hover:scale-105 transition-transform shrink-0"
+                                                        />
+                                                        <div className="truncate">
+                                                            <div className="text-foreground truncate font-bold">{asset.title || asset.original_filename}</div>
+                                                            <span className="text-muted-foreground text-[10px]">
+                                                                {formatBytes(asset.file_size_bytes)} • Media Asset
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setLightboxAsset(asset)}
+                                                            className="border-border hover:bg-muted text-muted-foreground hover:text-foreground rounded-lg border p-1.5 transition-colors"
+                                                            title="Preview image"
+                                                        >
+                                                            <Eye className="h-3.5 w-3.5" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await axios.post('/media/detach', {
+                                                                        media_asset_id: asset.id,
+                                                                        attachable_type: 'task',
+                                                                        attachable_id: task.id,
+                                                                        field_name: usage.field_name || 'default',
+                                                                    });
+                                                                    router.reload();
+                                                                } catch (err) {
+                                                                    console.error('Failed to detach media:', err);
+                                                                }
+                                                            }}
+                                                            className="text-muted-foreground rounded-lg p-1.5 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                                                            title="Detach image"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+
+                                        {/* 2. File Attachments */}
                                         {attachments.map((att) => (
                                             <div
                                                 key={att.id}
@@ -937,9 +1090,9 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                             </div>
                                         ))}
 
-                                        {attachments.length === 0 && (
+                                        {attachments.length === 0 && mediaUsages.length === 0 && (
                                             <div className="text-muted-foreground py-10 text-center text-xs">
-                                                No attachments uploaded to this item yet.
+                                                No attachments or media uploaded to this item yet.
                                             </div>
                                         )}
                                     </div>
@@ -1089,6 +1242,55 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                     </div>
                 </div>
             </div>
+
+            {/* Media Library Picker Modal */}
+            <MediaPickerModal
+                isOpen={isMediaModalOpen}
+                onClose={() => setIsMediaModalOpen(false)}
+                workspaceId={board.workspace_id}
+                attachableType={mediaTarget === 'task_attachment' ? 'task' : undefined}
+                attachableId={mediaTarget === 'task_attachment' ? task.id : undefined}
+                fieldName={mediaTarget === 'task_attachment' ? 'attachment' : 'comment'}
+                title={mediaTarget === 'comment' ? 'Insert Image into Update' : 'Attach from Media Library'}
+                onSelect={(asset) => {
+                    if (mediaTarget === 'comment') {
+                        setCommentText((prev) => `${prev} ![${asset.title || asset.original_filename}](${asset.url}) `);
+                    } else {
+                        router.reload();
+                    }
+                }}
+            />
+
+            {/* Lightbox for Attached Images */}
+            {lightboxAsset && (
+                <Dialog open={Boolean(lightboxAsset)} onOpenChange={() => setLightboxAsset(null)}>
+                    <DialogContent className="max-w-xl rounded-2xl p-4 sm:max-w-xl">
+                        <DialogHeader>
+                            <DialogTitle className="truncate text-xs font-bold text-muted-foreground">
+                                {lightboxAsset.title || lightboxAsset.original_filename}
+                            </DialogTitle>
+                        </DialogHeader>
+                        <div className="bg-muted/30 my-2 flex max-h-[60vh] items-center justify-center overflow-hidden rounded-xl">
+                            <img
+                                src={lightboxAsset.url}
+                                alt={lightboxAsset.original_filename}
+                                className="max-h-[55vh] w-auto max-w-full rounded-lg object-contain"
+                            />
+                        </div>
+                        <div className="flex justify-end">
+                            <a
+                                href={lightboxAsset.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline flex items-center gap-1 text-xs font-semibold"
+                            >
+                                <ExternalLink className="h-3 w-3" />
+                                <span>Open Full Resolution</span>
+                            </a>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
         </div>
     );
 }

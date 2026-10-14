@@ -118,6 +118,39 @@ export interface TaskActivity {
     user?: User | null;
 }
 
+export interface MediaAsset {
+    id: number;
+    media_uuid: string;
+    user_id?: number | null;
+    workspace_id?: number | null;
+    disk: string;
+    file_path: string;
+    original_filename: string;
+    mime_type: string;
+    file_size_bytes: number;
+    width?: number | null;
+    height?: number | null;
+    title?: string | null;
+    alt_text?: string | null;
+    metadata?: Record<string, any>;
+    url: string;
+    created_at: string;
+    user?: User;
+    usages_count?: number;
+}
+
+export interface MediaUsage {
+    id: number;
+    media_asset_id: number;
+    attachable_type: string;
+    attachable_id: number;
+    field_name: string;
+    user_id?: number | null;
+    media_asset?: MediaAsset;
+    mediaAsset?: MediaAsset;
+    created_at: string;
+}
+
 export interface Task {
     id: number;
     board_id: number;
@@ -158,6 +191,8 @@ export interface Task {
     activities?: TaskActivity[];
     dependencies?: TaskDependency[];
     dependents?: TaskDependency[];
+    media_usages?: MediaUsage[];
+    mediaUsages?: MediaUsage[];
     outgoingRelationships?: BoardItemRelationship[];
     incomingRelationships?: BoardItemRelationship[];
 }
@@ -300,6 +335,8 @@ export const getColumnWidth = (col: BoardColumn): number => {
             return 140;
         case 'long_text':
             return 170;
+        case 'image':
+            return 130;
         default:
             return DEFAULT_COLUMN_WIDTH;
     }

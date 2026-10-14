@@ -26,6 +26,7 @@ import { BoardColumn, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../ty
 import DatePickerCell from './DatePickerCell';
 import EditableDropdownCell from './EditableDropdownCell';
 import MultiPeoplePicker from './MultiPeoplePicker';
+import ImageCell from './ImageCell';
 
 interface SubitemTableProps {
     parentTask: Task;
@@ -564,6 +565,19 @@ export default function SubitemTable({
                                                             onSelect={(opt) => handleUpdateCustomValue(sub, col.key, opt)}
                                                             placeholder="Select"
                                                         />
+                                                    </div>
+                                                );
+                                            }
+
+                                            // Image Column
+                                            if (col.type === 'image') {
+                                                return (
+                                                    <div
+                                                        key={col.id}
+                                                        style={{ width: col.width || 130 }}
+                                                        className="border-border/30 flex flex-shrink-0 items-center justify-center border-r px-1 py-1 min-w-0 overflow-hidden"
+                                                    >
+                                                        <ImageCell task={sub} column={col} isSubtask={true} />
                                                     </div>
                                                 );
                                             }

@@ -118,6 +118,11 @@ class KanbanTask extends Model
         return $this->hasMany(KanbanAttachment::class, 'task_id')->with('user')->latest();
     }
 
+    public function mediaUsages()
+    {
+        return $this->morphMany(MediaUsage::class, 'attachable')->with('mediaAsset');
+    }
+
     public function dependencies()
     {
         return $this->hasMany(TaskDependency::class, 'task_id')->with('dependencyTask');

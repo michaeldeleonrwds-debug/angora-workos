@@ -14,7 +14,7 @@ interface AddColumnModalProps {
     scope?: 'task' | 'subtask';
 }
 
-import { FileText } from 'lucide-react';
+import { FileText, Image as ImageIcon } from 'lucide-react';
 
 const COLUMN_TYPES = [
     { type: 'people', title: 'People', icon: UserCheck, desc: 'Assign team members' },
@@ -22,6 +22,7 @@ const COLUMN_TYPES = [
     { type: 'priority', title: 'Priority', icon: ListTodo, desc: 'Low, Medium, High, Urgent' },
     { type: 'date', title: 'Date', icon: Calendar, desc: 'Due dates & milestones' },
     { type: 'timeline', title: 'Timeline', icon: Clock, desc: 'Gantt / duration bar' },
+    { type: 'image', title: 'Image', icon: ImageIcon, desc: 'Image thumbnail & media asset' },
     { type: 'number', title: 'Numbers', icon: Hash, desc: 'Budgets, costs, estimations' },
     { type: 'checkbox', title: 'Checkbox', icon: CheckSquare, desc: 'Yes/no boolean check' },
     { type: 'dropdown', title: 'Dropdown', icon: ListFilter, desc: 'Custom options select' },

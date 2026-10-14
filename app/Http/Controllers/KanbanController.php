@@ -98,12 +98,14 @@ class KanbanController extends Controller
                         'group',
                         'subitems.assignee',
                         'subitems.column',
+                        'subitems.mediaUsages.mediaAsset',
                         'comments.user',
                         'comments.replies.user',
                         'attachments.user',
                         'dependencies.dependencyTask',
                         'dependents.task',
                         'activities.user',
+                        'mediaUsages.mediaAsset',
                     ]);
             },
             'groups.tasks' => function ($q) {
@@ -115,12 +117,14 @@ class KanbanController extends Controller
                         'group',
                         'subitems.assignee',
                         'subitems.column',
+                        'subitems.mediaUsages.mediaAsset',
                         'comments.user',
                         'comments.replies.user',
                         'attachments.user',
                         'dependencies.dependencyTask',
                         'dependents.task',
                         'activities.user',
+                        'mediaUsages.mediaAsset',
                     ]);
             },
             'boardColumns' => function ($q) {
@@ -678,7 +682,7 @@ class KanbanController extends Controller
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            'type' => 'required|string|in:text,long_text,status,priority,people,date,timeline,number,checkbox,dropdown,tags,rating,progress,link,formula,connect_boards,mirror',
+            'type' => 'required|string|in:text,long_text,status,priority,people,date,timeline,number,checkbox,dropdown,tags,rating,progress,link,formula,connect_boards,mirror,image',
             'scope' => 'nullable|string|in:task,subtask',
             'config' => 'nullable|array',
             'width' => 'nullable|integer',
@@ -1791,6 +1795,8 @@ class KanbanController extends Controller
                         'group',
                         'subitems.assignee',
                         'subitems.column',
+                        'subitems.mediaUsages.mediaAsset',
+                        'mediaUsages.mediaAsset',
                     ]);
 
                 if ($sinceCarbon) {

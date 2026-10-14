@@ -9,6 +9,7 @@ import DatePickerCell from './DatePickerCell';
 import EditableDropdownCell from './EditableDropdownCell';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import SubitemTable from './SubitemTable';
+import ImageCell from './ImageCell';
 
 interface TableRowProps {
     task: Task;
@@ -644,6 +645,18 @@ export default function TableRow({
                                     rows={1}
                                     className="focus:bg-muted/40 w-full resize-none rounded border-none bg-transparent px-1 py-0.5 text-xs focus:outline-none"
                                 />
+                            </div>
+                        );
+                    }
+
+                    // Image Column
+                    if (col.type === 'image') {
+                        return (
+                            <div
+                                key={col.id}
+                                className="border-border/40 border-r px-1 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
+                            >
+                                <ImageCell task={task} column={col} />
                             </div>
                         );
                     }

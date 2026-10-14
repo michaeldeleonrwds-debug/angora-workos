@@ -3,6 +3,7 @@
 use App\Http\Controllers\BoardRelationshipController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\KanbanController;
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\RoleSwitchController;
 use App\Http\Controllers\WorkspaceController;
 use Illuminate\Support\Facades\Route;
@@ -78,6 +79,13 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/kanban/tasks/{task}/attachments', [KanbanController::class, 'storeAttachment'])->name('kanban.tasks.attachments.store');
     Route::get('/kanban/attachments/{attachment}/download', [KanbanController::class, 'downloadAttachment'])->name('kanban.attachments.download');
     Route::delete('/kanban/attachments/{attachment}', [KanbanController::class, 'deleteAttachment'])->name('kanban.attachments.delete');
+
+    // Centralized Media Library
+    Route::get('/media', [MediaController::class, 'index'])->name('media.index');
+    Route::post('/media/upload', [MediaController::class, 'upload'])->name('media.upload');
+    Route::post('/media/attach', [MediaController::class, 'attach'])->name('media.attach');
+    Route::post('/media/detach', [MediaController::class, 'detach'])->name('media.detach');
+    Route::delete('/media/{mediaAsset}', [MediaController::class, 'destroy'])->name('media.destroy');
 
     // Views Management
     Route::post('/kanban/boards/{board}/views', [KanbanController::class, 'storeView'])->name('kanban.views.store');
