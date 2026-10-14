@@ -376,15 +376,44 @@ export default function TableRow({
                     // 4. Date Column
                     if (col.type === 'date') {
                         const isMainDueDateCol = col.key === 'due_date' || col.key === 'deadline';
-                        const dateVal = isMainDueDateCol ? (task.due_date || '') : ((task.custom_values?.[col.key] as string) || '');
+                        let dateVal: string | null = null;
+                        let timeVal: string | null = null;
+
+                        if (isMainDueDateCol) {
+                            dateVal = task.due_date || null;
+                            timeVal = task.due_time || null;
+                        } else {
+                            const raw = task.custom_values?.[col.key];
+                            if (typeof raw === 'object' && raw !== null) {
+                                dateVal = raw.date || null;
+                                timeVal = raw.time || null;
+                            } else if (typeof raw === 'string') {
+                                if (raw.includes(' ') || raw.includes('T')) {
+                                    const parts = raw.replace('T', ' ').split(' ');
+                                    dateVal = parts[0] || null;
+                                    timeVal = parts[1]?.slice(0, 5) || null;
+                                } else {
+                                    dateVal = raw || null;
+                                }
+                            }
+                        }
+
                         const isOverdue = isMainDueDateCol && task.deadline_status === 'overdue';
                         const isDueToday = isMainDueDateCol && task.deadline_status === 'due_today';
 
-                        const onDateChange = (val: string | null) => {
+                        const onDateTimeChange = (newDate: string | null, newTime: string | null) => {
                             if (isMainDueDateCol) {
-                                handleUpdateDate(val || '');
+                                router.patch(
+                                    `/kanban/tasks/${task.id}`,
+                                    {
+                                        due_date: newDate,
+                                        due_time: newTime,
+                                    },
+                                    { preserveScroll: true },
+                                );
                             } else {
-                                handleUpdateCustomValue(col.key, val);
+                                const valToSave = newDate && newTime ? { date: newDate, time: newTime } : newDate;
+                                handleUpdateCustomValue(col.key, valToSave);
                             }
                         };
 
@@ -398,8 +427,9 @@ export default function TableRow({
                                 <div className="flex items-center w-full min-w-0">
                                     <div className="flex-1 min-w-0">
                                         <DatePickerCell
-                                            value={dateVal}
-                                            onChange={onDateChange}
+                                            date={dateVal}
+                                            time={timeVal}
+                                            onChange={onDateTimeChange}
                                             isOverdue={isOverdue}
                                             isDueToday={isDueToday}
                                             placeholder="Set date"

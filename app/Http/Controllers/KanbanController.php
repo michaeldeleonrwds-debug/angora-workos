@@ -1003,6 +1003,18 @@ class KanbanController extends Controller
             );
         }
 
+        if (array_key_exists('due_time', $validated) && $validated['due_time'] !== $task->due_time) {
+            $formattedTime = $validated['due_time'] ? \Illuminate\Support\Carbon::parse($validated['due_time'])->format('g:i A') : 'None';
+            TaskActivityService::log(
+                task: $task,
+                eventType: 'due_time_changed',
+                description: "{$userName} changed due time to {$formattedTime}",
+                fieldName: 'due_time',
+                oldValue: $task->due_time,
+                newValue: $validated['due_time']
+            );
+        }
+
         if (isset($validated['progress']) && $validated['progress'] !== $task->progress) {
             TaskActivityService::log(
                 task: $task,

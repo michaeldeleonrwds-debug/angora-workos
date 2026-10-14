@@ -65,7 +65,7 @@ export default function SubitemTable({
         }
         return [
             { id: 9001, board_id: parentTask.board_id, key: 'sub_designer', title: 'Designer', type: 'people', position: 0, is_visible: true, width: 150 },
-            { id: 9002, board_id: parentTask.board_id, key: 'sub_deadline', title: 'Deadline', type: 'date', position: 1, is_visible: true, width: 130 },
+            { id: 9002, board_id: parentTask.board_id, key: 'sub_deadline', title: 'Deadline', type: 'date', position: 1, is_visible: true, width: 180 },
             {
                 id: 9003,
                 board_id: parentTask.board_id,
@@ -180,12 +180,14 @@ export default function SubitemTable({
         );
     };
 
-    const handleUpdateDate = (sub: Task, colKey: string, date: string) => {
+    const handleUpdateDate = (sub: Task, colKey: string, date: string | null, time: string | null = null) => {
+        const valToStore = date && time ? { date, time } : (date || null);
         router.patch(
             `/kanban/tasks/${sub.id}`,
             {
                 due_date: date || null,
-                custom_values: { [colKey]: date || null },
+                due_time: time || null,
+                custom_values: { [colKey]: valToStore },
             },
             { preserveScroll: true },
         );
@@ -296,7 +298,7 @@ export default function SubitemTable({
                                 {effectiveColumns.map((col) => (
                                     <div
                                         key={col.id}
-                                        style={{ width: col.width || 140 }}
+                                        style={{ width: col.width || (col.type === 'date' ? 180 : 140) }}
                                         className="border-border/30 group/scol flex flex-shrink-0 items-center justify-between border-r px-2 py-2 text-center"
                                     >
                                         <span className="w-full truncate">{col.title}</span>
@@ -474,17 +476,37 @@ export default function SubitemTable({
 
                                             // 2. Date / Deadline
                                             if (col.type === 'date' || col.key.includes('date') || col.key.includes('deadline')) {
-                                                const dateVal =
-                                                    sub.custom_values?.[col.key] || sub.due_date || '';
+                                                const rawVal =
+                                                    sub.custom_values?.[col.key] || (col.key === 'sub_deadline' ? sub.due_date : null);
+                                                let dateVal: string | null = null;
+                                                let timeVal: string | null = null;
+
+                                                if (typeof rawVal === 'object' && rawVal !== null) {
+                                                    dateVal = rawVal.date || null;
+                                                    timeVal = rawVal.time || null;
+                                                } else if (typeof rawVal === 'string') {
+                                                    if (rawVal.includes(' ') || rawVal.includes('T')) {
+                                                        const parts = rawVal.replace('T', ' ').split(' ');
+                                                        dateVal = parts[0] || null;
+                                                        timeVal = parts[1]?.slice(0, 5) || null;
+                                                    } else {
+                                                        dateVal = rawVal || null;
+                                                    }
+                                                }
+                                                if (!timeVal && (col.key === 'sub_deadline' || col.key === 'due_date') && sub.due_time) {
+                                                    timeVal = sub.due_time;
+                                                }
+
                                                 return (
                                                     <div
                                                         key={col.id}
-                                                        style={{ width: col.width || 140 }}
+                                                        style={{ width: col.width || 180 }}
                                                         className="border-border/30 flex flex-shrink-0 items-center justify-center border-r px-1 py-1 text-center min-w-0 overflow-hidden"
                                                     >
                                                         <DatePickerCell
-                                                            value={dateVal ? String(dateVal).split('T')[0] : ''}
-                                                            onChange={(newDate) => handleUpdateDate(sub, col.key, newDate || '')}
+                                                            date={dateVal}
+                                                            time={timeVal}
+                                                            onChange={(newDate, newTime) => handleUpdateDate(sub, col.key, newDate, newTime)}
                                                             placeholder="Set date"
                                                         />
                                                     </div>

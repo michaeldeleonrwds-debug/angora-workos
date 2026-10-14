@@ -401,5 +401,93 @@ class WorkOsPhase3SchedulingAndDeadlinesTest extends TestCase
         $this->assertEquals('17:00', $task->due_time);
         $this->assertEquals('09:30', $task->start_time);
     }
+
+    /** 12. Updating time independently preserves date and logs activity */
+    public function test_updating_time_independently_preserves_date_and_logs_activity(): void
+    {
+        $this->actingAs($this->user);
+
+        $task = KanbanTask::create([
+            'board_id' => $this->board->id,
+            'column_id' => $this->column->id,
+            'group_id' => $this->group->id,
+            'title' => 'Independent Time Update Task',
+            'due_date' => '2026-10-18',
+            'due_time' => '09:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        $res = $this->patch("/kanban/tasks/{$task->id}", [
+            'due_time' => '17:00',
+        ]);
+
+        $res->assertSessionHasNoErrors();
+        $task->refresh();
+
+        $this->assertEquals('2026-10-18', $task->due_date);
+        $this->assertEquals('17:00', $task->due_time);
+
+        $this->assertDatabaseHas('task_activities', [
+            'task_id' => $task->id,
+            'event_type' => 'due_time_changed',
+        ]);
+    }
+
+    /** 13. Clearing time independently preserves date */
+    public function test_clearing_time_independently_preserves_date(): void
+    {
+        $this->actingAs($this->user);
+
+        $task = KanbanTask::create([
+            'board_id' => $this->board->id,
+            'column_id' => $this->column->id,
+            'group_id' => $this->group->id,
+            'title' => 'Clear Time Task',
+            'due_date' => '2026-10-18',
+            'due_time' => '17:00',
+            'created_by' => $this->user->id,
+        ]);
+
+        $res = $this->patch("/kanban/tasks/{$task->id}", [
+            'due_time' => null,
+        ]);
+
+        $res->assertSessionHasNoErrors();
+        $task->refresh();
+
+        $this->assertEquals('2026-10-18', $task->due_date);
+        $this->assertNull($task->due_time);
+    }
+
+    /** 14. Custom date column supports date and time payload */
+    public function test_custom_date_column_supports_date_and_time_payload(): void
+    {
+        $this->actingAs($this->user);
+
+        $task = KanbanTask::create([
+            'board_id' => $this->board->id,
+            'column_id' => $this->column->id,
+            'group_id' => $this->group->id,
+            'title' => 'Custom Date Time Task',
+            'created_by' => $this->user->id,
+            'custom_values' => [],
+        ]);
+
+        $res = $this->patch("/kanban/tasks/{$task->id}", [
+            'custom_values' => [
+                'client_deadline' => [
+                    'date' => '2026-10-25',
+                    'time' => '15:30',
+                ],
+            ],
+        ]);
+
+        $res->assertSessionHasNoErrors();
+        $task->refresh();
+
+        $this->assertIsArray($task->custom_values['client_deadline']);
+        $this->assertEquals('2026-10-25', $task->custom_values['client_deadline']['date']);
+        $this->assertEquals('15:30', $task->custom_values['client_deadline']['time']);
+    }
 }
 

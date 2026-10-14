@@ -1117,6 +1117,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                         case 'people_assignment_changed':
                                                             return 'bg-indigo-500/10 text-indigo-600 border-indigo-500/20';
                                                         case 'due_date_changed':
+                                                        case 'due_time_changed':
                                                             return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
                                                         case 'progress_updated':
                                                             return 'bg-teal-500/10 text-teal-600 border-teal-500/20';
@@ -1149,6 +1150,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                         case 'people_assignment_changed':
                                                             return 'bg-indigo-500';
                                                         case 'due_date_changed':
+                                                        case 'due_time_changed':
                                                             return 'bg-amber-500';
                                                         case 'progress_updated':
                                                             return 'bg-teal-500';
