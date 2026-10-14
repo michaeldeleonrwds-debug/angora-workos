@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import AddColumnModal from './components/AddColumnModal';
 import AutomationCenterModal from './components/AutomationCenterModal';
 import BoardHeader from './components/BoardHeader';
+import BoardUnifiedHeader from './components/BoardUnifiedHeader';
 import CalendarView from './components/CalendarView';
 import ChartView from './components/ChartView';
 import FilesView from './components/FilesView';
@@ -257,38 +258,35 @@ export default function KanbanPage({
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={breadcrumbs} hideHeader={true}>
             <Head title={`${board.title || 'Work OS'} — Angora Work OS`} />
 
-            <div className={`max-w-full space-y-4 p-4 md:p-6 ${activeTab === 'kanban' ? 'h-[calc(100vh-64px)] flex flex-col min-h-0 overflow-hidden' : 'overflow-hidden'}`}>
-                {/* 1. Workspace & Board Navigator */}
-                <div className="shrink-0">
-                    <WorkspaceBoardNav workspaces={workspaces} activeWorkspace={activeWorkspace} boards={boards} activeBoard={board} users={users} />
-                </div>
+            <div className={`flex flex-col min-h-0 w-full ${activeTab === 'kanban' ? 'h-svh md:h-[calc(100svh-1.5rem)] max-h-svh md:max-h-[calc(100svh-1.5rem)] overflow-hidden' : 'min-h-full'}`}>
+                {/* 1. Consolidated Two-Level Compact Header (Level 1 + Level 2) */}
+                <BoardUnifiedHeader
+                    workspaces={workspaces}
+                    activeWorkspace={activeWorkspace}
+                    boards={boards}
+                    activeBoard={board}
+                    users={users}
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                    personFilter={personFilter}
+                    onPersonFilterChange={setPersonFilter}
+                    priorityFilter={priorityFilter}
+                    onPriorityFilterChange={setPriorityFilter}
+                    onOpenNewTask={() => setIsNewTaskModalOpen(true)}
+                    onOpenNewGroup={() => setIsNewGroupModalOpen(true)}
+                    onOpenNewColumn={() => setIsNewColumnModalOpen(true)}
+                    onOpenAutomate={() => setIsAutomationModalOpen(true)}
+                    onOpenBlueprints={() => setIsBlueprintModalOpen(true)}
+                />
 
-                {/* 2. Board Header Toolbar */}
-                <div className="shrink-0">
-                    <BoardHeader
-                        board={board}
-                        activeTab={activeTab}
-                        onTabChange={setActiveTab}
-                        searchTerm={searchTerm}
-                        onSearchChange={setSearchTerm}
-                        personFilter={personFilter}
-                        onPersonFilterChange={setPersonFilter}
-                        priorityFilter={priorityFilter}
-                        onPriorityFilterChange={setPriorityFilter}
-                        users={users}
-                        onOpenNewTask={() => setIsNewTaskModalOpen(true)}
-                        onOpenNewGroup={() => setIsNewGroupModalOpen(true)}
-                        onOpenNewColumn={() => setIsNewColumnModalOpen(true)}
-                        onOpenAutomate={() => setIsAutomationModalOpen(true)}
-                        onOpenBlueprints={() => setIsBlueprintModalOpen(true)}
-                    />
-                </div>
-
-                {/* 3. Main Views */}
-                {activeTab === 'table' && (
+                {/* 2. Main Views Container */}
+                <div className={`flex-1 min-h-0 w-full ${activeTab === 'kanban' ? 'overflow-hidden p-3 sm:p-4 flex flex-col' : 'p-4 md:p-6 overflow-auto'}`}>
+                    {activeTab === 'table' && (
                     <TableView
                         board={board}
                         searchTerm={searchTerm}
@@ -389,6 +387,7 @@ export default function KanbanPage({
                         onSelectTask={handleOpenTask}
                     />
                 )}
+                </div>
             </div>
 
             {/* Slide-out / Centered Item Details & Collaboration Overlay */}

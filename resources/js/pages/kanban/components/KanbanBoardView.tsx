@@ -12,6 +12,7 @@ import {
     Check,
     ChevronDown,
     ChevronRight,
+    Clock,
     CornerDownRight,
     Edit3,
     GripVertical,
@@ -212,21 +213,30 @@ export default function KanbanBoardView({
         return due < new Date();
     };
 
+    const isDueToday = (task: Task) => {
+        if (!task.due_date || task.completed_at || (task.progress ?? 0) === 100) return false;
+        if (task.deadline_status === 'due_today') return true;
+        const todayStr = new Date().toISOString().split('T')[0];
+        return task.due_date === todayStr;
+    };
+
     const getPriorityBadgeClass = (priority: string) => {
         switch (priority) {
             case 'Urgent':
-                return 'bg-red-500/10 text-red-600 border-red-500/30';
+                return 'bg-rose-500/10 text-rose-600 border-rose-500/30 dark:text-rose-400';
             case 'High':
-                return 'bg-amber-500/10 text-amber-600 border-amber-500/30';
+                return 'bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400';
             case 'Medium':
-                return 'bg-blue-500/10 text-blue-600 border-blue-500/30';
+                return 'bg-blue-500/10 text-blue-600 border-blue-500/30 dark:text-blue-400';
+            case 'Low':
+                return 'bg-slate-500/10 text-slate-600 border-slate-500/30 dark:text-slate-400';
             default:
                 return 'bg-muted text-muted-foreground border-border';
         }
     };
 
     return (
-        <div className="scrollbar-thin flex items-stretch gap-4 overflow-x-auto pb-2 h-full min-h-0">
+        <div className="flex h-full min-h-0 flex-1 items-stretch gap-4 overflow-x-auto pb-2 scrollbar-thin">
             {columns.map((col) => {
                 const colTasks = (col.tasks || []).filter(filterTask);
                 const isOver = dragOverColumnId === col.id;
@@ -237,17 +247,19 @@ export default function KanbanBoardView({
                         onDragOver={(e) => handleDragOver(e, col.id)}
                         onDragLeave={(e) => handleDragLeave(e, col.id)}
                         onDrop={(e) => handleDrop(e, col.id)}
-                        className={`bg-card flex w-72 flex-shrink-0 flex-col rounded-2xl border transition-all sm:w-80 h-full max-h-full min-h-0 ${
-                            isOver ? 'border-primary ring-primary/20 bg-primary/5 ring-2' : 'border-border shadow-xs'
+                        className={`flex h-full max-h-full min-h-0 w-[290px] sm:w-[310px] shrink-0 flex-col rounded-2xl border transition-all ${
+                            isOver
+                                ? 'border-primary ring-2 ring-primary/40 bg-primary/5'
+                                : 'border-border/70 bg-[#F0F1F3]/80 shadow-xs dark:bg-[#1A1A2B]/80'
                         }`}
                     >
-                        {/* Column Header */}
-                        <div className="border-border/50 flex shrink-0 items-center justify-between border-b p-3 select-none">
-                            <div className="flex items-center gap-2">
+                        {/* Column Header (Fixed Top) */}
+                        <div className="flex shrink-0 items-center justify-between border-b border-border/60 bg-card/90 px-3.5 py-3 select-none backdrop-blur-xs">
+                            <div className="flex items-center gap-2 min-w-0">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <button
-                                            className="h-3.5 w-3.5 rounded-full shadow-2xs transition-transform hover:scale-110"
+                                            className="h-3.5 w-3.5 shrink-0 rounded-full shadow-2xs transition-transform hover:scale-110"
                                             style={{ backgroundColor: col.color || '#64748b' }}
                                             title="Change stage color"
                                         />
@@ -265,31 +277,32 @@ export default function KanbanBoardView({
                                     </DropdownMenuContent>
                                 </DropdownMenu>
 
-                                <h3 className="text-foreground max-w-[150px] truncate text-sm font-black tracking-tight">{col.title}</h3>
+                                <h3 className="truncate text-sm font-black tracking-tight text-foreground">{col.title}</h3>
                             </div>
 
-                            <div className="flex items-center gap-1.5">
-                                <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-bold">{colTasks.length}</span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="rounded-full bg-muted/80 px-2 py-0.5 text-xs font-bold text-muted-foreground">
+                                    {colTasks.length}
+                                </span>
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <button className="hover:bg-muted text-muted-foreground rounded p-1">
+                                        <button className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
                                             <MoreHorizontal className="h-3.5 w-3.5" />
                                         </button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                                    <DropdownMenuContent align="end" className="w-44 rounded-xl text-xs">
                                         <DropdownMenuItem
                                             onClick={() => {
                                                 setEditingStage(col);
                                                 setEditStageTitle(col.title);
                                             }}
-                                            className="text-xs"
                                         >
                                             <Edit3 className="mr-2 h-3.5 w-3.5" />
                                             <span>Rename Stage</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => handleDeleteStage(col.id)} className="text-xs text-red-500">
+                                        <DropdownMenuItem onClick={() => handleDeleteStage(col.id)} className="text-rose-500 focus:text-rose-500">
                                             <Trash2 className="mr-2 h-3.5 w-3.5" />
                                             <span>Delete Stage</span>
                                         </DropdownMenuItem>
@@ -298,14 +311,21 @@ export default function KanbanBoardView({
                             </div>
                         </div>
 
-                        {/* Cards List */}
+                        {/* Cards List (Internal Scroll) */}
                         <div className="flex-1 min-h-0 space-y-2.5 overflow-y-auto p-2.5 scrollbar-thin">
                             {colTasks.map((task) => {
                                 const subitems = task.subitems || [];
                                 const completedSubitems = subitems.filter((s) => s.completed_at || s.progress === 100).length;
                                 const isSubExpanded = !!expandedCards[task.id];
                                 const overdue = isOverdue(task);
+                                const dueToday = isDueToday(task);
                                 const commentCount = (task.comments || []).length;
+
+                                // Extract cover image if present (attachments or media usages)
+                                const imageAttachment = (task.attachments || []).find(
+                                    (a) => a.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(a.file_name || ''),
+                                );
+                                const mediaUsageUrl = task.media_usages?.[0]?.media_asset?.url;
 
                                 const designerIds: number[] = (() => {
                                     const raw = task.custom_values?.['designer_ids'] ?? task.custom_values?.['person'];
@@ -323,18 +343,20 @@ export default function KanbanBoardView({
                                 })();
                                 const amUsers = amIds.map((id) => users.find((u) => u.id === id)).filter((u): u is User => Boolean(u));
 
+                                const serviceType = task.custom_values?.['service_type'] || task.custom_values?.['category'];
+
                                 return (
                                     <div
                                         key={task.id}
                                         draggable
                                         onDragStart={(e) => handleDragStart(e, task.id)}
                                         onClick={() => onSelectTask(task)}
-                                        className={`group bg-background border-border hover:border-primary/50 cursor-pointer rounded-xl border p-3 transition-all hover:shadow-md ${
+                                        className={`group relative cursor-pointer rounded-xl border border-border/80 bg-card p-3 text-card-foreground shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md ${
                                             draggingTaskId === task.id ? 'scale-95 opacity-40' : 'opacity-100'
                                         }`}
                                     >
-                                        {/* Card Top: Priority, Overdue Tag, Grip */}
-                                        <div className="mb-1.5 flex items-center justify-between gap-2">
+                                        {/* Top Row: Priority Chip, Tags, Drag Grip */}
+                                        <div className="mb-2 flex items-center justify-between gap-1.5">
                                             <div className="flex flex-wrap items-center gap-1.5">
                                                 <Badge
                                                     variant="outline"
@@ -344,15 +366,22 @@ export default function KanbanBoardView({
                                                 </Badge>
 
                                                 {overdue && (
-                                                    <span className="flex items-center gap-0.5 rounded border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
+                                                    <span className="flex items-center gap-0.5 rounded border border-rose-500/25 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400">
                                                         <AlertCircle className="h-2.5 w-2.5" />
                                                         <span>Overdue</span>
                                                     </span>
                                                 )}
 
+                                                {!overdue && dueToday && (
+                                                    <span className="flex items-center gap-0.5 rounded border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                                                        <Clock className="h-2.5 w-2.5" />
+                                                        <span>Due Today</span>
+                                                    </span>
+                                                )}
+
                                                 {task.is_blocked && (
                                                     <span
-                                                        title="Blocked by unfinished predecessor"
+                                                        title="Blocked by predecessor task"
                                                         className="flex items-center gap-0.5 rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
                                                     >
                                                         <ShieldAlert className="h-2.5 w-2.5" />
@@ -370,44 +399,71 @@ export default function KanbanBoardView({
                                                     </span>
                                                 )}
 
-                                                {task.custom_values?.['service_type'] && (
-                                                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground truncate max-w-[120px]">
-                                                        {String(task.custom_values['service_type'])}
+                                                {serviceType && (
+                                                    <span className="max-w-[110px] truncate rounded border border-border/40 bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                                        {String(serviceType)}
                                                     </span>
                                                 )}
                                             </div>
 
-                                            <GripVertical className="text-muted-foreground/30 h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100" />
+                                            <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100" />
                                         </div>
 
-                                        {/* Title */}
-                                        <h4 className="text-foreground mb-1 text-xs leading-snug font-bold">{task.title}</h4>
-
-                                        {task.description && (
-                                            <p className="text-muted-foreground mb-2 line-clamp-2 text-[11px]">{task.description}</p>
+                                        {/* Cover Image / Thumbnail (ONLY if image attachment or media usage exists) */}
+                                        {imageAttachment && (
+                                            <div className="relative mb-2.5 h-28 w-full overflow-hidden rounded-lg border border-border/40 bg-muted/40">
+                                                <img
+                                                    src={`/storage/${imageAttachment.file_path}`}
+                                                    alt={imageAttachment.file_name}
+                                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                    loading="lazy"
+                                                />
+                                            </div>
+                                        )}
+                                        {!imageAttachment && mediaUsageUrl && (
+                                            <div className="relative mb-2.5 h-28 w-full overflow-hidden rounded-lg border border-border/40 bg-muted/40">
+                                                <img
+                                                    src={mediaUsageUrl}
+                                                    alt={task.title}
+                                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                                    loading="lazy"
+                                                />
+                                            </div>
                                         )}
 
-                                        {/* Progress Bar */}
+                                        {/* Title */}
+                                        <h4 className="mb-1 text-xs sm:text-[13px] font-bold leading-snug text-foreground line-clamp-2 transition-colors group-hover:text-primary">
+                                            {task.title}
+                                        </h4>
+
+                                        {/* Description Snippet (Only when present) */}
+                                        {task.description && (
+                                            <p className="mb-2 text-[11px] leading-relaxed text-muted-foreground line-clamp-2">
+                                                {task.description}
+                                            </p>
+                                        )}
+
+                                        {/* Progress Bar (Only when progress > 0) */}
                                         {task.progress > 0 && (
                                             <div className="mb-2">
-                                                <div className="bg-muted h-1.5 overflow-hidden rounded-full">
+                                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                                                     <div
-                                                        className="h-full rounded-full bg-emerald-500 transition-all"
+                                                        className="h-full rounded-full bg-emerald-500 transition-all duration-300"
                                                         style={{ width: `${task.progress}%` }}
                                                     />
                                                 </div>
                                             </div>
                                         )}
 
-                                        {/* Subtasks Collapsible Section directly beneath Card */}
+                                        {/* Subtasks Section */}
                                         {subitems.length > 0 && (
-                                            <div className="border-border/40 mb-2 border-t pt-1">
+                                            <div className="mb-2 border-t border-border/40 pt-1">
                                                 <button
                                                     onClick={(e) => toggleSubtasks(task.id, e)}
-                                                    className="text-muted-foreground hover:text-foreground flex w-full items-center justify-between py-0.5 text-[11px] font-semibold"
+                                                    className="flex w-full items-center justify-between py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
                                                 >
                                                     <div className="flex items-center gap-1">
-                                                        <CornerDownRight className="text-primary h-3 w-3" />
+                                                        <CornerDownRight className="h-3 w-3 text-primary" />
                                                         <span>
                                                             Subtasks ({completedSubitems}/{subitems.length})
                                                         </span>
@@ -419,9 +475,9 @@ export default function KanbanBoardView({
                                                     )}
                                                 </button>
 
-                                                {/* Expanded Indented Subtask List */}
+                                                {/* Expanded Subtask List */}
                                                 {isSubExpanded && (
-                                                    <div className="bg-muted/20 border-border/40 mt-1 space-y-1 rounded-lg border py-1.5 pr-1 pl-3">
+                                                    <div className="mt-1 space-y-1 rounded-lg border border-border/40 bg-muted/20 py-1.5 pr-1 pl-2.5">
                                                         {subitems.map((sub) => (
                                                             <div
                                                                 key={sub.id}
@@ -429,7 +485,7 @@ export default function KanbanBoardView({
                                                                     e.stopPropagation();
                                                                     onSelectTask(sub);
                                                                 }}
-                                                                className="hover:bg-card group/sub flex items-center justify-between gap-2 rounded px-1.5 py-1 text-[11px] transition-colors"
+                                                                className="flex items-center justify-between gap-2 rounded px-1.5 py-1 text-[11px] transition-colors hover:bg-card"
                                                             >
                                                                 <div className="flex flex-1 items-center gap-1.5 truncate">
                                                                     <button
@@ -449,7 +505,7 @@ export default function KanbanBoardView({
                                                                         className={`truncate ${
                                                                             sub.completed_at || sub.progress === 100
                                                                                 ? 'text-muted-foreground line-through'
-                                                                                : 'text-foreground font-medium'
+                                                                                : 'font-medium text-foreground'
                                                                         }`}
                                                                     >
                                                                         {sub.title}
@@ -458,7 +514,7 @@ export default function KanbanBoardView({
 
                                                                 {sub.assignee && (
                                                                     <div
-                                                                        className="bg-primary/20 text-primary flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[9px] font-bold"
+                                                                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[9px] font-bold text-primary"
                                                                         title={sub.assignee.name}
                                                                     >
                                                                         {sub.assignee.name.charAt(0)}
@@ -485,7 +541,7 @@ export default function KanbanBoardView({
                                                                         }))
                                                                     }
                                                                     autoFocus
-                                                                    className="bg-background border-primary h-6 flex-1 rounded border px-1.5 text-[10px] focus:outline-none"
+                                                                    className="h-6 flex-1 rounded border border-primary bg-background px-1.5 text-[10px] focus:outline-none"
                                                                 />
                                                                 <Button type="submit" size="sm" className="h-6 px-2 text-[10px]">
                                                                     Add
@@ -498,7 +554,7 @@ export default function KanbanBoardView({
                                                                     e.stopPropagation();
                                                                     setAddingSubtaskForTask(task.id);
                                                                 }}
-                                                                className="text-primary flex items-center gap-1 pt-1 text-[10px] font-bold hover:underline"
+                                                                className="flex items-center gap-1 pt-1 text-[10px] font-bold text-primary hover:underline"
                                                             >
                                                                 <Plus className="h-2.5 w-2.5" />
                                                                 <span>Add Subtask</span>
@@ -509,16 +565,20 @@ export default function KanbanBoardView({
                                             </div>
                                         )}
 
-                                        {/* Card Footer: Dates, Comments count, Assignee Avatar */}
-                                        <div className="border-border/40 text-muted-foreground flex items-center justify-between border-t pt-2 text-[11px]">
+                                        {/* Card Footer: Due Date, Comments, Assignees */}
+                                        <div className="flex items-center justify-between border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
                                             <div className="flex items-center gap-2">
                                                 {task.due_date && (
-                                                    <div className={`flex items-center gap-1 font-medium ${overdue ? 'font-bold text-red-500' : ''}`}>
+                                                    <div
+                                                        className={`flex items-center gap-1 font-medium ${
+                                                            overdue ? 'font-bold text-rose-600 dark:text-rose-400' : dueToday ? 'font-bold text-amber-600 dark:text-amber-400' : ''
+                                                        }`}
+                                                    >
                                                         <Calendar className="h-3 w-3" />
-                                                        <span>{formatDate(task.due_date)}</span>
-                                                        {task.due_time && (
-                                                            <span className="text-[10px] opacity-80">{formatTime(task.due_time)}</span>
-                                                        )}
+                                                        <span>
+                                                            {formatDate(task.due_date)}
+                                                            {task.due_time && ` · ${formatTime(task.due_time)}`}
+                                                        </span>
                                                     </div>
                                                 )}
 
@@ -529,8 +589,8 @@ export default function KanbanBoardView({
                                                 )}
 
                                                 {commentCount > 0 && (
-                                                    <div className="flex items-center gap-0.5">
-                                                        <MessageCircle className="text-muted-foreground h-3 w-3" />
+                                                    <div className="flex items-center gap-0.5 text-muted-foreground">
+                                                        <MessageCircle className="h-3 w-3" />
                                                         <span>{commentCount}</span>
                                                     </div>
                                                 )}
@@ -538,10 +598,10 @@ export default function KanbanBoardView({
 
                                             {/* Assignees (Designer & AM) */}
                                             <div className="flex items-center gap-1.5">
-                                                {/* AM Avatars with Badge if present */}
+                                                {/* AM Avatars with Badge */}
                                                 {amUsers.length > 0 && (
                                                     <div
-                                                        className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 rounded-full px-1.5 py-0.5"
+                                                        className="flex items-center gap-1 rounded-full border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5"
                                                         title={`Account Manager: ${amUsers.map((u) => u.name).join(', ')}`}
                                                     >
                                                         <span className="text-[8px] font-black text-amber-600 dark:text-amber-400">AM</span>
@@ -549,13 +609,13 @@ export default function KanbanBoardView({
                                                             {amUsers.slice(0, 2).map((u) => (
                                                                 <div
                                                                     key={u.id}
-                                                                    className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[8px] font-bold border border-background"
+                                                                    className="flex h-4 w-4 items-center justify-center rounded-full border border-background bg-amber-500/20 text-[8px] font-bold text-amber-700 dark:text-amber-300"
                                                                 >
                                                                     {u.name.charAt(0).toUpperCase()}
                                                                 </div>
                                                             ))}
                                                             {amUsers.length > 2 && (
-                                                                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[8px] font-bold border border-background">
+                                                                <div className="flex h-4 w-4 items-center justify-center rounded-full border border-background bg-amber-500/10 text-[8px] font-bold text-amber-700 dark:text-amber-300">
                                                                     +{amUsers.length - 2}
                                                                 </div>
                                                             )}
@@ -572,19 +632,22 @@ export default function KanbanBoardView({
                                                         {designerUsers.slice(0, 2).map((u) => (
                                                             <div
                                                                 key={u.id}
-                                                                className="bg-primary/20 text-primary border-background flex h-5 w-5 items-center justify-center rounded-full border text-[9px] font-bold ring-1 ring-border"
+                                                                className="flex h-5 w-5 items-center justify-center rounded-full border border-background bg-primary/20 text-[9px] font-bold text-primary ring-1 ring-border shadow-2xs"
                                                             >
                                                                 {u.name.charAt(0).toUpperCase()}
                                                             </div>
                                                         ))}
                                                         {designerUsers.length > 2 && (
-                                                            <div className="bg-muted text-muted-foreground border-background flex h-5 w-5 items-center justify-center rounded-full border text-[8px] font-bold ring-1 ring-border">
+                                                            <div className="flex h-5 w-5 items-center justify-center rounded-full border border-background bg-muted text-[8px] font-bold text-muted-foreground ring-1 ring-border">
                                                                 +{designerUsers.length - 2}
                                                             </div>
                                                         )}
                                                     </div>
                                                 ) : (
-                                                    <div className="border-border flex h-5 w-5 items-center justify-center rounded-full border border-dashed" title="Unassigned">
+                                                    <div
+                                                        className="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-border"
+                                                        title="Unassigned"
+                                                    >
                                                         <UserIcon className="h-2.5 w-2.5 text-muted-foreground" />
                                                     </div>
                                                 )}
@@ -595,17 +658,17 @@ export default function KanbanBoardView({
                             })}
 
                             {colTasks.length === 0 && (
-                                <div className="border-border text-muted-foreground/60 flex h-28 items-center justify-center rounded-xl border border-dashed text-xs">
+                                <div className="flex h-28 items-center justify-center rounded-xl border-2 border-dashed border-border/60 text-xs text-muted-foreground/60 select-none">
                                     Drop items here
                                 </div>
                             )}
                         </div>
 
-                        {/* Add Task Button at bottom of column */}
-                        <div className="border-border/50 shrink-0 border-t p-2">
+                        {/* Add Task Button (Fixed Bottom) */}
+                        <div className="shrink-0 border-t border-border/50 bg-card/60 p-2">
                             <button
                                 onClick={() => onQuickAddTask(col.id)}
-                                className="border-border hover:border-primary/50 hover:bg-muted/40 text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-1 rounded-xl border border-dashed py-1.5 text-xs font-semibold transition-all"
+                                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/80 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/50 hover:bg-muted/40 hover:text-foreground"
                             >
                                 <Plus className="h-3.5 w-3.5" />
                                 <span>Add Task</span>
@@ -616,10 +679,10 @@ export default function KanbanBoardView({
             })}
 
             {/* + Add Workflow Stage Button */}
-            <div className="w-72 flex-shrink-0">
+            <div className="w-72 shrink-0">
                 <button
                     onClick={() => setIsAddStageOpen(true)}
-                    className="border-border hover:border-primary/60 hover:bg-card text-muted-foreground hover:text-foreground flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed text-xs font-bold transition-all"
+                    className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/80 text-xs font-bold text-muted-foreground transition-all hover:border-primary/60 hover:bg-card hover:text-foreground"
                 >
                     <Plus className="h-4 w-4" />
                     <span>Add Workflow Stage</span>
@@ -633,7 +696,7 @@ export default function KanbanBoardView({
                         <DialogHeader>
                             <DialogTitle>Add New Workflow Stage</DialogTitle>
                         </DialogHeader>
-                        <div className="space-y-4 py-4">
+                        <div className="space-y-4 py-4 text-xs">
                             <div>
                                 <Label htmlFor="stage-title">Stage Name</Label>
                                 <Input
@@ -642,7 +705,7 @@ export default function KanbanBoardView({
                                     value={newStageTitle}
                                     onChange={(e) => setNewStageTitle(e.target.value)}
                                     required
-                                    className="mt-1"
+                                    className="mt-1 h-9 rounded-xl"
                                 />
                             </div>
                             <div>
@@ -654,7 +717,7 @@ export default function KanbanBoardView({
                                             key={hex}
                                             onClick={() => setNewStageColor(hex)}
                                             className={`h-6 w-6 rounded-full border-2 transition-all ${
-                                                newStageColor === hex ? 'border-foreground scale-110' : 'border-transparent'
+                                                newStageColor === hex ? 'scale-110 border-foreground' : 'border-transparent'
                                             }`}
                                             style={{ backgroundColor: hex }}
                                         />
@@ -663,10 +726,12 @@ export default function KanbanBoardView({
                             </div>
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsAddStageOpen(false)}>
+                            <Button type="button" variant="outline" onClick={() => setIsAddStageOpen(false)} className="h-9 rounded-xl">
                                 Cancel
                             </Button>
-                            <Button type="submit">Create Stage</Button>
+                            <Button type="submit" disabled={!newStageTitle.trim()} className="h-9 rounded-xl">
+                                Create Stage
+                            </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>
@@ -679,21 +744,25 @@ export default function KanbanBoardView({
                         <DialogHeader>
                             <DialogTitle>Rename Workflow Stage</DialogTitle>
                         </DialogHeader>
-                        <div className="py-4">
-                            <Label htmlFor="edit-stage-title">Stage Name</Label>
-                            <Input
-                                id="edit-stage-title"
-                                value={editStageTitle}
-                                onChange={(e) => setEditStageTitle(e.target.value)}
-                                required
-                                className="mt-1"
-                            />
+                        <div className="space-y-4 py-4 text-xs">
+                            <div>
+                                <Label htmlFor="edit-stage-title">Stage Name</Label>
+                                <Input
+                                    id="edit-stage-title"
+                                    value={editStageTitle}
+                                    onChange={(e) => setEditStageTitle(e.target.value)}
+                                    required
+                                    className="mt-1 h-9 rounded-xl"
+                                />
+                            </div>
                         </div>
                         <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setEditingStage(null)}>
+                            <Button type="button" variant="outline" onClick={() => setEditingStage(null)} className="h-9 rounded-xl">
                                 Cancel
                             </Button>
-                            <Button type="submit">Rename</Button>
+                            <Button type="submit" disabled={!editStageTitle.trim()} className="h-9 rounded-xl">
+                                Rename
+                            </Button>
                         </DialogFooter>
                     </form>
                 </DialogContent>

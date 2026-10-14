@@ -370,6 +370,7 @@ export interface KanbanBoard {
     tasks?: Task[];
     automations?: BoardAutomation[];
     automation_executions?: AutomationExecution[];
+    members?: any[];
 }
 
 export interface KanbanPageProps {
