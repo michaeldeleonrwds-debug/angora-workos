@@ -168,8 +168,10 @@ export default function TableView({
     };
 
     const groups = board.groups || [];
-    const boardColumns = board.board_columns || board.boardColumns || [];
-    const subitemColumns = board.subitem_columns || board.subitemColumns || [];
+    const rawBoardColumns = board.board_columns || board.boardColumns || [];
+    const boardColumns = rawBoardColumns.filter((c) => c.type !== 'progress' && c.key !== 'progress');
+    const rawSubitemColumns = board.subitem_columns || board.subitemColumns || [];
+    const subitemColumns = rawSubitemColumns.filter((c) => c.type !== 'progress' && c.key !== 'progress');
     const statusColumns = board.columns || [];
     const visibleColumns = boardColumns.filter((c) => c.is_visible);
     const gridTemplateColumns = getTableGridTemplate(visibleColumns);

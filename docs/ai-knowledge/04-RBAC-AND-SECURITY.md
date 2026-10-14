@@ -33,14 +33,16 @@ Angora Work OS enforces a **strict deny-by-default access control architecture**
 
 ---
 
-## 3. Assignment-Based Task Movement (`moveAssignedTask`)
-Introduced in commit `245acd8` and enhanced for employee production workflows, `TaskPolicy::moveAssignedTask` permits Designers to move cards under strict conditions:
-1. **Assignment Check**: User must be directly assigned (`assigned_to`) or referenced in dynamic designer columns (`task.custom_values.designer_ids`).
+## 3. Assignment-Based Task Movement (`canMoveAssignedTask`)
+Enhanced in commit `fix(work-os): enable category-assigned task movement and simplify child cards`, `TaskPolicy::canMoveAssignedTask` permits contributors (`designer`, `developer`, `dept_user`, `employee`) to move cards under strict conditions:
+1. **Assignment Check**: User must be directly assigned (`assigned_to`), referenced in dynamic designer/person columns (`task.custom_values.designer_ids`), OR assigned to any child work category belonging to the parent project (`task.subitems`).
 2. **Transition Rules**:
-   - `not_started` ➔ `in_progress` ✅
-   - `in_progress` ➔ `in_review` ✅
-   - Direct move to `completed` ❌ (Denied: must pass through review cycle).
-3. **Unassigned Tasks**: Designers cannot move tasks assigned to others or unassigned backlog items.
+   - `not_started` ➔ `in_progress`, `in_review`, `blocked` ✅
+   - `in_progress` ➔ `in_review`, `not_started`, `blocked` ✅
+   - `in_review` ➔ `in_progress` (rework) ✅
+   - Direct move to `completed` or `cancelled` ❌ (Denied: must pass through PM/reviewer approval).
+3. **Unassigned Tasks**: Employees cannot move tasks unless assigned to the parent or at least one child work category.
+4. **Progress Deprecation**: Legacy progress percentages and bars have been removed across all production UI views in favor of discrete status transitions.
 
 ### Code Reference: `App\Policies\TaskPolicy.php`
 ```php

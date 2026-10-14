@@ -45,13 +45,13 @@ class WorkOsPermissionService
         $boardMember = $board ? $board->members()->where('user_id', $user->id)->first() : null;
         $isBoardAdmin = $boardMember && in_array($boardMember->role, ['owner', 'admin'], true);
 
-        // Designer Role: strictly contributor permissions on assigned items only
-        if ($role === 'designer') {
+        // Contributor Roles (designer, developer, dept_user, employee): strictly contributor permissions on assigned items only
+        if (in_array($role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
             return [
                 'canView' => $board ? $user->can('view', $board) : true,
                 'canCreateTask' => false,
-                'canEditTask' => false, // Designers cannot edit arbitrary task metadata
-                'canEditProgress' => true, // Allowed only on tasks assigned to them
+                'canEditTask' => false, // Contributors cannot edit arbitrary task metadata
+                'canEditProgress' => false, // Progress tracking removed entirely from Work OS UI
                 'canChangeStatus' => false, // Blanket status changes are disallowed
                 'canMoveAssignedTask' => true, // Allowed to move and reorder assigned tasks
                 'canAssignUsers' => false,
@@ -146,44 +146,10 @@ class WorkOsPermissionService
     }
 
     /**
-     * Check if a task is assigned to a user (via assigned_to or custom_values people arrays).
+     * Check if a task is assigned to a user (via assigned_to, custom_values people arrays, or child work categories).
      */
     public function isTaskAssignedToUser(KanbanTask $task, User|int|null $user): bool
     {
-        if (!$user) {
-            return false;
-        }
-
-        $userId = $user instanceof User ? $user->id : (int) $user;
-        if ($userId <= 0) {
-            return false;
-        }
-
-        // 1. Direct legacy column
-        if ((int) $task->assigned_to === $userId) {
-            return true;
-        }
-
-        // 2. Custom values people columns (designer_ids, person, designer, am, etc.)
-        if (is_array($task->custom_values)) {
-            foreach ($task->custom_values as $val) {
-                if (is_array($val)) {
-                    if (in_array($userId, array_map('intval', $val), true)) {
-                        return true;
-                    }
-                } elseif (is_numeric($val) && (int) $val === $userId) {
-                    return true;
-                }
-            }
-        }
-
-        // 3. Subtask: inherit parent task assignment or creator
-        if ($task->parent_id && $task->parent) {
-            if ($this->isTaskAssignedToUser($task->parent, $user) || (int) $task->created_by === $userId) {
-                return true;
-            }
-        }
-
-        return false;
+        return $task->isAssignedTo($user);
     }
 }

@@ -106,22 +106,6 @@ export default function GalleryView({ board, searchTerm, personFilter, priorityF
                                 {task.description && <p className="text-muted-foreground line-clamp-2 text-xs">{task.description}</p>}
                             </div>
 
-                            {/* Progress bar */}
-                            <div className="space-y-1">
-                                <div className="text-muted-foreground flex items-center justify-between text-[10px] font-semibold">
-                                    <span>Progress</span>
-                                    <span>{task.progress || 0}%</span>
-                                </div>
-                                <div className="bg-muted/60 h-1.5 w-full overflow-hidden rounded-full">
-                                    <div
-                                        className="h-full rounded-full transition-all"
-                                        style={{
-                                            width: `${task.progress || 0}%`,
-                                            backgroundColor: isDone ? '#00c875' : '#579bfc',
-                                        }}
-                                    />
-                                </div>
-                            </div>
 
                             {/* Card Footer */}
                             <div className="border-border/50 text-muted-foreground flex items-center justify-between border-t pt-2 text-xs">

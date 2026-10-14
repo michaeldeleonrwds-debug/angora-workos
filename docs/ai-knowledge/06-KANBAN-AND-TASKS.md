@@ -6,11 +6,15 @@ Angora provides two primary representations of the same underlying board state:
    - High-density spreadsheet-like view grouped by `BoardGroup`.
    - Collapsible groups with color badges and count summaries.
    - Dynamic custom column cells with inline keyboard and click editing.
-   - Subitem nested accordion rows (`SubitemTable.tsx`).
+   - Work category nested accordion rows (`SubitemTable.tsx`).
+   - Obsolete progress column filtered out of visibility.
 2. **Production Kanban (`KanbanBoardView.tsx`)**:
    - Vertical columns represent workflow stages (`KanbanColumn`).
-   - Cards display priority badges, dynamic people avatars, exact deadline counters, progress bars, and blocker flags.
-   - HTML5 / drag-and-drop support with live lexical reordering.
+   - Cards display priority badges, dynamic assignee avatars, exact deadline counters, and blocker flags.
+   - Child entries represent **Work Categories** (e.g., Design, Build/Development, Video Editing, QA, Deployment) showing responsible team members.
+   - Drag isolation ensures clicking or interacting with work categories does not unintentionally drag the parent card.
+   - HTML5 drag-and-drop movement is authorized if the user is assigned directly to the parent project OR to any child work category belonging to that project.
+   - Progress bars and completion checkboxes have been removed in favor of discrete workflow stage transitions.
 
 ---
 
@@ -23,10 +27,11 @@ Every column maps to a semantic category:
 
 ### Transition Rules
 - **Privileged Users (Super Admin, Admin, PM)**: Can transition tasks between any stages at will.
-- **Designers (Employees)**:
-  - Can move assigned tasks from `not_started` ➔ `in_progress` ➔ `in_review`.
-  - **Cannot** move assigned tasks directly to `completed`.
-  - Cannot move tasks assigned to other team members.
+- **Designers & Production Contributors (Employees)**:
+  - Can move assigned tasks (or tasks where they own a child work category) across permitted stages: `not_started` ➔ `in_progress` ➔ `in_review`.
+  - **Cannot** move assigned tasks directly to `completed` or `cancelled` without review approval.
+  - Cannot move tasks when unassigned to both the parent and all child categories.
+
 
 ---
 

@@ -293,7 +293,7 @@ export default function GanttView({ board, searchTerm, personFilter, priorityFil
                                                 }}
                                                 title={`${task.title} (${task.start_date || ''}${task.start_time ? ' ' + formatTime(task.start_time) : ''} – ${task.due_date || ''}${task.due_time ? ' ' + formatTime(task.due_time) : ''})`}
                                             >
-                                                <span className="truncate">{task.progress || 0}%</span>
+                                                <span className="truncate">{task.title}</span>
 
                                                 {/* Quick Shift Controls on Hover */}
                                                 <div className="ml-1 flex items-center gap-0.5 opacity-0 group-hover/bar:opacity-100">

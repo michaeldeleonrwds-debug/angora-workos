@@ -26,7 +26,7 @@ import {
     User as UserIcon,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { BoardPermissions, isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
+import { BoardPermissions, getTaskAssignedUsers, isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
 
 interface KanbanBoardViewProps {
     board: KanbanBoard;
@@ -369,13 +369,7 @@ export default function KanbanBoardView({
                                 );
                                 const mediaUsageUrl = task.media_usages?.[0]?.media_asset?.url;
 
-                                const designerIds: number[] = (() => {
-                                    const raw = task.custom_values?.['designer_ids'] ?? task.custom_values?.['person'];
-                                    if (Array.isArray(raw)) return raw.map(Number).filter(Boolean);
-                                    if (typeof raw === 'number' && raw > 0) return [raw];
-                                    return task.assigned_to ? [task.assigned_to] : [];
-                                })();
-                                const designerUsers = designerIds.map((id) => users.find((u) => u.id === id)).filter((u): u is User => Boolean(u));
+                                const assignedWorkers = getTaskAssignedUsers(task, users);
 
                                 const amIds: number[] = (() => {
                                     const raw = task.custom_values?.['account_manager'] ?? task.custom_values?.['am'];
@@ -386,14 +380,17 @@ export default function KanbanBoardView({
                                 const amUsers = amIds.map((id) => users.find((u) => u.id === id)).filter((u): u is User => Boolean(u));
 
                                 const serviceType = task.custom_values?.['service_type'] || task.custom_values?.['category'];
+                                const isMovable = canMoveTask(task);
 
                                 return (
                                     <div
                                         key={task.id}
-                                        draggable={canMoveTask(task)}
+                                        draggable={isMovable}
                                         onDragStart={(e) => handleDragStart(e, task)}
                                         onClick={() => onSelectTask(task)}
-                                        className={`group relative cursor-pointer rounded-xl border border-border/80 bg-card p-3 text-card-foreground shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md ${
+                                        className={`group relative rounded-xl border border-border/80 bg-card p-3 text-card-foreground shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md ${
+                                            isMovable ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'
+                                        } ${
                                             draggingTaskId === task.id ? 'scale-95 opacity-40' : 'opacity-100'
                                         }`}
                                     >
@@ -448,7 +445,11 @@ export default function KanbanBoardView({
                                                 )}
                                             </div>
 
-                                            <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/30 opacity-0 transition-opacity group-hover:opacity-100" />
+                                            {isMovable && (
+                                                <span title="Drag to move card" className="shrink-0">
+                                                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground/60 transition-opacity hover:text-foreground" />
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Cover Image / Thumbnail (ONLY if image attachment or media usage exists) */}
@@ -485,29 +486,25 @@ export default function KanbanBoardView({
                                             </p>
                                         )}
 
-                                        {/* Progress Bar (Only when progress > 0) */}
-                                        {task.progress > 0 && (
-                                            <div className="mb-2">
-                                                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                                                    <div
-                                                        className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                                                        style={{ width: `${task.progress}%` }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Subtasks Section */}
+                                        {/* Work Categories Section */}
                                         {subitems.length > 0 && (
-                                            <div className="mb-2 border-t border-border/40 pt-1">
+                                            <div
+                                                className="mb-2 border-t border-border/40 pt-1"
+                                                draggable={false}
+                                                onDragStart={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                            >
                                                 <button
+                                                    type="button"
                                                     onClick={(e) => toggleSubtasks(task.id, e)}
                                                     className="flex w-full items-center justify-between py-0.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
                                                 >
                                                     <div className="flex items-center gap-1">
                                                         <CornerDownRight className="h-3 w-3 text-primary" />
                                                         <span>
-                                                            Subtasks ({completedSubitems}/{subitems.length})
+                                                            Work Categories ({subitems.length})
                                                         </span>
                                                     </div>
                                                     {isSubExpanded ? (
@@ -517,55 +514,59 @@ export default function KanbanBoardView({
                                                     )}
                                                 </button>
 
-                                                {/* Expanded Subtask List */}
+                                                {/* Expanded Work Categories List */}
                                                 {isSubExpanded && (
-                                                    <div className="mt-1 space-y-1 rounded-lg border border-border/40 bg-muted/20 py-1.5 pr-1 pl-2.5">
-                                                        {subitems.map((sub) => (
-                                                            <div
-                                                                key={sub.id}
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    onSelectTask(sub);
-                                                                }}
-                                                                className="flex items-center justify-between gap-2 rounded px-1.5 py-1 text-[11px] transition-colors hover:bg-card"
-                                                            >
-                                                                <div className="flex flex-1 items-center gap-1.5 truncate">
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={(e) => handleToggleSubtaskComplete(sub, e)}
-                                                                        className={`flex h-3.5 w-3.5 items-center justify-center rounded border transition-all ${
-                                                                            sub.completed_at || sub.progress === 100
-                                                                                ? 'border-emerald-500 bg-emerald-500 text-white'
-                                                                                : 'border-border bg-card'
-                                                                        }`}
-                                                                    >
-                                                                        {(sub.completed_at || sub.progress === 100) && (
-                                                                            <Check className="h-2.5 w-2.5" />
+                                                    <div
+                                                        className="mt-1 space-y-1 rounded-lg border border-border/40 bg-muted/20 py-1.5 pr-1 pl-2"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
+                                                        {subitems.map((sub) => {
+                                                            const subAssignees = getTaskAssignedUsers(sub, users);
+                                                            return (
+                                                                <div
+                                                                    key={sub.id}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onSelectTask(sub);
+                                                                    }}
+                                                                    className="flex items-center justify-between gap-2 rounded px-1.5 py-1 text-[11px] transition-colors hover:bg-card"
+                                                                >
+                                                                    <div className="flex flex-1 items-center gap-1.5 truncate">
+                                                                        <span className="font-medium text-foreground truncate">
+                                                                            {sub.title}
+                                                                        </span>
+                                                                        {sub.column?.title && (
+                                                                            <span className="shrink-0 rounded px-1 py-0.2 text-[9px] font-semibold bg-muted text-muted-foreground">
+                                                                                {sub.column.title}
+                                                                            </span>
                                                                         )}
-                                                                    </button>
-                                                                    <span
-                                                                        className={`truncate ${
-                                                                            sub.completed_at || sub.progress === 100
-                                                                                ? 'text-muted-foreground line-through'
-                                                                                : 'font-medium text-foreground'
-                                                                        }`}
-                                                                    >
-                                                                        {sub.title}
-                                                                    </span>
-                                                                </div>
-
-                                                                {sub.assignee && (
-                                                                    <div
-                                                                        className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[9px] font-bold text-primary"
-                                                                        title={sub.assignee.name}
-                                                                    >
-                                                                        {sub.assignee.name.charAt(0)}
                                                                     </div>
-                                                                )}
-                                                            </div>
-                                                        ))}
 
-                                                        {/* Add Subtask Trigger within Card */}
+                                                                    {subAssignees.length > 0 && (
+                                                                        <div
+                                                                            className="flex items-center -space-x-1 shrink-0"
+                                                                            title={`Assigned: ${subAssignees.map((u) => u.name).join(', ')}`}
+                                                                        >
+                                                                            {subAssignees.slice(0, 2).map((u) => (
+                                                                                <div
+                                                                                    key={u.id}
+                                                                                    className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/20 text-[8px] font-bold text-primary ring-1 ring-border"
+                                                                                >
+                                                                                    {u.name.charAt(0).toUpperCase()}
+                                                                                </div>
+                                                                            ))}
+                                                                            {subAssignees.length > 2 && (
+                                                                                <div className="flex h-4 w-4 items-center justify-center rounded-full bg-muted text-[8px] font-bold text-muted-foreground ring-1 ring-border">
+                                                                                    +{subAssignees.length - 2}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+
+                                                        {/* Add Work Category Trigger within Card */}
                                                         {addingSubtaskForTask === task.id ? (
                                                             <form
                                                                 onSubmit={(e) => handleAddInlineSubtask(task.id, e)}
@@ -574,7 +575,7 @@ export default function KanbanBoardView({
                                                             >
                                                                 <input
                                                                     type="text"
-                                                                    placeholder="Subtask title..."
+                                                                    placeholder="Category (e.g. Design, Video Editing, QA)..."
                                                                     value={inlineSubtaskTitles[task.id] || ''}
                                                                     onChange={(e) =>
                                                                         setInlineSubtaskTitles((prev) => ({
@@ -590,17 +591,19 @@ export default function KanbanBoardView({
                                                                 </Button>
                                                             </form>
                                                         ) : (
-                                                            <button
-                                                                type="button"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setAddingSubtaskForTask(task.id);
-                                                                }}
-                                                                className="flex items-center gap-1 pt-1 text-[10px] font-bold text-primary hover:underline"
-                                                            >
-                                                                <Plus className="h-2.5 w-2.5" />
-                                                                <span>Add Subtask</span>
-                                                            </button>
+                                                            permissions?.canManageSubtasks !== false && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setAddingSubtaskForTask(task.id);
+                                                                    }}
+                                                                    className="flex items-center gap-1 pt-1 text-[10px] font-bold text-primary hover:underline"
+                                                                >
+                                                                    <Plus className="h-2.5 w-2.5" />
+                                                                    <span>Add Work Category</span>
+                                                                </button>
+                                                            )
                                                         )}
                                                     </div>
                                                 )}
@@ -639,7 +642,7 @@ export default function KanbanBoardView({
                                                 )}
                                             </div>
 
-                                            {/* Assignees (Designer & AM) */}
+                                            {/* Assignees (Account Manager & Assigned Production Workers) */}
                                             <div className="flex items-center gap-1.5">
                                                 {/* AM Avatars with Badge */}
                                                 {amUsers.length > 0 && (
@@ -666,13 +669,13 @@ export default function KanbanBoardView({
                                                     </div>
                                                 )}
 
-                                                {/* Designer Avatars */}
-                                                {designerUsers.length > 0 ? (
+                                                {/* Assigned Workers / Designers Avatars */}
+                                                {assignedWorkers.length > 0 ? (
                                                     <div
                                                         className="flex items-center -space-x-1"
-                                                        title={`Designer: ${designerUsers.map((u) => u.name).join(', ')}`}
+                                                        title={`Assigned: ${assignedWorkers.map((u) => u.name).join(', ')}`}
                                                     >
-                                                        {designerUsers.slice(0, 2).map((u) => (
+                                                        {assignedWorkers.slice(0, 2).map((u) => (
                                                             <div
                                                                 key={u.id}
                                                                 className="flex h-5 w-5 items-center justify-center rounded-full border border-background bg-primary/20 text-[9px] font-bold text-primary ring-1 ring-border shadow-2xs"
@@ -680,9 +683,9 @@ export default function KanbanBoardView({
                                                                 {u.name.charAt(0).toUpperCase()}
                                                             </div>
                                                         ))}
-                                                        {designerUsers.length > 2 && (
+                                                        {assignedWorkers.length > 2 && (
                                                             <div className="flex h-5 w-5 items-center justify-center rounded-full border border-background bg-muted text-[8px] font-bold text-muted-foreground ring-1 ring-border">
-                                                                +{designerUsers.length - 2}
+                                                                +{assignedWorkers.length - 2}
                                                             </div>
                                                         )}
                                                     </div>
@@ -698,6 +701,7 @@ export default function KanbanBoardView({
                                         </div>
                                     </div>
                                 );
+
                             })}
 
                             {colTasks.length === 0 && (

@@ -90,8 +90,14 @@ class TaskPolicy
             return $task->isAssignedTo($user) || $task->created_by === $user->id;
         }
 
-        // Designers can ONLY update tasks they are assigned to
-        if ($user->role === 'designer') {
+        // Contributor roles (designer, developer, dept_user, employee) can ONLY update tasks they are assigned to (unless workspace owner or board creator)
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
+            if ($board->workspace && (int) $board->workspace->owner_id === (int) $user->id) {
+                return true;
+            }
+            if ((int) $board->created_by === (int) $user->id) {
+                return true;
+            }
             return $task->isAssignedTo($user);
         }
 
@@ -112,8 +118,8 @@ class TaskPolicy
      */
     public function delete(User $user, KanbanTask $task): bool
     {
-        // Designers and external users can never delete tasks
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        // Contributors and external users can never delete tasks
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
             return false;
         }
 
@@ -154,7 +160,7 @@ class TaskPolicy
             return false;
         }
 
-        if ($user->role === 'designer') {
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
             return $this->canMoveAssignedTask($user, $task, $targetColumn);
         }
 
@@ -230,7 +236,7 @@ class TaskPolicy
             return true;
         }
 
-        if ($user->role === 'designer') {
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
             return $task->isAssignedTo($user);
         }
 
@@ -242,7 +248,7 @@ class TaskPolicy
      */
     public function changeGroup(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
             return false;
         }
 
@@ -254,7 +260,7 @@ class TaskPolicy
      */
     public function manageDependencies(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
             return false;
         }
 
@@ -267,7 +273,7 @@ class TaskPolicy
      */
     public function manageRecurrence(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
             return false;
         }
 
@@ -284,7 +290,7 @@ class TaskPolicy
             return false;
         }
 
-        if ($user->role === 'designer') {
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
             return $task->isAssignedTo($user);
         }
 
@@ -316,8 +322,8 @@ class TaskPolicy
             return true;
         }
 
-        // Designers can NEVER approve/review tasks (strict self-review prevention)
-        if ($user->role === 'designer') {
+        // Contributors can NEVER approve/review tasks (strict self-review prevention)
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
             return false;
         }
 

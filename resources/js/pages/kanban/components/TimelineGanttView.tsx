@@ -64,13 +64,12 @@ export default function TimelineGanttView({ board, searchTerm, personFilter, pri
                             <div className="flex w-full flex-1 items-center gap-3">
                                 <div className="bg-muted/60 relative flex h-6 flex-1 items-center overflow-hidden rounded-lg p-1">
                                     <div
-                                        className="flex h-full items-center justify-between rounded-md px-2 text-[10px] font-bold text-white shadow-xs transition-all"
+                                        className="flex h-full items-center justify-between rounded-md px-2 text-[10px] font-bold text-white shadow-xs transition-all w-full"
                                         style={{
-                                            width: `${Math.max(25, task.progress || 35)}%`,
                                             backgroundColor: isDone ? '#00c875' : '#579bfc',
                                         }}
                                     >
-                                        <span className="truncate">{task.progress}%</span>
+                                        <span className="truncate">{task.column?.title || (isDone ? 'Done' : 'In Progress')}</span>
                                     </div>
                                 </div>
 

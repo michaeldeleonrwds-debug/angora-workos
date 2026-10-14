@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { BoardPermissions, isUserAssignedToTask, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
+import { BoardPermissions, getTaskAssignedUsers, isUserAssignedToTask, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
@@ -1020,17 +1020,6 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                 </div>
                             </div>
 
-                            {/* Progress */}
-                            <div className="grid grid-cols-3 items-center">
-                                <Label className="text-muted-foreground font-medium">Progress</Label>
-                                <div className="col-span-2 flex items-center gap-2">
-                                    <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
-                                        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${task.progress}%` }} />
-                                    </div>
-                                    <span className="w-8 text-right text-xs font-bold">{task.progress}%</span>
-                                </div>
-                            </div>
-
                             {/* Description */}
                             <div>
                                 <Label className="text-muted-foreground mb-1 block font-medium">Description</Label>
@@ -1230,62 +1219,67 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                             )}
                         </div>
 
-                        {/* Subtask Hierarchy & List */}
+                        {/* Work Categories Hierarchy & List */}
                         <div className="border-border/60 space-y-3 border-t pt-4">
                             <div className="flex items-center justify-between">
                                 <h4 className="text-foreground flex items-center gap-1.5 text-xs font-black">
                                     <CornerDownRight className="text-primary h-3.5 w-3.5" />
                                     <span>
-                                        Subtasks ({completedSubitems}/{subitems.length})
+                                        Work Categories ({subitems.length})
                                     </span>
                                 </h4>
                             </div>
 
-                            {/* Subtask List */}
+                            {/* Work Categories List */}
                             <div className="max-h-48 space-y-1.5 overflow-y-auto">
-                                {subitems.map((sub) => (
-                                    <div
-                                        key={sub.id}
-                                        onClick={() => onSelectTask?.(sub)}
-                                        className="bg-muted/20 border-border/60 hover:border-primary/50 flex cursor-pointer items-center justify-between rounded-xl border p-2 text-xs transition-all"
-                                    >
-                                        <div className="flex flex-1 items-center gap-2 truncate">
-                                            <button
-                                                type="button"
-                                                disabled={!canManageSubtasks}
-                                                onClick={(e) => canManageSubtasks && handleToggleSubtask(sub, e)}
-                                                className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
-                                                    !canManageSubtasks ? 'cursor-default opacity-80' : ''
-                                                } ${
-                                                    sub.completed_at || sub.progress === 100
-                                                        ? 'border-emerald-500 bg-emerald-500 text-white'
-                                                        : 'border-border bg-card'
-                                                }`}
-                                            >
-                                                {(sub.completed_at || sub.progress === 100) && <Check className="h-3 w-3" />}
-                                            </button>
-                                            <span
-                                                className={`truncate ${
-                                                    sub.completed_at || sub.progress === 100
-                                                        ? 'text-muted-foreground line-through'
-                                                        : 'text-foreground font-semibold'
-                                                }`}
-                                            >
-                                                {sub.title}
-                                            </span>
+                                {subitems.map((sub) => {
+                                    const subAssignees = getTaskAssignedUsers(sub, users);
+                                    return (
+                                        <div
+                                            key={sub.id}
+                                            onClick={() => onSelectTask?.(sub)}
+                                            className="bg-muted/20 border-border/60 hover:border-primary/50 flex cursor-pointer items-center justify-between rounded-xl border p-2 text-xs transition-all"
+                                        >
+                                            <div className="flex flex-1 items-center gap-2 truncate">
+                                                <span className="truncate text-foreground font-semibold hover:underline">
+                                                    {sub.title}
+                                                </span>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                {subAssignees.length > 0 && (
+                                                    <div
+                                                        className="flex items-center -space-x-1"
+                                                        title={`Assigned: ${subAssignees.map((u) => u.name).join(', ')}`}
+                                                    >
+                                                        {subAssignees.slice(0, 2).map((u) => (
+                                                            <div
+                                                                key={u.id}
+                                                                className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-primary/20 text-[8px] font-bold text-primary ring-1 ring-border"
+                                                            >
+                                                                {u.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                        ))}
+                                                        {subAssignees.length > 2 && (
+                                                            <div className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-muted text-[8px] font-bold text-muted-foreground ring-1 ring-border">
+                                                                +{subAssignees.length - 2}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                                <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-bold">
+                                                    {sub.column?.title || 'Active'}
+                                                </span>
+                                            </div>
                                         </div>
+                                    );
+                                })}
 
-                                        <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-bold">
-                                            {sub.column?.title || 'Active'}
-                                        </span>
-                                    </div>
-                                ))}
-
-                                {/* Add Subtask Input */}
+                                {/* Add Work Category Input */}
                                 {canManageSubtasks && (
                                     <form onSubmit={handleAddSubtask} className="flex items-center gap-1.5 pt-1">
                                         <Input
-                                            placeholder="Add a new subtask..."
+                                            placeholder="Add work category (e.g. Design, Video Editing, QA)..."
                                             value={newSubtaskTitle}
                                             onChange={(e) => setNewSubtaskTitle(e.target.value)}
                                             className="h-8 flex-1 text-xs"
@@ -1297,6 +1291,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                 )}
                             </div>
                         </div>
+
 
                         {/* Dependencies & Blockers Summary */}
                         <div className="border-border/60 space-y-2 border-t pt-4">

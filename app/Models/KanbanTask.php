@@ -438,7 +438,7 @@ class KanbanTask extends Model
     }
 
     /**
-     * Check if a specific user is assigned to this task (directly or via people custom values).
+     * Check if a specific user is assigned to this task (directly or via people custom values, or via child work categories).
      */
     public function isAssignedTo($user): bool
     {
@@ -451,10 +451,12 @@ class KanbanTask extends Model
             return false;
         }
 
+        // 1. Direct legacy column
         if ((int) $this->assigned_to === $userId) {
             return true;
         }
 
+        // 2. Custom values people columns (designer, person, etc.)
         if (is_array($this->custom_values)) {
             foreach ($this->custom_values as $key => $val) {
                 // Do not treat Account Manager or client columns as designer assignment
@@ -462,8 +464,12 @@ class KanbanTask extends Model
                     continue;
                 }
                 if (is_array($val)) {
-                    if (in_array($userId, array_map('intval', $val), true)) {
-                        return true;
+                    foreach ($val as $subVal) {
+                        if (is_array($subVal) && isset($subVal['id'])) {
+                            if ((int) $subVal['id'] === $userId) return true;
+                        } elseif (is_numeric($subVal) && (int) $subVal === $userId) {
+                            return true;
+                        }
                     }
                 } elseif (is_numeric($val) && (int) $val === $userId) {
                     return true;
@@ -471,16 +477,40 @@ class KanbanTask extends Model
             }
         }
 
-        if ($this->parent_id && $this->parent) {
-            if ($this->parent->isAssignedTo($userId) || (int) $this->created_by === $userId) {
+        // 3. If this is a child task/work category, inherit parent task assignment or creator
+        if ($this->parent_id) {
+            $parent = $this->relationLoaded('parent') ? $this->parent : $this->parent()->first();
+            if ($parent && ($parent->isAssignedTo($userId) || (int) $this->created_by === $userId)) {
                 return true;
             }
         }
 
-        if ($this->relationLoaded('subitems') && $this->subitems) {
-            foreach ($this->subitems as $subitem) {
-                if ($subitem->isAssignedTo($userId)) {
+        // 4. If this is a parent task, check if user is assigned to any child work category
+        $subtasks = $this->relationLoaded('subitems') ? $this->subitems : $this->subitems()->get();
+        if ($subtasks) {
+            foreach ($subtasks as $subitem) {
+                // Check direct assignment on subitem
+                if ((int) $subitem->assigned_to === $userId) {
                     return true;
+                }
+                // Check custom people values on subitem
+                if (is_array($subitem->custom_values)) {
+                    foreach ($subitem->custom_values as $k => $v) {
+                        if (in_array(strtolower((string) $k), ['account_manager', 'am', 'client', 'client_id'], true)) {
+                            continue;
+                        }
+                        if (is_array($v)) {
+                            foreach ($v as $subV) {
+                                if (is_array($subV) && isset($subV['id'])) {
+                                    if ((int) $subV['id'] === $userId) return true;
+                                } elseif (is_numeric($subV) && (int) $subV === $userId) {
+                                    return true;
+                                }
+                            }
+                        } elseif (is_numeric($v) && (int) $v === $userId) {
+                            return true;
+                        }
+                    }
                 }
             }
         }

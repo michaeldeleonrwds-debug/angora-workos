@@ -396,6 +396,7 @@ export interface BoardPermissions {
     canManageBlueprints: boolean;
     canManageDependencies: boolean;
     canManageRecurrence: boolean;
+    canManageSubtasks?: boolean;
     canApproveReview: boolean;
     canExport: boolean;
 }
@@ -470,9 +471,32 @@ export const getTableGridTemplate = (visibleColumns: BoardColumn[]): string => {
     return `6px 44px 250px ${dynamicTracks} 40px`;
 };
 
+const extractIdsFromValue = (val: any): number[] => {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+        return val.flatMap(extractIdsFromValue);
+    }
+    if (typeof val === 'number') {
+        return !isNaN(val) && val > 0 ? [val] : [];
+    }
+    if (typeof val === 'string') {
+        const num = Number(val.trim());
+        return !isNaN(num) && num > 0 ? [num] : [];
+    }
+    if (typeof val === 'object') {
+        if ('id' in val) {
+            return extractIdsFromValue((val as any).id);
+        }
+        if ('user_id' in val) {
+            return extractIdsFromValue((val as any).user_id);
+        }
+    }
+    return [];
+};
+
 /**
  * Check whether a specific user is assigned to a task either via the legacy
- * assigned_to column or via custom dynamic columns (e.g. Designer, AM) or subtasks.
+ * assigned_to column or via custom dynamic columns (e.g. Designer, AM) or child work categories.
  */
 export const isUserAssignedToTask = (task: Task, userId: string | number, currentUserId?: number): boolean => {
     let targetId = Number(userId);
@@ -490,15 +514,12 @@ export const isUserAssignedToTask = (task: Task, userId: string | number, curren
             if (['account_manager', 'am', 'client', 'client_id'].includes(key.toLowerCase())) {
                 continue;
             }
-            if (Array.isArray(val)) {
-                if (val.some((id) => Number(id) === targetId)) return true;
-            } else if (typeof val === 'number' || (typeof val === 'string' && val.trim() !== '')) {
-                if (Number(val) === targetId) return true;
-            }
+            const ids = extractIdsFromValue(val);
+            if (ids.includes(targetId)) return true;
         }
     }
 
-    // 3. Subtasks if present
+    // 3. Child work categories / subtasks if present
     if (task.subitems && Array.isArray(task.subitems)) {
         for (const sub of task.subitems) {
             if (Number(sub.assigned_to) === targetId) return true;
@@ -507,12 +528,23 @@ export const isUserAssignedToTask = (task: Task, userId: string | number, curren
                     if (['account_manager', 'am', 'client', 'client_id'].includes(key.toLowerCase())) {
                         continue;
                     }
-                    if (Array.isArray(val)) {
-                        if (val.some((id) => Number(id) === targetId)) return true;
-                    } else if (typeof val === 'number' || (typeof val === 'string' && val.trim() !== '')) {
-                        if (Number(val) === targetId) return true;
-                    }
+                    const ids = extractIdsFromValue(val);
+                    if (ids.includes(targetId)) return true;
                 }
+            }
+        }
+    }
+
+    // 4. If this is a child task, check parent task assignment
+    if (task.parent) {
+        if (Number(task.parent.assigned_to) === targetId) return true;
+        if (task.parent.custom_values && typeof task.parent.custom_values === 'object') {
+            for (const [key, val] of Object.entries(task.parent.custom_values)) {
+                if (['account_manager', 'am', 'client', 'client_id'].includes(key.toLowerCase())) {
+                    continue;
+                }
+                const ids = extractIdsFromValue(val);
+                if (ids.includes(targetId)) return true;
             }
         }
     }
@@ -521,26 +553,68 @@ export const isUserAssignedToTask = (task: Task, userId: string | number, curren
 };
 
 /**
- * Extract all unique assigned user IDs across assigned_to and people columns.
+ * Extract all unique assigned user IDs across assigned_to, people columns, and child categories.
  */
 export const getTaskAssignedUserIds = (task: Task): number[] => {
     const ids = new Set<number>();
     if (task.assigned_to) {
-        ids.add(Number(task.assigned_to));
+        const num = Number(task.assigned_to);
+        if (!isNaN(num) && num > 0) ids.add(num);
     }
     if (task.custom_values && typeof task.custom_values === 'object') {
-        for (const val of Object.values(task.custom_values)) {
-            if (Array.isArray(val)) {
-                val.forEach((id) => {
-                    const num = Number(id);
-                    if (!isNaN(num) && num > 0) ids.add(num);
-                });
-            } else if (typeof val === 'number' && val > 0) {
-                ids.add(val);
+        for (const [key, val] of Object.entries(task.custom_values)) {
+            if (['account_manager', 'am', 'client', 'client_id'].includes(key.toLowerCase())) {
+                continue;
+            }
+            extractIdsFromValue(val).forEach((id) => ids.add(id));
+        }
+    }
+    if (task.subitems && Array.isArray(task.subitems)) {
+        for (const sub of task.subitems) {
+            if (sub.assigned_to) {
+                const num = Number(sub.assigned_to);
+                if (!isNaN(num) && num > 0) ids.add(num);
+            }
+            if (sub.custom_values && typeof sub.custom_values === 'object') {
+                for (const [key, val] of Object.entries(sub.custom_values)) {
+                    if (['account_manager', 'am', 'client', 'client_id'].includes(key.toLowerCase())) {
+                        continue;
+                    }
+                    extractIdsFromValue(val).forEach((id) => ids.add(id));
+                }
             }
         }
     }
     return Array.from(ids);
 };
+
+/**
+ * Resolve User objects for all users assigned to a task (including child work categories).
+ */
+export const getTaskAssignedUsers = (task: Task, allUsers: User[] = []): User[] => {
+    const assignedIds = new Set(getTaskAssignedUserIds(task));
+    const userMap = new Map<number, User>();
+
+    allUsers.forEach((u) => {
+        if (assignedIds.has(u.id)) {
+            userMap.set(u.id, u);
+        }
+    });
+
+    if (task.assignee && assignedIds.has(task.assignee.id)) {
+        userMap.set(task.assignee.id, task.assignee);
+    }
+
+    if (task.subitems && Array.isArray(task.subitems)) {
+        task.subitems.forEach((sub) => {
+            if (sub.assignee && assignedIds.has(sub.assignee.id)) {
+                userMap.set(sub.assignee.id, sub.assignee);
+            }
+        });
+    }
+
+    return Array.from(userMap.values());
+};
+
 
 

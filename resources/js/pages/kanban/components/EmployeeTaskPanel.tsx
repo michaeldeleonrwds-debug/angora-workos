@@ -14,14 +14,13 @@ import {
     ShieldAlert,
     ShieldCheck,
     Star,
-    TrendingUp,
     User as UserIcon,
 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDate, formatTime } from '@/lib/utils';
-import { BoardColumn, BoardPermissions, KanbanBoard, KanbanColumn, Task, User } from '../types';
+import { BoardColumn, BoardPermissions, getTaskAssignedUsers, KanbanBoard, KanbanColumn, Task, User } from '../types';
 
 interface EmployeeTaskPanelProps {
     task: Task;
@@ -71,7 +70,6 @@ export default function EmployeeTaskPanel({
     const boardColumns = board.board_columns || [];
     const statusColumns = board.columns || [];
     const subitems = task.subitems || [];
-    const completedSubitems = subitems.filter((s) => s.completed_at || s.progress === 100).length;
 
     // Helper to resolve user list from IDs
     const resolveUserIds = (raw: any): number[] => {
@@ -522,50 +520,7 @@ export default function EmployeeTaskPanel({
                     </div>
                 </div>
 
-                {/* 8. PROGRESS (Percentage + Bar + Employee Quick Adjust for Assigned) */}
-                <div className="grid grid-cols-1 sm:grid-cols-[130px_1fr] items-center gap-2 py-2.5">
-                    <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                        <TrendingUp className="h-3.5 w-3.5 text-primary/70 shrink-0" />
-                        Progress
-                    </span>
-                    <div className="min-w-0 space-y-1.5">
-                        <div className="flex items-center gap-2.5">
-                            <div className="bg-muted h-2 flex-1 overflow-hidden rounded-full">
-                                <div
-                                    className="h-full rounded-full transition-all duration-300"
-                                    style={{
-                                        width: `${task.progress || 0}%`,
-                                        backgroundColor: (task.progress || 0) === 100 ? '#00c875' : '#579bfc',
-                                    }}
-                                />
-                            </div>
-                            <span className="w-8 text-right text-xs font-bold text-foreground">
-                                {task.progress || 0}%
-                            </span>
-                        </div>
-                        {isAssigned && (
-                            <div className="flex items-center gap-1 pt-0.5">
-                                <span className="text-[10px] text-muted-foreground font-medium mr-1">Update:</span>
-                                {[0, 25, 50, 75, 100].map((pct) => (
-                                    <button
-                                        key={pct}
-                                        type="button"
-                                        onClick={() => onUpdateField('progress', pct)}
-                                        className={`px-1.5 py-0.5 rounded text-[10px] font-bold border transition-colors ${
-                                            task.progress === pct
-                                                ? 'bg-primary text-primary-foreground border-primary'
-                                                : 'bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground border-border/60'
-                                        }`}
-                                    >
-                                        {pct}%
-                                    </button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* 9. DESCRIPTION / BRIEF (Expandable) */}
+                {/* 8. DESCRIPTION / BRIEF (Expandable) */}
                 <div className="py-2.5 space-y-1.5">
                     <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                         <FileText className="h-3.5 w-3.5 text-primary/70 shrink-0" />
@@ -589,7 +544,7 @@ export default function EmployeeTaskPanel({
                     )}
                 </div>
 
-                {/* 10. PRIORITY */}
+                {/* 9. PRIORITY */}
                 <div className="grid grid-cols-1 sm:grid-cols-[130px_1fr] items-center gap-2 py-2.5">
                     <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
                         <AlertCircle className="h-3.5 w-3.5 text-primary/70 shrink-0" />
@@ -614,54 +569,59 @@ export default function EmployeeTaskPanel({
                     </div>
                 </div>
 
-                {/* 11. SUBTASKS CHECKLIST */}
+                {/* 10. WORK CATEGORIES */}
                 <div className="py-2.5 space-y-2">
                     <div className="flex items-center justify-between text-xs font-bold">
                         <span className="flex items-center gap-1.5 text-foreground">
                             <CornerDownRight className="h-3.5 w-3.5 text-primary" />
                             <span>
-                                Subtasks ({completedSubitems}/{subitems.length})
+                                Work Categories ({subitems.length})
                             </span>
                         </span>
                     </div>
 
-                    <div className="max-h-40 space-y-1.5 overflow-y-auto">
+                    <div className="max-h-48 space-y-1.5 overflow-y-auto">
                         {subitems.map((sub) => {
-                            const isDone = Boolean(sub.completed_at || sub.progress === 100);
+                            const subAssignees = getTaskAssignedUsers(sub, users);
                             return (
                                 <div
                                     key={sub.id}
-                                    className="bg-muted/20 border-border/60 flex items-center justify-between rounded-xl border p-2 text-xs transition-colors hover:border-primary/40"
+                                    onClick={() => onSelectTask?.(sub)}
+                                    className="bg-muted/20 border-border/60 flex items-center justify-between rounded-xl border p-2 text-xs transition-colors hover:border-primary/40 cursor-pointer"
                                 >
                                     <div className="flex flex-1 items-center gap-2 min-w-0 pr-2">
-                                        <button
-                                            type="button"
-                                            disabled={!canManageSubtasks}
-                                            onClick={(e) => canManageSubtasks && onToggleSubtask(sub, e)}
-                                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all ${
-                                                !canManageSubtasks ? 'cursor-default opacity-80' : 'cursor-pointer'
-                                            } ${
-                                                isDone
-                                                    ? 'border-emerald-500 bg-emerald-500 text-white'
-                                                    : 'border-border bg-card'
-                                            }`}
-                                        >
-                                            {isDone && <Check className="h-3 w-3" />}
-                                        </button>
-                                        <span
-                                            onClick={() => onSelectTask?.(sub)}
-                                            className={`truncate cursor-pointer hover:underline ${
-                                                isDone ? 'text-muted-foreground line-through' : 'text-foreground font-semibold'
-                                            }`}
-                                        >
+                                        <span className="font-semibold text-foreground truncate hover:underline">
                                             {sub.title}
                                         </span>
                                     </div>
-                                    {sub.column?.title && (
-                                        <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.2 text-[10px] font-bold shrink-0">
-                                            {sub.column.title}
-                                        </span>
-                                    )}
+
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        {subAssignees.length > 0 && (
+                                            <div
+                                                className="flex items-center -space-x-1"
+                                                title={`Assigned: ${subAssignees.map((u) => u.name).join(', ')}`}
+                                            >
+                                                {subAssignees.slice(0, 2).map((u) => (
+                                                    <div
+                                                        key={u.id}
+                                                        className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-primary/20 text-[8px] font-bold text-primary ring-1 ring-border"
+                                                    >
+                                                        {u.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                ))}
+                                                {subAssignees.length > 2 && (
+                                                    <div className="flex h-4.5 w-4.5 items-center justify-center rounded-full bg-muted text-[8px] font-bold text-muted-foreground ring-1 ring-border">
+                                                        +{subAssignees.length - 2}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {sub.column?.title && (
+                                            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0">
+                                                {sub.column.title}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             );
                         })}
@@ -669,7 +629,7 @@ export default function EmployeeTaskPanel({
                         {canManageSubtasks && (
                             <form onSubmit={handleSubtaskSubmit} className="flex items-center gap-1.5 pt-1">
                                 <Input
-                                    placeholder="Add subtask..."
+                                    placeholder="Add category (e.g. Design, Video Editing, QA)..."
                                     value={subtaskTitle}
                                     onChange={(e) => setSubtaskTitle(e.target.value)}
                                     className="h-7.5 flex-1 text-xs"
@@ -681,6 +641,7 @@ export default function EmployeeTaskPanel({
                         )}
                     </div>
                 </div>
+
 
                 {/* 12. DEDUPLICATED CUSTOM BOARD FIELDS */}
                 {nonDuplicatedCustomColumns.length > 0 && (

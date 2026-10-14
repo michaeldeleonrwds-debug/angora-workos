@@ -27,7 +27,6 @@ const COLUMN_TYPES = [
     { type: 'checkbox', title: 'Checkbox', icon: CheckSquare, desc: 'Yes/no boolean check' },
     { type: 'dropdown', title: 'Dropdown', icon: ListFilter, desc: 'Custom options select' },
     { type: 'tags', title: 'Tags', icon: Tag, desc: 'Categorization badges' },
-    { type: 'progress', title: 'Progress', icon: Percent, desc: 'Percentage completion bar' },
     { type: 'rating', title: 'Rating', icon: Star, desc: 'Visual star or point ranking' },
     { type: 'connect_boards', title: 'Connect Boards', icon: Link2, desc: 'Link items across other boards' },
     { type: 'mirror', title: 'Mirror', icon: Copy, desc: 'Reflect columns from connected items' },

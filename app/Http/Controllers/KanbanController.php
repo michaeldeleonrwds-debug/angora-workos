@@ -944,8 +944,12 @@ class KanbanController extends Controller
     {
         Gate::authorize('update', $task);
 
-        // Field-level authorization: Designers can only update progress and actual_hours on assigned tasks
-        if ($request->user()->role === 'designer') {
+        // Field-level authorization: Contributors can only update progress and actual_hours on assigned tasks (unless workspace owner or board creator)
+        $isBoardOrWorkspaceManager = ($task->board?->workspace && (int) $task->board->workspace->owner_id === (int) $request->user()->id)
+            || ((int) $task->board?->created_by === (int) $request->user()->id)
+            || in_array($request->user()->role, ['admin', 'super_admin', 'project_manager', 'admin_manager'], true);
+
+        if (!$isBoardOrWorkspaceManager && in_array($request->user()->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
             $disallowedFields = [
                 'title', 'description', 'priority', 'due_date', 'due_time',
                 'start_date', 'start_time', 'is_milestone', 'reminder_lead_minutes',
@@ -954,7 +958,7 @@ class KanbanController extends Controller
             ];
             foreach ($disallowedFields as $field) {
                 if ($request->has($field)) {
-                    abort(403, "Designers are not authorized to modify {$field}.");
+                    abort(403, "Employees are not authorized to modify {$field}.");
                 }
             }
         }
@@ -1299,12 +1303,12 @@ class KanbanController extends Controller
 
         $tasks = KanbanTask::whereIn('id', $taskIds)->get()->keyBy('id');
 
-        // Check authorization: if user is designer, ALL reordered tasks must be assigned to them!
-        if ($user->role === 'designer') {
+        // Check authorization: if user is contributor, ALL reordered tasks must be assigned to them!
+        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
             foreach ($taskIds as $id) {
                 $task = $tasks->get($id);
                 if (!$task || !$task->isAssignedTo($user)) {
-                    abort(403, 'Designers are not authorized to reorder tasks assigned to other employees.');
+                    abort(403, 'Employees are not authorized to reorder tasks assigned to other employees.');
                 }
             }
         } else {
@@ -1319,7 +1323,7 @@ class KanbanController extends Controller
         $targetColId = $request->input('column_id');
         $targetCol = $targetColId ? KanbanColumn::find($targetColId) : null;
 
-        if ($targetCol && $user->role === 'designer') {
+        if ($targetCol && in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
             foreach ($taskIds as $id) {
                 $task = $tasks->get($id);
                 if ($task && !$user->can('changeStatus', [$task, $targetCol])) {
@@ -1952,8 +1956,12 @@ class KanbanController extends Controller
     {
         Gate::authorize('update', $task);
 
-        if ($request->user()->role === 'designer') {
-            abort(403, 'Designers are not authorized to update task schedules.');
+        $isBoardOrWorkspaceManager = ($task->board?->workspace && (int) $task->board->workspace->owner_id === (int) $request->user()->id)
+            || ((int) $task->board?->created_by === (int) $request->user()->id)
+            || in_array($request->user()->role, ['admin', 'super_admin', 'project_manager', 'admin_manager'], true);
+
+        if (!$isBoardOrWorkspaceManager && in_array($request->user()->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
+            abort(403, 'Employees are not authorized to update task schedules.');
         }
 
         $validated = $request->validate([

@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-14T20:18:00.992Z",
+  "generated_at": "2026-10-14T20:45:31.173Z",
   "stats": {
-    "total_nodes": 566,
-    "total_edges": 1107,
+    "total_nodes": 567,
+    "total_edges": 1110,
     "clusters": 7
   },
   "nodes": [
@@ -4080,6 +4080,12 @@
       "label": "WorkOsBoardTest",
       "type": "test",
       "file": "tests/Feature/WorkOsBoardTest.php"
+    },
+    {
+      "id": "test:WorkOsCategoryAssignedMovementTest",
+      "label": "WorkOsCategoryAssignedMovementTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsCategoryAssignedMovementTest.php"
     },
     {
       "id": "test:WorkOsDirectAccessTest",
@@ -9881,6 +9887,23 @@
       "source": "test:WorkOsAuthorizationTest",
       "target": "controller:KanbanController",
       "relationship": "tests"
+    },
+    {
+      "source": "test:WorkOsCategoryAssignedMovementTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:WorkOsCategoryAssignedMovementTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsCategoryAssignedMovementTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
     },
     {
       "source": "test:WorkOsDirectAccessTest",

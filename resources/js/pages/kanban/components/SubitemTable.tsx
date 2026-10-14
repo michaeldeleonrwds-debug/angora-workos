@@ -649,7 +649,7 @@ export default function SubitemTable({
                                 <div className="flex-1 py-1 pr-3">
                                     <input
                                         type="text"
-                                        placeholder="+ Add subtask"
+                                        placeholder="+ Add work category (e.g. Design, Video Editing, QA)"
                                         value={newTitle}
                                         onChange={(e) => setNewTitle(e.target.value)}
                                         className="placeholder:text-muted-foreground/60 w-full border-none bg-transparent text-xs font-medium focus:outline-none"
