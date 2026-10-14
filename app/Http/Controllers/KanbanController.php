@@ -92,108 +92,75 @@ class KanbanController extends Controller
             session(['active_workspace_id' => $activeWorkspace->id]);
         }
 
-        // Eager load board with tasks, comments, subitems, attachments, workflow columns, dependencies, and groups
-        $boardsQuery = KanbanBoard::with([
-            'columns.tasks' => function ($q) {
-                $q->whereNull('parent_id')
-                    ->orderBy('position')
-                    ->with([
-                        'assignee',
-                        'column',
-                        'group',
-                        'subitems.assignee',
-                        'subitems.column',
-                        'subitems.mediaUsages.mediaAsset',
-                        'comments.user',
-                        'comments.replies.user',
-                        'attachments.user',
-                        'dependencies.dependencyTask',
-                        'dependents.task',
-                        'activities.user',
-                        'mediaUsages.mediaAsset',
-                    ]);
-            },
-            'groups.tasks' => function ($q) {
-                $q->whereNull('parent_id')
-                    ->orderBy('position')
-                    ->with([
-                        'assignee',
-                        'column',
-                        'group',
-                        'subitems.assignee',
-                        'subitems.column',
-                        'subitems.mediaUsages.mediaAsset',
-                        'comments.user',
-                        'comments.replies.user',
-                        'attachments.user',
-                        'dependencies.dependencyTask',
-                        'dependents.task',
-                        'activities.user',
-                        'mediaUsages.mediaAsset',
-                    ]);
-            },
-            'boardColumns' => function ($q) {
-                $q->orderBy('position');
-            },
-            'subitemColumns' => function ($q) {
-                $q->orderBy('position');
-            },
-            'views' => function ($q) {
-                $q->orderBy('position');
-            },
-            'workspace',
-        ]);
-
         $workspaceIds = $workspaces->pluck('id')->toArray();
-        $boards = $boardsQuery->whereIn('workspace_id', $workspaceIds)->get()->filter(function ($b) use ($user) {
-            return $user->can('view', $b);
-        })->values();
+        $boards = KanbanBoard::whereIn('workspace_id', $workspaceIds)
+            ->select('id', 'workspace_id', 'title', 'description', 'department', 'folder_name', 'visibility', 'is_favorite', 'is_template', 'created_by')
+            ->orderBy('title')
+            ->get()
+            ->filter(function ($b) use ($user) {
+                return $user->can('view', $b);
+            })->values();
 
-        // Target active board
-        $activeBoard = null;
+        // Target active board ID
+        $targetBoardId = null;
         if ($boardId) {
-            $activeBoard = $boards->firstWhere('id', (int) $boardId);
+            $targetBoardId = $boards->firstWhere('id', (int) $boardId)?->id;
         }
-        if (!$activeBoard && $activeWorkspace) {
-            $activeBoard = $boards->firstWhere('workspace_id', $activeWorkspace->id);
+        if (!$targetBoardId && $activeWorkspace) {
+            $targetBoardId = $boards->firstWhere('workspace_id', $activeWorkspace->id)?->id;
         }
-        if (!$activeBoard) {
-            $activeBoard = $boards->first();
+        if (!$targetBoardId) {
+            $targetBoardId = $boards->first()?->id;
         }
 
-        // Auto-heal active board if it lacks groups or dynamic columns
+        $activeBoard = $targetBoardId ? KanbanBoard::find($targetBoardId) : null;
+
+        // Auto-heal active board if it lacks groups or dynamic columns and load full relations
         if ($activeBoard) {
             $this->ensureBoardIntegrity($activeBoard);
+
+            $taskRelations = [
+                'assignee',
+                'column',
+                'group',
+                'subitems.assignee',
+                'subitems.column',
+                'subitems.mediaUsages.mediaAsset',
+                'comments.user',
+                'comments.replies.user',
+                'attachments.user',
+                'dependencies.dependencyTask',
+                'dependents.task',
+                'activities' => function ($aq) {
+                    $aq->latest()->take(10)->with('user');
+                },
+                'mediaUsages.mediaAsset',
+                'outgoingRelationships.targetBoard',
+                'outgoingRelationships.targetTask.column',
+                'outgoingRelationships.targetTask.assignee',
+            ];
+
             $activeBoard->load([
-                'columns.tasks.assignee',
-                'columns.tasks.group',
-                'columns.tasks.subitems.assignee',
-                'columns.tasks.subitems.column',
-                'columns.tasks.comments.user',
-                'columns.tasks.comments.replies.user',
-                'columns.tasks.attachments.user',
-                'columns.tasks.dependencies.dependencyTask',
-                'columns.tasks.dependents.task',
-                'columns.tasks.activities.user',
-                'columns.tasks.outgoingRelationships.targetBoard',
-                'columns.tasks.outgoingRelationships.targetTask.column',
-                'columns.tasks.outgoingRelationships.targetTask.assignee',
-                'groups.tasks.assignee',
-                'groups.tasks.column',
-                'groups.tasks.subitems.assignee',
-                'groups.tasks.subitems.column',
-                'groups.tasks.comments.user',
-                'groups.tasks.comments.replies.user',
-                'groups.tasks.attachments.user',
-                'groups.tasks.dependencies.dependencyTask',
-                'groups.tasks.dependents.task',
-                'groups.tasks.activities.user',
-                'groups.tasks.outgoingRelationships.targetBoard',
-                'groups.tasks.outgoingRelationships.targetTask.column',
-                'groups.tasks.outgoingRelationships.targetTask.assignee',
-                'boardColumns',
-                'subitemColumns',
-                'views',
+                'columns.tasks' => function ($q) use ($taskRelations) {
+                    $q->whereNull('parent_id')
+                        ->orderBy('position')
+                        ->with($taskRelations);
+                },
+                'groups.tasks' => function ($q) use ($taskRelations) {
+                    $q->whereNull('parent_id')
+                        ->orderBy('position')
+                        ->with($taskRelations);
+                },
+                'boardColumns' => function ($q) {
+                    $q->orderBy('position');
+                },
+                'subitemColumns' => function ($q) {
+                    $q->orderBy('position');
+                },
+                'views' => function ($q) {
+                    $q->orderBy('position');
+                },
+                'workspace',
                 'members.user',
                 'users',
                 'automations.creator',
