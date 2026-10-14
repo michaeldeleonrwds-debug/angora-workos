@@ -205,6 +205,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/kanban/boards/{board}/task-blueprints/instantiate', [\App\Http\Controllers\TemplateController::class, 'instantiateTaskBlueprint'])->name('kanban.boards.task-blueprints.instantiate');
     Route::post('/kanban/groups/{group}/save-as-blueprint', [\App\Http\Controllers\TemplateController::class, 'saveGroupAsBlueprint'])->name('kanban.groups.save-as-blueprint');
     Route::get('/kanban/boards/{board}/workload-analytics', [\App\Http\Controllers\WorkloadCapacityController::class, 'getBoardWorkload'])->name('kanban.boards.workload-analytics');
+    Route::get('/kanban/boards/{board}/delivery-metrics', [\App\Http\Controllers\ProductionAnalyticsController::class, 'getDeliveryMetrics'])->name('kanban.boards.delivery-metrics');
     Route::patch('/users/{user}/capacity', [\App\Http\Controllers\WorkloadCapacityController::class, 'updateUserCapacity'])->name('users.capacity.update');
 
     // Dashboards & Reporting
