@@ -137,10 +137,28 @@ export default function BoardUnifiedHeader({
                   { id: 8, board_id: activeBoard.id, name: 'Gallery', type: 'gallery', is_default: false, position: 7 },
               ];
 
-    // Primary Views pinned on toolbar, others in dropdown
-    const primaryViewTypes = ['table', 'kanban', 'calendar', 'gantt'];
-    const pinnedViews = views.filter((v) => primaryViewTypes.includes(v.type));
-    const moreViews = views.filter((v) => !primaryViewTypes.includes(v.type));
+    // Primary Views pinned on navigation bar in specific required order: Main Table, Production Kanban, Timeline Overview, Production Calendar
+    const primaryViewOrder = ['table', 'kanban', 'timeline', 'gantt', 'calendar'];
+    const pinnedViews = views
+        .filter((v) => primaryViewOrder.includes(v.type))
+        .sort((a, b) => primaryViewOrder.indexOf(a.type) - primaryViewOrder.indexOf(b.type));
+    const moreViews = views.filter((v) => !primaryViewOrder.includes(v.type));
+
+    const getFormattedViewName = (v: BoardView) => {
+        if (v.type === 'kanban') {
+            return v.name === 'Kanban' ? 'Production Kanban' : v.name;
+        }
+        if (v.type === 'table') {
+            return v.name === 'Table' ? 'Main Table' : v.name;
+        }
+        if (v.type === 'calendar') {
+            return v.name === 'Calendar' ? 'Production Calendar' : v.name;
+        }
+        if (v.type === 'gantt' || v.type === 'timeline') {
+            return v.name === 'Gantt' || v.name === 'Timeline' ? 'Timeline Overview' : v.name;
+        }
+        return v.name;
+    };
 
     const getViewIcon = (type: string, className = 'h-3.5 w-3.5') => {
         switch (type) {
@@ -531,96 +549,9 @@ export default function BoardUnifiedHeader({
                         </DropdownMenuContent>
                     </DropdownMenu>
 
-                    {/* Subtle divider */}
-                    <div className="hidden h-4 w-px bg-border/60 md:block" />
-
-                    {/* View Switcher Tabs (Level 1) */}
-                    <div className="hidden items-center gap-1 overflow-x-auto md:flex scrollbar-none">
-                        {pinnedViews.map((v) => {
-                            const isActive = activeTab === v.type;
-                            return (
-                                <button
-                                    key={v.id}
-                                    onClick={() => onTabChange(v.type)}
-                                    className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                                        isActive
-                                            ? 'bg-primary/10 text-primary border border-primary/30 shadow-2xs'
-                                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border border-transparent'
-                                    }`}
-                                >
-                                    {getViewIcon(v.type)}
-                                    <span>{v.name}</span>
-                                    {v.is_default && <span className="h-1.5 w-1.5 rounded-full bg-primary" title="Default" />}
-                                </button>
-                            );
-                        })}
-
-                        {/* More Views Dropdown */}
-                        {(moreViews.length > 0 || true) && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button
-                                        className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition-all ${
-                                            moreViews.some((mv) => mv.type === activeTab)
-                                                ? 'bg-primary/10 text-primary border border-primary/30'
-                                                : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'
-                                        }`}
-                                    >
-                                        <span>More</span>
-                                        <ChevronDown className="h-3 w-3" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="w-48 rounded-xl p-1 text-xs shadow-lg">
-                                    {moreViews.map((v) => (
-                                        <div
-                                            key={v.id}
-                                            onClick={() => onTabChange(v.type)}
-                                            className={`group/v flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 ${
-                                                activeTab === v.type ? 'bg-primary/10 font-bold text-primary' : 'hover:bg-muted/60'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-2 truncate">
-                                                {getViewIcon(v.type)}
-                                                <span className="truncate">{v.name}</span>
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                {v.is_default && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                                                <button
-                                                    type="button"
-                                                    title="Set as Default"
-                                                    onClick={(e) => handleSetDefaultView(v, e)}
-                                                    className="p-0.5 text-slate-400 opacity-0 group-hover/v:opacity-100 hover:text-amber-400"
-                                                >
-                                                    <Star className="h-3 w-3" />
-                                                </button>
-                                                {views.length > 1 && (
-                                                    <button
-                                                        type="button"
-                                                        title="Delete View"
-                                                        onClick={(e) => handleDeleteView(v, e)}
-                                                        className="p-0.5 text-slate-400 opacity-0 group-hover/v:opacity-100 hover:text-rose-500"
-                                                    >
-                                                        <Trash2 className="h-3 w-3" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <DropdownMenuSeparator className="my-1" />
-                                    <DropdownMenuItem
-                                        onClick={() => setIsAddViewModalOpen(true)}
-                                        className="flex cursor-pointer items-center gap-1.5 text-primary font-semibold"
-                                    >
-                                        <Plus className="h-3.5 w-3.5" />
-                                        <span>Add View</span>
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
-                    </div>
                 </div>
 
-                {/* Right: Search, Unified Filter, New Item, Automations, Appearance, Notifications */}
+                {/* Right: Search, Unified Filter, New Item, Appearance, Notifications */}
                 <div className="flex items-center gap-2">
                     {/* Compact Search */}
                     <div className="relative hidden sm:block">
@@ -726,23 +657,6 @@ export default function BoardUnifiedHeader({
                         </Button>
                     )}
 
-                    {/* Automations Chip */}
-                    {permissions?.canManageAutomations !== false && onOpenAutomate && (
-                        <button
-                            onClick={onOpenAutomate}
-                            title="Workflow Automations"
-                            className="hidden items-center gap-1.5 rounded-full bg-[#E9DDFB] px-2.5 py-1 text-xs font-semibold text-[#5B309A] transition-all hover:opacity-90 lg:flex dark:bg-[#3D2C5E] dark:text-[#D8B4FE]"
-                        >
-                            <Zap className="h-3.5 w-3.5 text-[#5B309A] dark:text-[#D8B4FE]" />
-                            <span className="hidden xl:inline">Automations</span>
-                            {(activeBoard.automations || []).length > 0 && (
-                                <span className="rounded-full bg-white/90 px-1.5 py-0.2 text-[10px] font-bold text-[#5B309A] dark:bg-[#281D42] dark:text-[#E9DDFB]">
-                                    {(activeBoard.automations || []).length}
-                                </span>
-                            )}
-                        </button>
-                    )}
-
                     {/* Theme Toggle */}
                     <AppearanceToggleDropdown />
 
@@ -752,15 +666,15 @@ export default function BoardUnifiedHeader({
             </header>
 
             {/* ============================================================ */}
-            {/* LEVEL 2: BOARD CONTEXT & TELEMETRY BAR (h-14 / ~56px)       */}
+            {/* ROW 2: BOARD IDENTITY & TELEMETRY BAR (h-14 / ~56px)         */}
             {/* ============================================================ */}
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border/50 bg-card/60 px-4 py-2 backdrop-blur-xs transition-colors sm:px-6">
+            <div className="flex shrink-0 min-h-[52px] sm:h-14 flex-wrap items-center justify-between gap-3 border-b border-[#ECECF0] bg-card/60 px-4 py-2 backdrop-blur-xs transition-colors sm:px-6 dark:border-[#28283E]">
                 {/* Left: Board Title, Star, Visibility badge, Subtitle */}
                 <div className="flex items-center gap-2.5 min-w-0">
                     <button
                         type="button"
                         onClick={() => handleToggleBoardFavorite(activeBoard.id)}
-                        className="text-muted-foreground hover:text-amber-400 transition-colors p-0.5"
+                        className="text-muted-foreground hover:text-amber-400 transition-colors p-0.5 shrink-0"
                         title={activeBoard.is_favorite ? 'Favorited' : 'Add to favorites'}
                     >
                         <Star className={`h-4 w-4 ${activeBoard.is_favorite ? 'fill-amber-400 text-amber-400' : ''}`} />
@@ -771,7 +685,7 @@ export default function BoardUnifiedHeader({
                             <h1 className="truncate text-base font-black tracking-tight text-foreground sm:text-lg">
                                 {activeBoard.title}
                             </h1>
-                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold tracking-wider text-muted-foreground uppercase shrink-0">
                                 {activeBoard.visibility || 'Public'}
                             </span>
                         </div>
@@ -784,7 +698,7 @@ export default function BoardUnifiedHeader({
                 </div>
 
                 {/* Center: Real-time Board Statistics Strip */}
-                <div className="hidden lg:flex items-center gap-2">
+                <div className="hidden lg:flex items-center gap-2 shrink-0">
                     <div className="flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/80 px-2.5 py-1 text-xs">
                         <ListTodo className="h-3.5 w-3.5 text-muted-foreground" />
                         <span className="text-muted-foreground">Total:</span>
@@ -813,7 +727,7 @@ export default function BoardUnifiedHeader({
                 </div>
 
                 {/* Right: Board Member Avatars + Board Actions */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
                     {/* Member Avatars Stack */}
                     <div
                         onClick={() => permissions?.canManageBoard !== false && setIsMembersModalOpen(true)}
@@ -867,13 +781,30 @@ export default function BoardUnifiedHeader({
                         </Button>
                     )}
 
+                    {/* Automations Chip */}
+                    {permissions?.canManageAutomations !== false && onOpenAutomate && (
+                        <button
+                            onClick={onOpenAutomate}
+                            title="Workflow Automations"
+                            className="hidden items-center gap-1.5 rounded-full bg-[#E9DDFB] px-2.5 py-1 text-xs font-semibold text-[#5B309A] transition-all hover:opacity-90 xl:flex dark:bg-[#3D2C5E] dark:text-[#D8B4FE]"
+                        >
+                            <Zap className="h-3.5 w-3.5 text-[#5B309A] dark:text-[#D8B4FE]" />
+                            <span>Automations</span>
+                            {(activeBoard.automations || []).length > 0 && (
+                                <span className="rounded-full bg-white/90 px-1.5 py-0.2 text-[10px] font-bold text-[#5B309A] dark:bg-[#281D42] dark:text-[#E9DDFB]">
+                                    {(activeBoard.automations || []).length}
+                                </span>
+                            )}
+                        </button>
+                    )}
+
                     {/* Blueprints */}
                     {permissions?.canManageBlueprints !== false && onOpenBlueprints && (
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={onOpenBlueprints}
-                            className="hidden lg:flex h-8 rounded-lg border-indigo-500/30 bg-indigo-500/5 text-indigo-600 hover:bg-indigo-500/10 px-2.5 text-xs font-bold dark:text-indigo-400"
+                            className="hidden xl:flex h-8 rounded-lg border-indigo-500/30 bg-indigo-500/5 text-indigo-600 hover:bg-indigo-500/10 px-2.5 text-xs font-bold dark:text-indigo-400"
                         >
                             <Layers className="mr-1 h-3.5 w-3.5" />
                             <span>Blueprints</span>
@@ -972,8 +903,14 @@ export default function BoardUnifiedHeader({
                                     <span>Add Column</span>
                                 </DropdownMenuItem>
                             )}
+                            {permissions?.canManageAutomations !== false && onOpenAutomate && (
+                                <DropdownMenuItem onClick={onOpenAutomate} className="xl:hidden">
+                                    <Zap className="mr-2 h-3.5 w-3.5 text-purple-500" />
+                                    <span>Automations</span>
+                                </DropdownMenuItem>
+                            )}
                             {permissions?.canManageBlueprints !== false && onOpenBlueprints && (
-                                <DropdownMenuItem onClick={onOpenBlueprints} className="lg:hidden">
+                                <DropdownMenuItem onClick={onOpenBlueprints} className="xl:hidden">
                                     <Layers className="mr-2 h-3.5 w-3.5 text-indigo-500" />
                                     <span>Blueprints</span>
                                 </DropdownMenuItem>
@@ -1003,6 +940,112 @@ export default function BoardUnifiedHeader({
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
+            </div>
+
+            {/* ============================================================ */}
+            {/* ROW 3: BOARD VIEW NAVIGATION (h-10 / 40px)                   */}
+            {/* ============================================================ */}
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#ECECF0] bg-[#F8F9F7]/95 px-4 backdrop-blur-md transition-colors sm:px-6 dark:border-[#28283E] dark:bg-[#161624]/95">
+                {/* Left: View Tabs */}
+                <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1">
+                    {pinnedViews.map((v) => {
+                        const isActive = activeTab === v.type;
+                        return (
+                            <button
+                                key={v.id}
+                                onClick={() => onTabChange(v.type)}
+                                className={`group relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
+                                    isActive
+                                        ? 'bg-primary/10 text-primary font-bold shadow-2xs border border-primary/25'
+                                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border border-transparent'
+                                }`}
+                            >
+                                {getViewIcon(v.type, `h-3.5 w-3.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`)}
+                                <span>{getFormattedViewName(v)}</span>
+                                {v.is_default && <span className="h-1.5 w-1.5 rounded-full bg-primary" title="Default View" />}
+                            </button>
+                        );
+                    })}
+
+                    {/* More Views Dropdown */}
+                    {(moreViews.length > 0 || permissions?.canManageColumns !== false) && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
+                                        moreViews.some((mv) => mv.type === activeTab)
+                                            ? 'bg-primary/10 text-primary font-bold border border-primary/25'
+                                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border border-transparent'
+                                    }`}
+                                >
+                                    <span>More</span>
+                                    <ChevronDown className="h-3 w-3" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48 rounded-xl p-1 text-xs shadow-lg">
+                                {moreViews.map((v) => (
+                                    <div
+                                        key={v.id}
+                                        onClick={() => onTabChange(v.type)}
+                                        className={`group/v flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 ${
+                                            activeTab === v.type ? 'bg-primary/10 font-bold text-primary' : 'hover:bg-muted/60'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            {getViewIcon(v.type)}
+                                            <span className="truncate">{getFormattedViewName(v)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            {v.is_default && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                                            <button
+                                                type="button"
+                                                title="Set as Default"
+                                                onClick={(e) => handleSetDefaultView(v, e)}
+                                                className="p-0.5 text-slate-400 opacity-0 group-hover/v:opacity-100 hover:text-amber-400"
+                                            >
+                                                <Star className="h-3 w-3" />
+                                            </button>
+                                            {permissions?.canManageColumns !== false && views.length > 1 && (
+                                                <button
+                                                    type="button"
+                                                    title="Delete View"
+                                                    onClick={(e) => handleDeleteView(v, e)}
+                                                    className="p-0.5 text-slate-400 opacity-0 group-hover/v:opacity-100 hover:text-rose-500"
+                                                >
+                                                    <Trash2 className="h-3 w-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                                {permissions?.canManageColumns !== false && (
+                                    <>
+                                        {moreViews.length > 0 && <DropdownMenuSeparator className="my-1" />}
+                                        <DropdownMenuItem
+                                            onClick={() => setIsAddViewModalOpen(true)}
+                                            className="flex cursor-pointer items-center gap-1.5 text-primary font-semibold"
+                                        >
+                                            <Plus className="h-3.5 w-3.5" />
+                                            <span>Add View</span>
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
+                </div>
+
+                {/* Right: Quick "+ View" action if permitted */}
+                {permissions?.canManageColumns !== false && (
+                    <button
+                        onClick={() => setIsAddViewModalOpen(true)}
+                        className="hidden sm:flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors shrink-0"
+                        title="Add new board view"
+                    >
+                        <Plus className="h-3 w-3" />
+                        <span>Add View</span>
+                    </button>
+                )}
             </div>
 
             {/* ============================================================ */}
