@@ -1,9 +1,10 @@
 import { NavUser } from '@/components/nav-user';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, useSidebar } from '@/components/ui/sidebar';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SharedData } from '@/types';
-import { Link, usePage } from '@inertiajs/react';
-import { CheckSquare, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus } from 'lucide-react';
+import { Link, router, usePage } from '@inertiajs/react';
+import { Check, CheckSquare, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus } from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface NavItem {
@@ -12,6 +13,14 @@ interface NavItem {
     icon: any;
     badge?: string;
     color?: string;
+}
+
+interface WorkspaceItem {
+    id: number;
+    name: string;
+    color?: string;
+    icon?: string;
+    boards_count?: number;
 }
 
 const mainNavItems: NavItem[] = [
@@ -34,6 +43,37 @@ export function AppSidebar() {
     const { state, isMobile } = useSidebar();
     const isCollapsed = state === 'collapsed' && !isMobile;
 
+    const userWorkspaces = ((page.props as any).userWorkspaces as WorkspaceItem[]) || [];
+    const activeWorkspaceId = ((page.props as any).activeWorkspaceId as number) || userWorkspaces[0]?.id;
+    const currentWorkspace = userWorkspaces.find((w) => w.id === activeWorkspaceId) || userWorkspaces[0] || {
+        id: 1,
+        name: 'Main Workspace',
+        color: '#0073ea',
+    };
+
+    const handleSwitchWorkspace = (workspaceId: number) => {
+        router.visit(`/kanban?workspace=${workspaceId}`, {
+            preserveScroll: true,
+        });
+    };
+
+    const workspaceSelectorTrigger = (
+        <div className="mt-2.5 flex cursor-pointer items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-xs text-slate-200 transition-all group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:mt-2 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 hover:bg-white/[0.08] select-none focus:outline-none">
+            <div className="flex items-center gap-2.5 min-w-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
+                <span
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white shadow-xs"
+                    style={{ backgroundColor: currentWorkspace.color || '#0073ea' }}
+                >
+                    {currentWorkspace.name.charAt(0).toUpperCase()}
+                </span>
+                <span className="text-xs font-semibold text-white truncate group-data-[collapsible=icon]:hidden">
+                    {currentWorkspace.name}
+                </span>
+            </div>
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400 group-data-[collapsible=icon]:hidden ml-1" />
+        </div>
+    );
+
     return (
         <Sidebar collapsible="icon" variant="inset" className="border-none bg-transparent text-white">
             {/* Header: Logo & Workspace Selector */}
@@ -44,29 +84,62 @@ export function AppSidebar() {
                     </Link>
                 </div>
 
-                {/* Monday Workspace Selector */}
-                <Tooltip>
-                    <TooltipTrigger asChild>
-                        <div className="mt-2.5 flex cursor-pointer items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-xs text-slate-200 transition-all group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:mt-2 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 hover:bg-white/[0.08]">
-                            <div className="flex items-center gap-2.5 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
-                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-[#0073ea] text-[10px] font-black text-white shadow-xs">
-                                    M
-                                </span>
-                                <span className="text-xs font-semibold text-white group-data-[collapsible=icon]:hidden">Main Workspace</span>
-                            </div>
-                            <ChevronDown className="h-3.5 w-3.5 text-slate-400 group-data-[collapsible=icon]:hidden" />
-                        </div>
-                    </TooltipTrigger>
-                    {isCollapsed && (
-                        <TooltipContent
-                            side="right"
-                            align="center"
-                            className="z-50 rounded-lg border border-[#353550] bg-[#1E1E30] px-3 py-1.5 text-xs text-white shadow-xl"
-                        >
-                            Main Workspace
-                        </TooltipContent>
-                    )}
-                </Tooltip>
+                {/* Workspace Selector with Dropdown */}
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        {workspaceSelectorTrigger}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                        side={isCollapsed ? 'right' : 'bottom'}
+                        align="start"
+                        sideOffset={6}
+                        className="w-56 rounded-2xl border border-white/10 bg-[#1E1E30] text-white shadow-2xl p-1.5 z-50"
+                    >
+                        <DropdownMenuLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
+                            Workspaces
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator className="bg-white/10 my-1" />
+                        {userWorkspaces.length === 0 ? (
+                            <div className="px-2 py-1.5 text-xs text-slate-400 italic">No workspaces available</div>
+                        ) : (
+                            userWorkspaces.map((w) => {
+                                const isSelected = w.id === currentWorkspace.id;
+                                return (
+                                    <DropdownMenuItem
+                                        key={w.id}
+                                        onClick={() => handleSwitchWorkspace(w.id)}
+                                        className={`flex items-center justify-between rounded-xl px-2.5 py-2 text-xs cursor-pointer transition-colors ${
+                                            isSelected
+                                                ? 'bg-white/10 font-bold text-white'
+                                                : 'text-slate-300 hover:bg-white/[0.07] hover:text-white'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2 truncate">
+                                            <span
+                                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white"
+                                                style={{ backgroundColor: w.color || '#0073ea' }}
+                                            >
+                                                {w.name.charAt(0).toUpperCase()}
+                                            </span>
+                                            <span className="truncate">{w.name}</span>
+                                        </div>
+                                        {isSelected && <Check className="h-3.5 w-3.5 text-[#00c875] shrink-0 ml-1.5" />}
+                                    </DropdownMenuItem>
+                                );
+                            })
+                        )}
+                        <DropdownMenuSeparator className="bg-white/10 my-1" />
+                        <DropdownMenuItem asChild>
+                            <Link
+                                href="/kanban"
+                                className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/[0.07] cursor-pointer"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                <span>Create / Manage Boards</span>
+                            </Link>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </SidebarHeader>
 
             <SidebarContent className="px-2.5 py-2.5 group-data-[collapsible=icon]:px-1.5 group-data-[collapsible=icon]:py-2">

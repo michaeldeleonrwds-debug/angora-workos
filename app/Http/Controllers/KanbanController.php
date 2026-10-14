@@ -76,12 +76,15 @@ class KanbanController extends Controller
         }
 
         // 2. Resolve Active Workspace & Board
-        $workspaceId = $request->query('workspace');
+        $workspaceId = $request->query('workspace') ?: session('active_workspace_id');
         $boardId = $request->query('board');
 
         $activeWorkspace = $workspaceId ? $workspaces->firstWhere('id', (int) $workspaceId) : $workspaces->first();
         if (!$activeWorkspace) {
             $activeWorkspace = $workspaces->first();
+        }
+        if ($activeWorkspace) {
+            session(['active_workspace_id' => $activeWorkspace->id]);
         }
 
         // Eager load board with tasks, comments, subitems, attachments, workflow columns, dependencies, and groups

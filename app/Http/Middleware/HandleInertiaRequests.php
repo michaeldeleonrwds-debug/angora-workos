@@ -36,19 +36,55 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        [$message, $author] = str(Inspiring::quotes()->random())->explode('-');
+        $user = $request->user();
+        $userWorkspaces = [];
+        $activeWorkspaceId = null;
+
+        if ($user) {
+            $workspacesQuery = \App\Models\Workspace::select('id', 'name', 'color', 'icon', 'owner_id')
+                ->withCount('boards')
+                ->orderBy('name');
+
+            if (!$user->isSuperAdmin()) {
+                $workspacesQuery->where(function ($q) use ($user) {
+                    $q->where('owner_id', $user->id)
+                        ->orWhereHas('members', function ($mq) use ($user) {
+                            $mq->where('user_id', $user->id);
+                        });
+                });
+            }
+
+            $userWorkspaces = $workspacesQuery->get();
+
+            // Resolve active workspace from query parameter, session, or default
+            $requestedWorkspaceId = $request->query('workspace');
+            if ($requestedWorkspaceId && $userWorkspaces->contains('id', (int) $requestedWorkspaceId)) {
+                $activeWorkspaceId = (int) $requestedWorkspaceId;
+                session(['active_workspace_id' => $activeWorkspaceId]);
+            } else {
+                $sessionWorkspaceId = session('active_workspace_id');
+                if ($sessionWorkspaceId && $userWorkspaces->contains('id', (int) $sessionWorkspaceId)) {
+                    $activeWorkspaceId = (int) $sessionWorkspaceId;
+                } elseif ($userWorkspaces->isNotEmpty()) {
+                    $activeWorkspaceId = $userWorkspaces->first()->id;
+                    session(['active_workspace_id' => $activeWorkspaceId]);
+                }
+            }
+        }
 
         return array_merge(parent::share($request), [
             'name' => config('app.name'),
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
-                'user' => $request->user() ? array_merge($request->user()->toArray(), [
-                    'permissions' => $request->user()->getAllPermissions(),
+                'user' => $user ? array_merge($user->toArray(), [
+                    'permissions' => $user->getAllPermissions(),
                 ]) : null,
             ],
-            'unreadNotificationsCount' => $request->user() ? \App\Models\SystemNotification::where('user_id', $request->user()->id)->where('is_read', false)->count() : 0,
-            'recentNotifications' => $request->user() ? \App\Models\SystemNotification::where('user_id', $request->user()->id)->latest()->take(5)->get() : [],
+            'unreadNotificationsCount' => $user ? \App\Models\SystemNotification::where('user_id', $user->id)->where('is_read', false)->count() : 0,
+            'recentNotifications' => $user ? \App\Models\SystemNotification::where('user_id', $user->id)->latest()->take(5)->get() : [],
             'availablePersonas' => \App\Models\User::select('id', 'name', 'email', 'role', 'department')->orderBy('id')->get(),
+            'userWorkspaces' => $userWorkspaces,
+            'activeWorkspaceId' => $activeWorkspaceId,
         ]);
     }
 }

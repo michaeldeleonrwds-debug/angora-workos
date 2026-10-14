@@ -17,7 +17,7 @@ export function NavUser() {
     const triggerButton = (
         <SidebarMenuButton
             size="lg"
-            className="group rounded-xl text-white transition-all group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 hover:bg-white/[0.08] hover:text-white data-[state=open]:bg-white/[0.08]"
+            className="group rounded-xl text-white transition-all group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-10 group-data-[collapsible=icon]:w-10 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:overflow-visible group-data-[collapsible=icon]:p-0 hover:bg-white/[0.08] hover:text-white data-[state=open]:bg-white/[0.08]"
         >
             <UserInfo user={auth.user} />
             <ChevronsUpDown className="ml-auto size-3.5 shrink-0 text-slate-400 group-hover:text-white group-data-[collapsible=icon]:hidden" />
