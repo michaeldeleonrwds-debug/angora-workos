@@ -208,6 +208,7 @@ export interface Task {
     reminder_lead_minutes?: number | null;
     reminder_sent_at?: string | null;
     deadline_status?: 'overdue' | 'due_today' | 'due_soon' | 'upcoming' | 'completed_on_time' | 'completed_late' | 'no_deadline';
+    time_remaining?: string | null;
     is_blocked?: boolean;
     estimated_hours?: number | null;
     actual_hours?: number | null;

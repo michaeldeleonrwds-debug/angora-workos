@@ -103,3 +103,78 @@ export function csrfHeaders(): Record<string, string> {
         'X-XSRF-TOKEN': token,
     };
 }
+
+/**
+ * Calculate the exact remaining time or overdue duration from now to the target due date & time.
+ * Returns human-readable relative time string:
+ * e.g. "Due in 5h 30m", "Due in 45m", "Due in 1d 8h", "Overdue by 2h 15m"
+ */
+export function getExactTimeRemaining(
+    dueDate: string | null | undefined,
+    dueTime?: string | null | undefined
+): {
+    formattedRemaining: string;
+    isOverdue: boolean;
+    totalMinutes: number;
+    hours: number;
+    days: number;
+} | null {
+    if (!dueDate) return null;
+
+    try {
+        const datePart = String(dueDate).split('T')[0];
+        const match = datePart.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return null;
+
+        const year = parseInt(match[1], 10);
+        const month = parseInt(match[2], 10) - 1;
+        const day = parseInt(match[3], 10);
+
+        let hours = 23;
+        let minutes = 59;
+        let seconds = 59;
+
+        if (dueTime) {
+            const timeTrimmed = String(dueTime).trim();
+            const timeMatch = timeTrimmed.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+            if (timeMatch) {
+                hours = parseInt(timeMatch[1], 10);
+                minutes = parseInt(timeMatch[2], 10);
+                seconds = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+            }
+        }
+
+        const dueTarget = new Date(year, month, day, hours, minutes, seconds);
+        const now = new Date();
+        const diffMs = dueTarget.getTime() - now.getTime();
+        const isOverdue = diffMs < 0;
+        const absMs = Math.abs(diffMs);
+
+        const totalMinutes = Math.floor(absMs / (1000 * 60));
+        const totalHours = Math.floor(totalMinutes / 60);
+        const diffDays = Math.floor(totalHours / 24);
+        const remHours = totalHours % 24;
+        const remMinutes = totalMinutes % 60;
+
+        let timeStr = '';
+        if (diffDays > 0) {
+            timeStr = remHours > 0 ? `${diffDays}d ${remHours}h` : `${diffDays}d`;
+        } else if (totalHours > 0) {
+            timeStr = remMinutes > 0 ? `${totalHours}h ${remMinutes}m` : `${totalHours}h`;
+        } else if (totalMinutes > 0) {
+            timeStr = `${totalMinutes}m`;
+        } else {
+            timeStr = '< 1m';
+        }
+
+        return {
+            formattedRemaining: isOverdue ? `Overdue by ${timeStr}` : `Due in ${timeStr}`,
+            isOverdue,
+            totalMinutes,
+            hours: totalHours,
+            days: diffDays,
+        };
+    } catch {
+        return null;
+    }
+}

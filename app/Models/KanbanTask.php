@@ -54,6 +54,7 @@ class KanbanTask extends Model
 
     protected $appends = [
         'deadline_status',
+        'time_remaining',
         'is_blocked',
     ];
 
@@ -351,7 +352,7 @@ class KanbanTask extends Model
             ? $this->due_date 
             : \Illuminate\Support\Carbon::parse($this->due_date)->format('Y-m-d');
 
-        if ($taskDueDate === $userToday) {
+        if ($taskDueDate === $userToday || $now->diffInHours($dueUtc, false) <= 24) {
             return 'due_today';
         }
 
@@ -361,6 +362,49 @@ class KanbanTask extends Model
         }
 
         return 'upcoming';
+    }
+
+    /**
+     * Exact human-readable remaining time to deadline (or overdue duration).
+     */
+    public function getTimeRemainingAttribute(): ?string
+    {
+        if (!$this->due_date) {
+            return null;
+        }
+
+        $dueUtc = $this->getDueDateTimeUtc();
+        if (!$dueUtc) {
+            return null;
+        }
+
+        $now = now()->setTimezone('UTC');
+
+        // Check if completed
+        $isCompleted = !empty($this->completed_at) || $this->column?->isCompletionStatus();
+        if ($isCompleted) {
+            $completedAt = $this->completed_at ? \Illuminate\Support\Carbon::parse($this->completed_at)->setTimezone('UTC') : $now;
+            return $completedAt->lte($dueUtc) ? 'Completed On Time' : 'Completed Late';
+        }
+
+        $isOverdue = $now->gt($dueUtc);
+        $diffMinutes = (int) abs($now->diffInMinutes($dueUtc, false));
+        $hours = intdiv($diffMinutes, 60);
+        $minutes = $diffMinutes % 60;
+        $days = intdiv($hours, 24);
+        $remHours = $hours % 24;
+
+        if ($days > 0) {
+            $formatted = $remHours > 0 ? "{$days}d {$remHours}h" : "{$days}d";
+        } elseif ($hours > 0) {
+            $formatted = $minutes > 0 ? "{$hours}h {$minutes}m" : "{$hours}h";
+        } elseif ($diffMinutes > 0) {
+            $formatted = "{$diffMinutes}m";
+        } else {
+            $formatted = "< 1m";
+        }
+
+        return $isOverdue ? "Overdue by {$formatted}" : "Due in {$formatted}";
     }
 
     public function recalculateProgressFromSubtasks(): void

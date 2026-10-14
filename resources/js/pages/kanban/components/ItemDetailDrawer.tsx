@@ -3,13 +3,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDate } from '@/lib/utils';
+import { formatDate, getExactTimeRemaining } from '@/lib/utils';
 import { router, usePage } from '@inertiajs/react';
 import {
     Activity,
     AlertCircle,
     AlertTriangle,
     AtSign,
+    Calendar,
     Check,
     CheckCircle2,
     Clock,
@@ -88,6 +89,8 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     const [isDeciding, setIsDeciding] = useState(false);
     const [reviewErrorMessage, setReviewErrorMessage] = useState<string | null>(null);
     const [reviewPipelinePreset, setReviewPipelinePreset] = useState<'single' | 'two_stage' | 'three_stage'>('single');
+
+    const exactRemaining = useMemo(() => getExactTimeRemaining(task.due_date, task.due_time), [task.due_date, task.due_time]);
 
     // Dependencies & Blockers state
     const [dependencySummary, setDependencySummary] = useState<{
@@ -779,36 +782,47 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                             {task.due_date && (
                                 <div className="grid grid-cols-3 items-center">
                                     <Label className="text-muted-foreground font-medium">Deadline Status</Label>
-                                    <div className="col-span-2">
-                                        {task.deadline_status === 'overdue' && (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-bold text-red-600">
-                                                Overdue
-                                            </span>
-                                        )}
-                                        {task.deadline_status === 'due_today' && (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-600">
-                                                Due Today
-                                            </span>
-                                        )}
-                                        {task.deadline_status === 'due_soon' && (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-600">
-                                                Due Soon (48h)
-                                            </span>
-                                        )}
-                                        {task.deadline_status === 'upcoming' && (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
-                                                Upcoming
-                                            </span>
-                                        )}
+                                    <div className="col-span-2 flex flex-wrap items-center gap-1.5">
                                         {task.deadline_status === 'completed_on_time' && (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-600">
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                                <CheckCircle2 className="h-3 w-3" />
                                                 Completed On Time
                                             </span>
                                         )}
                                         {task.deadline_status === 'completed_late' && (
-                                            <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-bold text-purple-600">
+                                            <span className="inline-flex items-center gap-1 rounded-full bg-purple-500/10 px-2.5 py-0.5 text-xs font-bold text-purple-600 dark:text-purple-400">
+                                                <CheckCircle2 className="h-3 w-3" />
                                                 Completed Late
                                             </span>
+                                        )}
+                                        {task.deadline_status !== 'completed_on_time' && task.deadline_status !== 'completed_late' && (
+                                            <>
+                                                {exactRemaining?.isOverdue ? (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-bold text-red-600 dark:text-red-400">
+                                                        <AlertCircle className="h-3 w-3" />
+                                                        {exactRemaining.formattedRemaining}
+                                                    </span>
+                                                ) : exactRemaining && exactRemaining.hours < 24 ? (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
+                                                        <Clock className="h-3 w-3" />
+                                                        {exactRemaining.formattedRemaining}
+                                                    </span>
+                                                ) : exactRemaining && exactRemaining.hours <= 48 ? (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-600 dark:text-blue-400">
+                                                        <Clock className="h-3 w-3" />
+                                                        {exactRemaining.formattedRemaining}
+                                                    </span>
+                                                ) : exactRemaining ? (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
+                                                        <Calendar className="h-3 w-3" />
+                                                        {exactRemaining.formattedRemaining}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
+                                                        {task.deadline_status === 'overdue' ? 'Overdue' : 'Upcoming'}
+                                                    </span>
+                                                )}
+                                            </>
                                         )}
                                     </div>
                                 </div>

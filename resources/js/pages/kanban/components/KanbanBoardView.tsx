@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDate, formatTime } from '@/lib/utils';
+import { formatDate, formatTime, getExactTimeRemaining } from '@/lib/utils';
 import { router } from '@inertiajs/react';
 import {
     AlertCircle,
@@ -327,8 +327,10 @@ export default function KanbanBoardView({
                                 const subitems = task.subitems || [];
                                 const completedSubitems = subitems.filter((s) => s.completed_at || s.progress === 100).length;
                                 const isSubExpanded = !!expandedCards[task.id];
-                                const overdue = isOverdue(task);
-                                const dueToday = isDueToday(task);
+                                const exactRemaining = getExactTimeRemaining(task.due_date, task.due_time);
+                                const overdue = isOverdue(task) || (exactRemaining?.isOverdue ?? false);
+                                const isDueSoonOrToday = !overdue && exactRemaining && exactRemaining.hours < 24;
+                                const dueToday = isDueToday(task) || Boolean(isDueSoonOrToday);
                                 const commentCount = (task.comments || []).length;
 
                                 // Extract cover image if present (attachments or media usages)
@@ -378,14 +380,14 @@ export default function KanbanBoardView({
                                                 {overdue && (
                                                     <span className="flex items-center gap-0.5 rounded border border-rose-500/25 bg-rose-500/10 px-1.5 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400">
                                                         <AlertCircle className="h-2.5 w-2.5" />
-                                                        <span>Overdue</span>
+                                                        <span>{exactRemaining ? exactRemaining.formattedRemaining : 'Overdue'}</span>
                                                     </span>
                                                 )}
 
-                                                {!overdue && dueToday && (
+                                                {!overdue && exactRemaining && exactRemaining.hours < 24 && (
                                                     <span className="flex items-center gap-0.5 rounded border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
                                                         <Clock className="h-2.5 w-2.5" />
-                                                        <span>Due Today</span>
+                                                        <span>{exactRemaining.formattedRemaining}</span>
                                                     </span>
                                                 )}
 
@@ -583,6 +585,7 @@ export default function KanbanBoardView({
                                                         className={`flex items-center gap-1 font-medium ${
                                                             overdue ? 'font-bold text-rose-600 dark:text-rose-400' : dueToday ? 'font-bold text-amber-600 dark:text-amber-400' : ''
                                                         }`}
+                                                        title={exactRemaining?.formattedRemaining}
                                                     >
                                                         <Calendar className="h-3 w-3" />
                                                         <span>
