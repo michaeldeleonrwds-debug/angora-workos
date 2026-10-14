@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatDate } from '@/lib/utils';
 import { router } from '@inertiajs/react';
-import { AlertCircle, CheckCircle2, Copy, History, Play, Plus, Search, Sparkles, Trash2, Zap } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Copy, History, Play, Plus, Search, Sparkles, Trash2, X, Zap } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { BoardAutomation, KanbanBoard, User } from '../types';
 
@@ -205,31 +205,45 @@ export default function AutomationCenterModal({ board, isOpen, onClose, users = 
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="bg-card border-border flex max-h-[90vh] flex-col overflow-hidden rounded-3xl border p-0 shadow-2xl sm:max-w-4xl">
+            <DialogContent hideDefaultClose className="bg-card border-border flex max-h-[90vh] flex-col overflow-hidden rounded-3xl border p-0 shadow-2xl sm:max-w-4xl">
                 {/* Header */}
                 <div className="border-border/60 bg-muted/20 flex flex-col items-start justify-between gap-4 border-b p-6 sm:flex-row sm:items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="bg-primary/10 text-primary flex h-10 w-10 items-center justify-center rounded-2xl shadow-xs">
+                    {/* Left: Automation icon, title, active badge, and description */}
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="bg-primary/10 text-primary flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-xs">
                             <Zap className="text-primary h-5 w-5" />
                         </div>
-                        <div>
-                            <h2 className="text-foreground flex items-center gap-2 text-xl font-black tracking-tight">
+                        <div className="min-w-0">
+                            <h2 className="text-foreground flex items-center gap-2 text-xl font-black tracking-tight truncate">
                                 Automation Center
-                                <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-bold">
+                                <span className="bg-primary/15 text-primary rounded-full px-2.5 py-0.5 text-xs font-bold shrink-0">
                                     {activeRulesCount} active
                                 </span>
                             </h2>
-                            <p className="text-muted-foreground mt-0.5 text-xs">Enterprise no-code workflow automations for {board.title}</p>
+                            <p className="text-muted-foreground mt-0.5 text-xs truncate">Enterprise no-code workflow automations for {board.title}</p>
                         </div>
                     </div>
 
-                    <Button
-                        onClick={handleOpenCreateRule}
-                        className="bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-xl px-3.5 text-xs font-bold shadow-xs"
-                    >
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        Create Automation
-                    </Button>
+                    {/* Right & Far Right: Create Automation button + X close button */}
+                    <div className="flex items-center gap-3.5 self-end sm:self-center shrink-0">
+                        <Button
+                            onClick={handleOpenCreateRule}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground h-9 rounded-xl px-3.5 text-xs font-bold shadow-xs flex items-center"
+                        >
+                            <Plus className="mr-1.5 h-4 w-4" />
+                            Create Automation
+                        </Button>
+
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="text-muted-foreground hover:text-foreground hover:bg-muted/80 flex h-9 w-9 items-center justify-center rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            title="Close modal (Esc)"
+                            aria-label="Close"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Sub-navigation & Search Toolbar */}
