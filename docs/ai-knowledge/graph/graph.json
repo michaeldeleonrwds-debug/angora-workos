@@ -1,0 +1,5460 @@
+{
+  "name": "Angora Work OS Architecture Graph",
+  "generated_at": "2026-10-14T19:58:51.876Z",
+  "stats": {
+    "total_nodes": 446,
+    "total_edges": 329,
+    "clusters": 6
+  },
+  "nodes": [
+    {
+      "id": "routes:web",
+      "label": "routes/web.php",
+      "type": "route",
+      "file": "routes/web.php"
+    },
+    {
+      "id": "route:GET:/dashboard",
+      "label": "GET /dashboard",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/dashboard",
+      "name": "dashboard",
+      "action": "index"
+    },
+    {
+      "id": "controller:DashboardController",
+      "label": "DashboardController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/switch-role",
+      "label": "POST /switch-role",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/switch-role",
+      "name": "role.switch",
+      "action": "switchRole"
+    },
+    {
+      "id": "controller:RoleSwitchController",
+      "label": "RoleSwitchController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/kanban",
+      "label": "GET /kanban",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban",
+      "name": "kanban.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:KanbanController",
+      "label": "KanbanController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/workspaces",
+      "label": "POST /workspaces",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/workspaces",
+      "name": "workspaces.store",
+      "action": "store"
+    },
+    {
+      "id": "controller:WorkspaceController",
+      "label": "WorkspaceController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:PATCH:/workspaces/{workspace}",
+      "label": "PATCH /workspaces/{workspace}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/workspaces/{workspace}",
+      "name": "workspaces.update",
+      "action": "update"
+    },
+    {
+      "id": "route:DELETE:/workspaces/{workspace}",
+      "label": "DELETE /workspaces/{workspace}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/workspaces/{workspace}",
+      "name": "workspaces.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:POST:/workspaces/{workspace}/favorite",
+      "label": "POST /workspaces/{workspace}/favorite",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/workspaces/{workspace}/favorite",
+      "name": "workspaces.favorite",
+      "action": "toggleFavorite"
+    },
+    {
+      "id": "route:POST:/workspaces/{workspace}/members",
+      "label": "POST /workspaces/{workspace}/members",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/workspaces/{workspace}/members",
+      "name": "workspaces.members.store",
+      "action": "addMember"
+    },
+    {
+      "id": "route:DELETE:/workspaces/{workspace}/members/{member}",
+      "label": "DELETE /workspaces/{workspace}/members/{member}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/workspaces/{workspace}/members/{member}",
+      "name": "workspaces.members.delete",
+      "action": "removeMember"
+    },
+    {
+      "id": "route:PATCH:/workspaces/{workspace}/members/{member}",
+      "label": "PATCH /workspaces/{workspace}/members/{member}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/workspaces/{workspace}/members/{member}",
+      "name": "workspaces.members.update",
+      "action": "updateMemberRole"
+    },
+    {
+      "id": "route:POST:/kanban/boards",
+      "label": "POST /kanban/boards",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards",
+      "name": "kanban.boards.store",
+      "action": "storeBoard"
+    },
+    {
+      "id": "route:PATCH:/kanban/boards/{board}",
+      "label": "PATCH /kanban/boards/{board}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/boards/{board}",
+      "name": "kanban.boards.update",
+      "action": "updateBoard"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/duplicate",
+      "label": "POST /kanban/boards/{board}/duplicate",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/duplicate",
+      "name": "kanban.boards.duplicate",
+      "action": "duplicateBoard"
+    },
+    {
+      "id": "route:DELETE:/kanban/boards/{board}",
+      "label": "DELETE /kanban/boards/{board}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/boards/{board}",
+      "name": "kanban.boards.delete",
+      "action": "deleteBoard"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/favorite",
+      "label": "POST /kanban/boards/{board}/favorite",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/favorite",
+      "name": "kanban.boards.favorite",
+      "action": "toggleBoardFavorite"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/members",
+      "label": "POST /kanban/boards/{board}/members",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/members",
+      "name": "kanban.boards.members.store",
+      "action": "addBoardMember"
+    },
+    {
+      "id": "route:DELETE:/kanban/boards/{board}/members/{member}",
+      "label": "DELETE /kanban/boards/{board}/members/{member}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/boards/{board}/members/{member}",
+      "name": "kanban.boards.members.delete",
+      "action": "removeBoardMember"
+    },
+    {
+      "id": "route:PATCH:/kanban/boards/{board}/members/{member}",
+      "label": "PATCH /kanban/boards/{board}/members/{member}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/boards/{board}/members/{member}",
+      "name": "kanban.boards.members.update",
+      "action": "updateBoardMemberRole"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/groups",
+      "label": "POST /kanban/boards/{board}/groups",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/groups",
+      "name": "kanban.groups.store",
+      "action": "storeGroup"
+    },
+    {
+      "id": "route:PATCH:/kanban/groups/{group}",
+      "label": "PATCH /kanban/groups/{group}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/groups/{group}",
+      "name": "kanban.groups.update",
+      "action": "updateGroup"
+    },
+    {
+      "id": "route:DELETE:/kanban/groups/{group}",
+      "label": "DELETE /kanban/groups/{group}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/groups/{group}",
+      "name": "kanban.groups.delete",
+      "action": "deleteGroup"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/stages",
+      "label": "POST /kanban/boards/{board}/stages",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/stages",
+      "name": "kanban.stages.store",
+      "action": "storeWorkflowStage"
+    },
+    {
+      "id": "route:PATCH:/kanban/stages/{column}",
+      "label": "PATCH /kanban/stages/{column}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/stages/{column}",
+      "name": "kanban.stages.update",
+      "action": "updateWorkflowStage"
+    },
+    {
+      "id": "route:DELETE:/kanban/stages/{column}",
+      "label": "DELETE /kanban/stages/{column}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/stages/{column}",
+      "name": "kanban.stages.delete",
+      "action": "deleteWorkflowStage"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/stages/reorder",
+      "label": "POST /kanban/boards/{board}/stages/reorder",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/stages/reorder",
+      "name": "kanban.stages.reorder",
+      "action": "reorderWorkflowStages"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/columns",
+      "label": "POST /kanban/boards/{board}/columns",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/columns",
+      "name": "kanban.columns.store",
+      "action": "storeBoardColumn"
+    },
+    {
+      "id": "route:PATCH:/kanban/board-columns/{column}",
+      "label": "PATCH /kanban/board-columns/{column}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/board-columns/{column}",
+      "name": "kanban.columns.update",
+      "action": "updateBoardColumn"
+    },
+    {
+      "id": "route:POST:/kanban/board-columns/{column}/duplicate",
+      "label": "POST /kanban/board-columns/{column}/duplicate",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/board-columns/{column}/duplicate",
+      "name": "kanban.columns.duplicate",
+      "action": "duplicateBoardColumn"
+    },
+    {
+      "id": "route:DELETE:/kanban/board-columns/{column}",
+      "label": "DELETE /kanban/board-columns/{column}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/board-columns/{column}",
+      "name": "kanban.columns.delete",
+      "action": "deleteBoardColumn"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/columns/reorder",
+      "label": "POST /kanban/boards/{board}/columns/reorder",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/columns/reorder",
+      "name": "kanban.columns.reorder",
+      "action": "reorderBoardColumns"
+    },
+    {
+      "id": "route:POST:/kanban/tasks",
+      "label": "POST /kanban/tasks",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks",
+      "name": "kanban.tasks.store",
+      "action": "storeTask"
+    },
+    {
+      "id": "route:PATCH:/kanban/tasks/{task}",
+      "label": "PATCH /kanban/tasks/{task}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/tasks/{task}",
+      "name": "kanban.tasks.update",
+      "action": "updateTask"
+    },
+    {
+      "id": "route:PATCH:/kanban/tasks/{task}/column",
+      "label": "PATCH /kanban/tasks/{task}/column",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/tasks/{task}/column",
+      "name": "kanban.tasks.update-column",
+      "action": "updateTaskColumn"
+    },
+    {
+      "id": "route:PATCH:/kanban/tasks/{task}/group",
+      "label": "PATCH /kanban/tasks/{task}/group",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/tasks/{task}/group",
+      "name": "kanban.tasks.update-group",
+      "action": "updateTaskGroup"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/reorder",
+      "label": "POST /kanban/tasks/reorder",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/reorder",
+      "name": "kanban.tasks.reorder",
+      "action": "reorderTasks"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/subitems",
+      "label": "POST /kanban/tasks/{task}/subitems",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/subitems",
+      "name": "kanban.tasks.subitems.store",
+      "action": "storeSubitem"
+    },
+    {
+      "id": "route:DELETE:/kanban/tasks/{task}",
+      "label": "DELETE /kanban/tasks/{task}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/tasks/{task}",
+      "name": "kanban.tasks.delete",
+      "action": "deleteTask"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/comments",
+      "label": "POST /kanban/tasks/{task}/comments",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/comments",
+      "name": "kanban.tasks.comments.store",
+      "action": "storeComment"
+    },
+    {
+      "id": "route:DELETE:/kanban/comments/{comment}",
+      "label": "DELETE /kanban/comments/{comment}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/comments/{comment}",
+      "name": "kanban.comments.delete",
+      "action": "deleteComment"
+    },
+    {
+      "id": "route:POST:/kanban/comments/{comment}/reactions",
+      "label": "POST /kanban/comments/{comment}/reactions",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/comments/{comment}/reactions",
+      "name": "kanban.comments.reactions",
+      "action": "toggleCommentReaction"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/attachments",
+      "label": "POST /kanban/tasks/{task}/attachments",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/attachments",
+      "name": "kanban.tasks.attachments.store",
+      "action": "storeAttachment"
+    },
+    {
+      "id": "route:GET:/kanban/attachments/{attachment}/download",
+      "label": "GET /kanban/attachments/{attachment}/download",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/attachments/{attachment}/download",
+      "name": "kanban.attachments.download",
+      "action": "downloadAttachment"
+    },
+    {
+      "id": "route:DELETE:/kanban/attachments/{attachment}",
+      "label": "DELETE /kanban/attachments/{attachment}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/attachments/{attachment}",
+      "name": "kanban.attachments.delete",
+      "action": "deleteAttachment"
+    },
+    {
+      "id": "route:GET:/media",
+      "label": "GET /media",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/media",
+      "name": "media.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:MediaController",
+      "label": "MediaController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/media/upload",
+      "label": "POST /media/upload",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/media/upload",
+      "name": "media.upload",
+      "action": "upload"
+    },
+    {
+      "id": "route:POST:/media/attach",
+      "label": "POST /media/attach",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/media/attach",
+      "name": "media.attach",
+      "action": "attach"
+    },
+    {
+      "id": "route:POST:/media/detach",
+      "label": "POST /media/detach",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/media/detach",
+      "name": "media.detach",
+      "action": "detach"
+    },
+    {
+      "id": "route:DELETE:/media/{mediaAsset}",
+      "label": "DELETE /media/{mediaAsset}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/media/{mediaAsset}",
+      "name": "media.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/views",
+      "label": "POST /kanban/boards/{board}/views",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/views",
+      "name": "kanban.views.store",
+      "action": "storeView"
+    },
+    {
+      "id": "route:PATCH:/kanban/views/{view}",
+      "label": "PATCH /kanban/views/{view}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/views/{view}",
+      "name": "kanban.views.update",
+      "action": "updateView"
+    },
+    {
+      "id": "route:DELETE:/kanban/views/{view}",
+      "label": "DELETE /kanban/views/{view}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/views/{view}",
+      "name": "kanban.views.delete",
+      "action": "deleteView"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/views/reorder",
+      "label": "POST /kanban/boards/{board}/views/reorder",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/views/reorder",
+      "name": "kanban.views.reorder",
+      "action": "reorderViews"
+    },
+    {
+      "id": "route:GET:/kanban/tasks/{task}/dependencies",
+      "label": "GET /kanban/tasks/{task}/dependencies",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/tasks/{task}/dependencies",
+      "name": "kanban.tasks.dependencies.get",
+      "action": "getTaskDependencies"
+    },
+    {
+      "id": "route:GET:/kanban/tasks/{task}/linkable-tasks",
+      "label": "GET /kanban/tasks/{task}/linkable-tasks",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/tasks/{task}/linkable-tasks",
+      "name": "kanban.tasks.linkable.search",
+      "action": "searchLinkableTasks"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/dependencies",
+      "label": "POST /kanban/tasks/{task}/dependencies",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/dependencies",
+      "name": "kanban.tasks.dependencies.store",
+      "action": "storeDependency"
+    },
+    {
+      "id": "route:DELETE:/kanban/dependencies/{dependency}",
+      "label": "DELETE /kanban/dependencies/{dependency}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/dependencies/{dependency}",
+      "name": "kanban.dependencies.delete",
+      "action": "deleteDependency"
+    },
+    {
+      "id": "route:PATCH:/kanban/tasks/{task}/schedule",
+      "label": "PATCH /kanban/tasks/{task}/schedule",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/tasks/{task}/schedule",
+      "name": "kanban.tasks.schedule.update",
+      "action": "updateTaskSchedule"
+    },
+    {
+      "id": "route:GET:/kanban/tasks/{task}/recurrence",
+      "label": "GET /kanban/tasks/{task}/recurrence",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/tasks/{task}/recurrence",
+      "name": "kanban.tasks.recurrence.get",
+      "action": "getTaskRecurrence"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/recurrence",
+      "label": "POST /kanban/tasks/{task}/recurrence",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/recurrence",
+      "name": "kanban.tasks.recurrence.store",
+      "action": "storeTaskRecurrence"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/recurrence/toggle",
+      "label": "POST /kanban/tasks/{task}/recurrence/toggle",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/recurrence/toggle",
+      "name": "kanban.tasks.recurrence.toggle",
+      "action": "toggleTaskRecurrence"
+    },
+    {
+      "id": "route:DELETE:/kanban/tasks/{task}/recurrence",
+      "label": "DELETE /kanban/tasks/{task}/recurrence",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/tasks/{task}/recurrence",
+      "name": "kanban.tasks.recurrence.delete",
+      "action": "deleteTaskRecurrence"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/recurrence/run-now",
+      "label": "POST /kanban/tasks/{task}/recurrence/run-now",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/recurrence/run-now",
+      "name": "kanban.tasks.recurrence.run-now",
+      "action": "runTaskRecurrenceNow"
+    },
+    {
+      "id": "route:GET:/kanban/connected-items/search",
+      "label": "GET /kanban/connected-items/search",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/connected-items/search",
+      "name": "kanban.relationships.search",
+      "action": "searchTargetItems"
+    },
+    {
+      "id": "controller:BoardRelationshipController",
+      "label": "BoardRelationshipController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/kanban/relationships",
+      "label": "POST /kanban/relationships",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/relationships",
+      "name": "kanban.relationships.store",
+      "action": "store"
+    },
+    {
+      "id": "route:DELETE:/kanban/relationships/{relationship}",
+      "label": "DELETE /kanban/relationships/{relationship}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/relationships/{relationship}",
+      "name": "kanban.relationships.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/automations",
+      "label": "POST /kanban/boards/{board}/automations",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/automations",
+      "name": "kanban.automations.store",
+      "action": "storeAutomation"
+    },
+    {
+      "id": "route:PATCH:/kanban/automations/{automation}",
+      "label": "PATCH /kanban/automations/{automation}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/automations/{automation}",
+      "name": "kanban.automations.update",
+      "action": "updateAutomation"
+    },
+    {
+      "id": "route:POST:/kanban/automations/{automation}/toggle",
+      "label": "POST /kanban/automations/{automation}/toggle",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/automations/{automation}/toggle",
+      "name": "kanban.automations.toggle",
+      "action": "toggleAutomation"
+    },
+    {
+      "id": "route:POST:/kanban/automations/{automation}/duplicate",
+      "label": "POST /kanban/automations/{automation}/duplicate",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/automations/{automation}/duplicate",
+      "name": "kanban.automations.duplicate",
+      "action": "duplicateAutomation"
+    },
+    {
+      "id": "route:DELETE:/kanban/automations/{automation}",
+      "label": "DELETE /kanban/automations/{automation}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/kanban/automations/{automation}",
+      "name": "kanban.automations.delete",
+      "action": "deleteAutomation"
+    },
+    {
+      "id": "route:POST:/kanban/automations/{automation}/test",
+      "label": "POST /kanban/automations/{automation}/test",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/automations/{automation}/test",
+      "name": "kanban.automations.test",
+      "action": "testAutomation"
+    },
+    {
+      "id": "route:GET:/kanban/sync",
+      "label": "GET /kanban/sync",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/sync",
+      "name": "kanban.sync",
+      "action": "pollSync"
+    },
+    {
+      "id": "route:POST:/user/preferences",
+      "label": "POST /user/preferences",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/user/preferences",
+      "name": "user.preferences.update",
+      "action": "updatePreferences"
+    },
+    {
+      "id": "route:GET:/notifications",
+      "label": "GET /notifications",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/notifications",
+      "name": "notifications.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\NotificationController",
+      "label": "\\App\\Http\\Controllers\\NotificationController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:PATCH:/notifications/{notification}/read",
+      "label": "PATCH /notifications/{notification}/read",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/notifications/{notification}/read",
+      "name": "notifications.read",
+      "action": "markRead"
+    },
+    {
+      "id": "route:POST:/notifications/mark-all-read",
+      "label": "POST /notifications/mark-all-read",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/notifications/mark-all-read",
+      "name": "notifications.mark-all-read",
+      "action": "markAllRead"
+    },
+    {
+      "id": "route:DELETE:/notifications/{notification}",
+      "label": "DELETE /notifications/{notification}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/notifications/{notification}",
+      "name": "notifications.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:GET:/notifications/preferences",
+      "label": "GET /notifications/preferences",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/notifications/preferences",
+      "name": "notifications.preferences",
+      "action": "getPreferences"
+    },
+    {
+      "id": "route:PUT:/notifications/preferences",
+      "label": "PUT /notifications/preferences",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "put",
+      "uri": "/notifications/preferences",
+      "name": "notifications.preferences.update",
+      "action": "updatePreferences"
+    },
+    {
+      "id": "route:GET:/production",
+      "label": "GET /production",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/production",
+      "name": "production.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\ProductionController",
+      "label": "\\App\\Http\\Controllers\\ProductionController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/production/work-orders",
+      "label": "POST /production/work-orders",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/production/work-orders",
+      "name": "production.work-orders.store",
+      "action": "storeWorkOrder"
+    },
+    {
+      "id": "route:PATCH:/production/work-orders/{order}",
+      "label": "PATCH /production/work-orders/{order}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/production/work-orders/{order}",
+      "name": "production.work-orders.update",
+      "action": "updateWorkOrderStatus"
+    },
+    {
+      "id": "route:POST:/production/qc",
+      "label": "POST /production/qc",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/production/qc",
+      "name": "production.qc.store",
+      "action": "storeQualityCheck"
+    },
+    {
+      "id": "route:POST:/production/incidents",
+      "label": "POST /production/incidents",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/production/incidents",
+      "name": "production.incidents.store",
+      "action": "storeIncident"
+    },
+    {
+      "id": "route:GET:/hr",
+      "label": "GET /hr",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/hr",
+      "name": "hr.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\HrController",
+      "label": "\\App\\Http\\Controllers\\HrController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/hr/leaves",
+      "label": "POST /hr/leaves",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/hr/leaves",
+      "name": "hr.leaves.store",
+      "action": "storeLeave"
+    },
+    {
+      "id": "route:PATCH:/hr/leaves/{leave}",
+      "label": "PATCH /hr/leaves/{leave}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/hr/leaves/{leave}",
+      "name": "hr.leaves.update",
+      "action": "updateLeaveStatus"
+    },
+    {
+      "id": "route:GET:/sales",
+      "label": "GET /sales",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/sales",
+      "name": "sales.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\SalesController",
+      "label": "\\App\\Http\\Controllers\\SalesController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/marketing",
+      "label": "GET /marketing",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/marketing",
+      "name": "marketing.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\MarketingController",
+      "label": "\\App\\Http\\Controllers\\MarketingController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/finance",
+      "label": "GET /finance",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/finance",
+      "name": "finance.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\FinanceController",
+      "label": "\\App\\Http\\Controllers\\FinanceController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/operations",
+      "label": "GET /operations",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/operations",
+      "name": "operations.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\OperationsController",
+      "label": "\\App\\Http\\Controllers\\OperationsController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/compliance",
+      "label": "GET /compliance",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/compliance",
+      "name": "compliance.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\ComplianceController",
+      "label": "\\App\\Http\\Controllers\\ComplianceController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/documents",
+      "label": "GET /documents",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/documents",
+      "name": "documents.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\DocumentController",
+      "label": "\\App\\Http\\Controllers\\DocumentController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/analytics",
+      "label": "GET /analytics",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/analytics",
+      "name": "analytics.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\AnalyticsController",
+      "label": "\\App\\Http\\Controllers\\AnalyticsController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/audit-logs",
+      "label": "GET /audit-logs",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/audit-logs",
+      "name": "audit-logs.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\AuditLogController",
+      "label": "\\App\\Http\\Controllers\\AuditLogController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/rbac",
+      "label": "GET /rbac",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/rbac",
+      "name": "rbac.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\RbacController",
+      "label": "\\App\\Http\\Controllers\\RbacController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/rbac/roles/{role}/permissions",
+      "label": "POST /rbac/roles/{role}/permissions",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/rbac/roles/{role}/permissions",
+      "name": "rbac.roles.permissions.update",
+      "action": "updateRolePermissions"
+    },
+    {
+      "id": "route:GET:/projects",
+      "label": "GET /projects",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/projects",
+      "name": "projects.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\AgencyProjectController",
+      "label": "\\App\\Http\\Controllers\\AgencyProjectController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/projects",
+      "label": "POST /projects",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/projects",
+      "name": "projects.store",
+      "action": "store"
+    },
+    {
+      "id": "route:GET:/projects/{project}",
+      "label": "GET /projects/{project}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/projects/{project}",
+      "name": "projects.show",
+      "action": "show"
+    },
+    {
+      "id": "route:PATCH:/projects/{project}",
+      "label": "PATCH /projects/{project}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/projects/{project}",
+      "name": "projects.update",
+      "action": "update"
+    },
+    {
+      "id": "route:DELETE:/projects/{project}",
+      "label": "DELETE /projects/{project}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/projects/{project}",
+      "name": "projects.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:POST:/projects/{project}/members",
+      "label": "POST /projects/{project}/members",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/projects/{project}/members",
+      "name": "projects.members.store",
+      "action": "assignMember"
+    },
+    {
+      "id": "route:DELETE:/projects/{project}/members/{member}",
+      "label": "DELETE /projects/{project}/members/{member}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/projects/{project}/members/{member}",
+      "name": "projects.members.destroy",
+      "action": "removeMember"
+    },
+    {
+      "id": "route:POST:/projects/{project}/deliverables",
+      "label": "POST /projects/{project}/deliverables",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/projects/{project}/deliverables",
+      "name": "projects.deliverables.store",
+      "action": "store"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\DeliverableController",
+      "label": "\\App\\Http\\Controllers\\DeliverableController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/deliverables/{deliverable}/review",
+      "label": "POST /deliverables/{deliverable}/review",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/deliverables/{deliverable}/review",
+      "name": "deliverables.review",
+      "action": "internalReview"
+    },
+    {
+      "id": "route:DELETE:/deliverables/{deliverable}",
+      "label": "DELETE /deliverables/{deliverable}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/deliverables/{deliverable}",
+      "name": "deliverables.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:GET:/deliverables/{deliverable}/download",
+      "label": "GET /deliverables/{deliverable}/download",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/deliverables/{deliverable}/download",
+      "name": "deliverables.download",
+      "action": "download"
+    },
+    {
+      "id": "route:GET:/client-portal",
+      "label": "GET /client-portal",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/client-portal",
+      "name": "client-portal.dashboard",
+      "action": "dashboard"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "label": "\\App\\Http\\Controllers\\ClientPortalController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/client-portal/projects/{project}",
+      "label": "GET /client-portal/projects/{project}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/client-portal/projects/{project}",
+      "name": "client-portal.project",
+      "action": "project"
+    },
+    {
+      "id": "route:POST:/client-portal/deliverables/{deliverable}/feedback",
+      "label": "POST /client-portal/deliverables/{deliverable}/feedback",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/client-portal/deliverables/{deliverable}/feedback",
+      "name": "client-portal.feedback",
+      "action": "submitFeedback"
+    },
+    {
+      "id": "route:POST:/cross-department/links",
+      "label": "POST /cross-department/links",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/cross-department/links",
+      "name": "cross-dept.links.store",
+      "action": "linkDepartmentEntity"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\BoardRelationshipController",
+      "label": "\\App\\Http\\Controllers\\BoardRelationshipController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/forms",
+      "label": "GET /forms",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/forms",
+      "name": "forms.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\FormController",
+      "label": "\\App\\Http\\Controllers\\FormController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/forms",
+      "label": "POST /forms",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/forms",
+      "name": "forms.store",
+      "action": "store"
+    },
+    {
+      "id": "route:GET:/forms/{form}/edit",
+      "label": "GET /forms/{form}/edit",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/forms/{form}/edit",
+      "name": "forms.edit",
+      "action": "edit"
+    },
+    {
+      "id": "route:PATCH:/forms/{form}",
+      "label": "PATCH /forms/{form}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/forms/{form}",
+      "name": "forms.update",
+      "action": "update"
+    },
+    {
+      "id": "route:DELETE:/forms/{form}",
+      "label": "DELETE /forms/{form}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/forms/{form}",
+      "name": "forms.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:POST:/forms/{form}/fields/sync",
+      "label": "POST /forms/{form}/fields/sync",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/forms/{form}/fields/sync",
+      "name": "forms.fields.sync",
+      "action": "syncFields"
+    },
+    {
+      "id": "route:GET:/forms/{form}/submissions",
+      "label": "GET /forms/{form}/submissions",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/forms/{form}/submissions",
+      "name": "forms.submissions",
+      "action": "submissions"
+    },
+    {
+      "id": "route:GET:/workdocs",
+      "label": "GET /workdocs",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/workdocs",
+      "name": "workdocs.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\WorkdocController",
+      "label": "\\App\\Http\\Controllers\\WorkdocController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/workdocs",
+      "label": "POST /workdocs",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/workdocs",
+      "name": "workdocs.store",
+      "action": "store"
+    },
+    {
+      "id": "route:GET:/workdocs/{workdoc}",
+      "label": "GET /workdocs/{workdoc}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/workdocs/{workdoc}",
+      "name": "workdocs.show",
+      "action": "show"
+    },
+    {
+      "id": "route:PATCH:/workdocs/{workdoc}",
+      "label": "PATCH /workdocs/{workdoc}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/workdocs/{workdoc}",
+      "name": "workdocs.update",
+      "action": "update"
+    },
+    {
+      "id": "route:DELETE:/workdocs/{workdoc}",
+      "label": "DELETE /workdocs/{workdoc}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/workdocs/{workdoc}",
+      "name": "workdocs.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:POST:/workdocs/{workdoc}/comments",
+      "label": "POST /workdocs/{workdoc}/comments",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/workdocs/{workdoc}/comments",
+      "name": "workdocs.comments.store",
+      "action": "storeComment"
+    },
+    {
+      "id": "route:PATCH:/workdocs/comments/{comment}/toggle",
+      "label": "PATCH /workdocs/comments/{comment}/toggle",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/workdocs/comments/{comment}/toggle",
+      "name": "workdocs.comments.toggle",
+      "action": "toggleCommentResolve"
+    },
+    {
+      "id": "route:POST:/workdocs/{workdoc}/versions/{version}/restore",
+      "label": "POST /workdocs/{workdoc}/versions/{version}/restore",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/workdocs/{workdoc}/versions/{version}/restore",
+      "name": "workdocs.versions.restore",
+      "action": "restoreVersion"
+    },
+    {
+      "id": "route:GET:/templates",
+      "label": "GET /templates",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/templates",
+      "name": "templates.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\TemplateController",
+      "label": "\\App\\Http\\Controllers\\TemplateController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/templates",
+      "label": "POST /templates",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/templates",
+      "name": "templates.store",
+      "action": "store"
+    },
+    {
+      "id": "route:POST:/templates/save-board/{board}",
+      "label": "POST /templates/save-board/{board}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/templates/save-board/{board}",
+      "name": "templates.save-board",
+      "action": "saveBoardAsTemplate"
+    },
+    {
+      "id": "route:POST:/templates/{template}/instantiate",
+      "label": "POST /templates/{template}/instantiate",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/templates/{template}/instantiate",
+      "name": "templates.instantiate",
+      "action": "instantiate"
+    },
+    {
+      "id": "route:DELETE:/templates/{template}",
+      "label": "DELETE /templates/{template}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/templates/{template}",
+      "name": "templates.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:GET:/kanban/boards/{board}/task-blueprints",
+      "label": "GET /kanban/boards/{board}/task-blueprints",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/boards/{board}/task-blueprints",
+      "name": "kanban.boards.task-blueprints.index",
+      "action": "getTaskBlueprints"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/task-blueprints/instantiate",
+      "label": "POST /kanban/boards/{board}/task-blueprints/instantiate",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/task-blueprints/instantiate",
+      "name": "kanban.boards.task-blueprints.instantiate",
+      "action": "instantiateTaskBlueprint"
+    },
+    {
+      "id": "route:POST:/kanban/groups/{group}/save-as-blueprint",
+      "label": "POST /kanban/groups/{group}/save-as-blueprint",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/groups/{group}/save-as-blueprint",
+      "name": "kanban.groups.save-as-blueprint",
+      "action": "saveGroupAsBlueprint"
+    },
+    {
+      "id": "route:GET:/kanban/boards/{board}/workload-analytics",
+      "label": "GET /kanban/boards/{board}/workload-analytics",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/boards/{board}/workload-analytics",
+      "name": "kanban.boards.workload-analytics",
+      "action": "getBoardWorkload"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\WorkloadCapacityController",
+      "label": "\\App\\Http\\Controllers\\WorkloadCapacityController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/kanban/boards/{board}/delivery-metrics",
+      "label": "GET /kanban/boards/{board}/delivery-metrics",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/boards/{board}/delivery-metrics",
+      "name": "kanban.boards.delivery-metrics",
+      "action": "getDeliveryMetrics"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\ProductionAnalyticsController",
+      "label": "\\App\\Http\\Controllers\\ProductionAnalyticsController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:PATCH:/users/{user}/capacity",
+      "label": "PATCH /users/{user}/capacity",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/users/{user}/capacity",
+      "name": "users.capacity.update",
+      "action": "updateUserCapacity"
+    },
+    {
+      "id": "route:GET:/kanban/boards/{board}/export",
+      "label": "GET /kanban/boards/{board}/export",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/boards/{board}/export",
+      "name": "kanban.boards.export",
+      "action": "exportBoardTasks"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\BoardDataExportController",
+      "label": "\\App\\Http\\Controllers\\BoardDataExportController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:GET:/kanban/boards/{board}/workload-analytics/export",
+      "label": "GET /kanban/boards/{board}/workload-analytics/export",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/boards/{board}/workload-analytics/export",
+      "name": "kanban.boards.workload-analytics.export",
+      "action": "exportWorkload"
+    },
+    {
+      "id": "route:GET:/kanban/boards/{board}/delivery-metrics/export",
+      "label": "GET /kanban/boards/{board}/delivery-metrics/export",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/boards/{board}/delivery-metrics/export",
+      "name": "kanban.boards.delivery-metrics.export",
+      "action": "exportDeliveryMetrics"
+    },
+    {
+      "id": "route:GET:/dashboards",
+      "label": "GET /dashboards",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/dashboards",
+      "name": "dashboards.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "label": "\\App\\Http\\Controllers\\CustomDashboardController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/dashboards",
+      "label": "POST /dashboards",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/dashboards",
+      "name": "dashboards.store",
+      "action": "store"
+    },
+    {
+      "id": "route:GET:/dashboards/{dashboard}",
+      "label": "GET /dashboards/{dashboard}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/dashboards/{dashboard}",
+      "name": "dashboards.show",
+      "action": "show"
+    },
+    {
+      "id": "route:PATCH:/dashboards/{dashboard}",
+      "label": "PATCH /dashboards/{dashboard}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/dashboards/{dashboard}",
+      "name": "dashboards.update",
+      "action": "update"
+    },
+    {
+      "id": "route:DELETE:/dashboards/{dashboard}",
+      "label": "DELETE /dashboards/{dashboard}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/dashboards/{dashboard}",
+      "name": "dashboards.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:POST:/dashboards/{dashboard}/widgets",
+      "label": "POST /dashboards/{dashboard}/widgets",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/dashboards/{dashboard}/widgets",
+      "name": "dashboards.widgets.store",
+      "action": "storeWidget"
+    },
+    {
+      "id": "route:PATCH:/dashboards/{dashboard}/widgets/{widget}",
+      "label": "PATCH /dashboards/{dashboard}/widgets/{widget}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/dashboards/{dashboard}/widgets/{widget}",
+      "name": "dashboards.widgets.update",
+      "action": "updateWidget"
+    },
+    {
+      "id": "route:DELETE:/dashboards/{dashboard}/widgets/{widget}",
+      "label": "DELETE /dashboards/{dashboard}/widgets/{widget}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/dashboards/{dashboard}/widgets/{widget}",
+      "name": "dashboards.widgets.destroy",
+      "action": "destroyWidget"
+    },
+    {
+      "id": "route:POST:/dashboards/{dashboard}/layout",
+      "label": "POST /dashboards/{dashboard}/layout",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/dashboards/{dashboard}/layout",
+      "name": "dashboards.layout.update",
+      "action": "updateLayout"
+    },
+    {
+      "id": "route:GET:/reports",
+      "label": "GET /reports",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/reports",
+      "name": "reports.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\ReportBuilderController",
+      "label": "\\App\\Http\\Controllers\\ReportBuilderController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/reports",
+      "label": "POST /reports",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/reports",
+      "name": "reports.store",
+      "action": "store"
+    },
+    {
+      "id": "route:GET:/reports/{report}/preview",
+      "label": "GET /reports/{report}/preview",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/reports/{report}/preview",
+      "name": "reports.preview",
+      "action": "preview"
+    },
+    {
+      "id": "route:GET:/reports/{report}/export",
+      "label": "GET /reports/{report}/export",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/reports/{report}/export",
+      "name": "reports.export",
+      "action": "export"
+    },
+    {
+      "id": "route:DELETE:/reports/{report}",
+      "label": "DELETE /reports/{report}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/reports/{report}",
+      "name": "reports.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:POST:/reports/{report}/schedules",
+      "label": "POST /reports/{report}/schedules",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/reports/{report}/schedules",
+      "name": "reports.schedules.store",
+      "action": "storeSchedule"
+    },
+    {
+      "id": "route:DELETE:/reports/schedules/{schedule}",
+      "label": "DELETE /reports/schedules/{schedule}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/reports/schedules/{schedule}",
+      "name": "reports.schedules.destroy",
+      "action": "destroySchedule"
+    },
+    {
+      "id": "route:GET:/ai",
+      "label": "GET /ai",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/ai",
+      "name": "ai.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\AiController",
+      "label": "\\App\\Http\\Controllers\\AiController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/ai/conversations",
+      "label": "POST /ai/conversations",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/ai/conversations",
+      "name": "ai.conversations.create",
+      "action": "createConversation"
+    },
+    {
+      "id": "route:POST:/ai/conversations/{conversationId}/messages",
+      "label": "POST /ai/conversations/{conversationId}/messages",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/ai/conversations/{conversationId}/messages",
+      "name": "ai.messages.send",
+      "action": "sendMessage"
+    },
+    {
+      "id": "route:POST:/ai/actions/approve-tasks",
+      "label": "POST /ai/actions/approve-tasks",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/ai/actions/approve-tasks",
+      "name": "ai.tasks.approve",
+      "action": "approveTasks"
+    },
+    {
+      "id": "route:POST:/ai/actions/approve-automation",
+      "label": "POST /ai/actions/approve-automation",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/ai/actions/approve-automation",
+      "name": "ai.automation.approve",
+      "action": "approveAutomation"
+    },
+    {
+      "id": "route:POST:/ai/actions/assist-workdoc",
+      "label": "POST /ai/actions/assist-workdoc",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/ai/actions/assist-workdoc",
+      "name": "ai.workdoc.assist",
+      "action": "assistWorkdoc"
+    },
+    {
+      "id": "route:POST:/ai/config",
+      "label": "POST /ai/config",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/ai/config",
+      "name": "ai.config.update",
+      "action": "updateConfig"
+    },
+    {
+      "id": "route:GET:/integrations",
+      "label": "GET /integrations",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/integrations",
+      "name": "integrations.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\IntegrationCenterController",
+      "label": "\\App\\Http\\Controllers\\IntegrationCenterController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/integrations/connect",
+      "label": "POST /integrations/connect",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/integrations/connect",
+      "name": "integrations.connect",
+      "action": "connect"
+    },
+    {
+      "id": "route:DELETE:/integrations/{id}",
+      "label": "DELETE /integrations/{id}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/integrations/{id}",
+      "name": "integrations.disconnect",
+      "action": "disconnect"
+    },
+    {
+      "id": "route:GET:/developer",
+      "label": "GET /developer",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/developer",
+      "name": "developer.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\DeveloperHubController",
+      "label": "\\App\\Http\\Controllers\\DeveloperHubController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/developer/tokens",
+      "label": "POST /developer/tokens",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/developer/tokens",
+      "name": "developer.tokens.store",
+      "action": "storeToken"
+    },
+    {
+      "id": "route:DELETE:/developer/tokens/{id}",
+      "label": "DELETE /developer/tokens/{id}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/developer/tokens/{id}",
+      "name": "developer.tokens.revoke",
+      "action": "revokeToken"
+    },
+    {
+      "id": "route:POST:/developer/webhooks",
+      "label": "POST /developer/webhooks",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/developer/webhooks",
+      "name": "developer.webhooks.store",
+      "action": "storeWebhook"
+    },
+    {
+      "id": "route:DELETE:/developer/webhooks/{id}",
+      "label": "DELETE /developer/webhooks/{id}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/developer/webhooks/{id}",
+      "name": "developer.webhooks.delete",
+      "action": "deleteWebhook"
+    },
+    {
+      "id": "route:POST:/developer/webhooks/{id}/test",
+      "label": "POST /developer/webhooks/{id}/test",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/developer/webhooks/{id}/test",
+      "name": "developer.webhooks.test",
+      "action": "testWebhook"
+    },
+    {
+      "id": "route:GET:/kanban/tasks/{task}/review",
+      "label": "GET /kanban/tasks/{task}/review",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/tasks/{task}/review",
+      "name": "kanban.tasks.review.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\TaskReviewController",
+      "label": "\\App\\Http\\Controllers\\TaskReviewController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/review/submit",
+      "label": "POST /kanban/tasks/{task}/review/submit",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/review/submit",
+      "name": "kanban.tasks.review.submit",
+      "action": "submit"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/review/decide",
+      "label": "POST /kanban/tasks/{task}/review/decide",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/review/decide",
+      "name": "kanban.tasks.review.decide",
+      "action": "decide"
+    },
+    {
+      "id": "route:GET:/users",
+      "label": "GET /users",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/users",
+      "name": "users.index",
+      "action": "index"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\UserController",
+      "label": "\\App\\Http\\Controllers\\UserController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/users",
+      "label": "POST /users",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/users",
+      "name": "users.store",
+      "action": "store"
+    },
+    {
+      "id": "route:DELETE:/users/{user}",
+      "label": "DELETE /users/{user}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/users/{user}",
+      "name": "users.destroy",
+      "action": "destroy"
+    },
+    {
+      "id": "route:POST:/users/invite",
+      "label": "POST /users/invite",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/users/invite",
+      "action": "invite"
+    },
+    {
+      "id": "route:POST:/users/invitations/{invitation}/resend",
+      "label": "POST /users/invitations/{invitation}/resend",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/users/invitations/{invitation}/resend",
+      "action": "resendInvitation"
+    },
+    {
+      "id": "route:DELETE:/users/invitations/{invitation}",
+      "label": "DELETE /users/invitations/{invitation}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "delete",
+      "uri": "/users/invitations/{invitation}",
+      "action": "revokeInvitation"
+    },
+    {
+      "id": "route:GET:/invitations/{token}",
+      "label": "GET /invitations/{token}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/invitations/{token}",
+      "action": "show"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\Auth\\InvitationRedemptionController",
+      "label": "\\App\\Http\\Controllers\\Auth\\InvitationRedemptionController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/invitations/{token}",
+      "label": "POST /invitations/{token}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/invitations/{token}",
+      "action": "accept"
+    },
+    {
+      "id": "route:GET:/forms/view/{uuid}",
+      "label": "GET /forms/view/{uuid}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/forms/view/{uuid}",
+      "name": "forms.public.show",
+      "action": "showPublic"
+    },
+    {
+      "id": "route:POST:/forms/view/{uuid}/submit",
+      "label": "POST /forms/view/{uuid}/submit",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/forms/view/{uuid}/submit",
+      "name": "forms.public.submit",
+      "action": "submit"
+    },
+    {
+      "id": "controller:AgencyProjectController",
+      "label": "AgencyProjectController",
+      "type": "controller",
+      "file": "app/Http/Controllers/AgencyProjectController.php"
+    },
+    {
+      "id": "component:pages/projects/index",
+      "label": "projects/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "component:pages/projects/show",
+      "label": "projects/show",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:AiController",
+      "label": "AiController",
+      "type": "controller",
+      "file": "app/Http/Controllers/AiController.php"
+    },
+    {
+      "id": "component:pages/ai/index",
+      "label": "ai/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:AnalyticsController",
+      "label": "AnalyticsController",
+      "type": "controller",
+      "file": "app/Http/Controllers/AnalyticsController.php"
+    },
+    {
+      "id": "component:pages/analytics/index",
+      "label": "analytics/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:AuditLogController",
+      "label": "AuditLogController",
+      "type": "controller",
+      "file": "app/Http/Controllers/AuditLogController.php"
+    },
+    {
+      "id": "component:pages/audit/index",
+      "label": "audit/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:BoardDataExportController",
+      "label": "BoardDataExportController",
+      "type": "controller",
+      "file": "app/Http/Controllers/BoardDataExportController.php"
+    },
+    {
+      "id": "controller:ClientPortalController",
+      "label": "ClientPortalController",
+      "type": "controller",
+      "file": "app/Http/Controllers/ClientPortalController.php"
+    },
+    {
+      "id": "component:pages/client-portal/dashboard",
+      "label": "client-portal/dashboard",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "component:pages/client-portal/project",
+      "label": "client-portal/project",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:ComplianceController",
+      "label": "ComplianceController",
+      "type": "controller",
+      "file": "app/Http/Controllers/ComplianceController.php"
+    },
+    {
+      "id": "component:pages/compliance/index",
+      "label": "compliance/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:Controller",
+      "label": "Controller",
+      "type": "controller",
+      "file": "app/Http/Controllers/Controller.php"
+    },
+    {
+      "id": "controller:CustomDashboardController",
+      "label": "CustomDashboardController",
+      "type": "controller",
+      "file": "app/Http/Controllers/CustomDashboardController.php"
+    },
+    {
+      "id": "component:pages/dashboards/index",
+      "label": "dashboards/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "component:pages/dashboards/show",
+      "label": "dashboards/show",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "component:pages/dashboard",
+      "label": "dashboard",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:DeliverableController",
+      "label": "DeliverableController",
+      "type": "controller",
+      "file": "app/Http/Controllers/DeliverableController.php"
+    },
+    {
+      "id": "controller:DeveloperHubController",
+      "label": "DeveloperHubController",
+      "type": "controller",
+      "file": "app/Http/Controllers/DeveloperHubController.php"
+    },
+    {
+      "id": "component:pages/developer/index",
+      "label": "developer/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:DocumentController",
+      "label": "DocumentController",
+      "type": "controller",
+      "file": "app/Http/Controllers/DocumentController.php"
+    },
+    {
+      "id": "component:pages/documents/index",
+      "label": "documents/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:FinanceController",
+      "label": "FinanceController",
+      "type": "controller",
+      "file": "app/Http/Controllers/FinanceController.php"
+    },
+    {
+      "id": "component:pages/finance/index",
+      "label": "finance/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:FormController",
+      "label": "FormController",
+      "type": "controller",
+      "file": "app/Http/Controllers/FormController.php"
+    },
+    {
+      "id": "component:pages/forms/index",
+      "label": "forms/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "component:pages/forms/builder",
+      "label": "forms/builder",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "component:pages/forms/submissions",
+      "label": "forms/submissions",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "component:pages/forms/public",
+      "label": "forms/public",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:HrController",
+      "label": "HrController",
+      "type": "controller",
+      "file": "app/Http/Controllers/HrController.php"
+    },
+    {
+      "id": "component:pages/hr/index",
+      "label": "hr/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:IntegrationCenterController",
+      "label": "IntegrationCenterController",
+      "type": "controller",
+      "file": "app/Http/Controllers/IntegrationCenterController.php"
+    },
+    {
+      "id": "component:pages/integrations/index",
+      "label": "integrations/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "component:pages/kanban/index",
+      "label": "kanban/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:MarketingController",
+      "label": "MarketingController",
+      "type": "controller",
+      "file": "app/Http/Controllers/MarketingController.php"
+    },
+    {
+      "id": "component:pages/marketing/index",
+      "label": "marketing/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:NotificationController",
+      "label": "NotificationController",
+      "type": "controller",
+      "file": "app/Http/Controllers/NotificationController.php"
+    },
+    {
+      "id": "controller:OperationsController",
+      "label": "OperationsController",
+      "type": "controller",
+      "file": "app/Http/Controllers/OperationsController.php"
+    },
+    {
+      "id": "component:pages/operations/index",
+      "label": "operations/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:ProductionAnalyticsController",
+      "label": "ProductionAnalyticsController",
+      "type": "controller",
+      "file": "app/Http/Controllers/ProductionAnalyticsController.php"
+    },
+    {
+      "id": "controller:ProductionController",
+      "label": "ProductionController",
+      "type": "controller",
+      "file": "app/Http/Controllers/ProductionController.php"
+    },
+    {
+      "id": "component:pages/production/index",
+      "label": "production/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:RbacController",
+      "label": "RbacController",
+      "type": "controller",
+      "file": "app/Http/Controllers/RbacController.php"
+    },
+    {
+      "id": "component:pages/rbac/index",
+      "label": "rbac/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:ReportBuilderController",
+      "label": "ReportBuilderController",
+      "type": "controller",
+      "file": "app/Http/Controllers/ReportBuilderController.php"
+    },
+    {
+      "id": "component:pages/reports/index",
+      "label": "reports/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:SalesController",
+      "label": "SalesController",
+      "type": "controller",
+      "file": "app/Http/Controllers/SalesController.php"
+    },
+    {
+      "id": "component:pages/sales/index",
+      "label": "sales/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:TaskReviewController",
+      "label": "TaskReviewController",
+      "type": "controller",
+      "file": "app/Http/Controllers/TaskReviewController.php"
+    },
+    {
+      "id": "controller:TemplateController",
+      "label": "TemplateController",
+      "type": "controller",
+      "file": "app/Http/Controllers/TemplateController.php"
+    },
+    {
+      "id": "component:pages/templates/index",
+      "label": "templates/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:UserController",
+      "label": "UserController",
+      "type": "controller",
+      "file": "app/Http/Controllers/UserController.php"
+    },
+    {
+      "id": "component:pages/users/index",
+      "label": "users/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:WorkdocController",
+      "label": "WorkdocController",
+      "type": "controller",
+      "file": "app/Http/Controllers/WorkdocController.php"
+    },
+    {
+      "id": "component:pages/workdocs/index",
+      "label": "workdocs/index",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "component:pages/workdocs/show",
+      "label": "workdocs/show",
+      "type": "component",
+      "file": null
+    },
+    {
+      "id": "controller:WorkloadCapacityController",
+      "label": "WorkloadCapacityController",
+      "type": "controller",
+      "file": "app/Http/Controllers/WorkloadCapacityController.php"
+    },
+    {
+      "id": "policy:AttachmentPolicy",
+      "label": "AttachmentPolicy",
+      "type": "policy",
+      "file": "app/Policies/AttachmentPolicy.php"
+    },
+    {
+      "id": "policy_ability:before",
+      "label": "AttachmentPolicy::before",
+      "type": "policy_ability",
+      "file": "app/Policies/AttachmentPolicy.php",
+      "ability": "before",
+      "policy": "AttachmentPolicy"
+    },
+    {
+      "id": "policy_ability:view",
+      "label": "AttachmentPolicy::view",
+      "type": "policy_ability",
+      "file": "app/Policies/AttachmentPolicy.php",
+      "ability": "view",
+      "policy": "AttachmentPolicy"
+    },
+    {
+      "id": "policy_ability:create",
+      "label": "AttachmentPolicy::create",
+      "type": "policy_ability",
+      "file": "app/Policies/AttachmentPolicy.php",
+      "ability": "create",
+      "policy": "AttachmentPolicy"
+    },
+    {
+      "id": "policy_ability:delete",
+      "label": "AttachmentPolicy::delete",
+      "type": "policy_ability",
+      "file": "app/Policies/AttachmentPolicy.php",
+      "ability": "delete",
+      "policy": "AttachmentPolicy"
+    },
+    {
+      "id": "policy:BoardPolicy",
+      "label": "BoardPolicy",
+      "type": "policy",
+      "file": "app/Policies/BoardPolicy.php"
+    },
+    {
+      "id": "policy_ability:update",
+      "label": "BoardPolicy::update",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "update",
+      "policy": "BoardPolicy"
+    },
+    {
+      "id": "policy_ability:manageStatuses",
+      "label": "BoardPolicy::manageStatuses",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "manageStatuses",
+      "policy": "BoardPolicy"
+    },
+    {
+      "id": "policy_ability:manageColumns",
+      "label": "BoardPolicy::manageColumns",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "manageColumns",
+      "policy": "BoardPolicy"
+    },
+    {
+      "id": "policy_ability:manageGroups",
+      "label": "BoardPolicy::manageGroups",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "manageGroups",
+      "policy": "BoardPolicy"
+    },
+    {
+      "id": "policy_ability:manageAutomations",
+      "label": "BoardPolicy::manageAutomations",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "manageAutomations",
+      "policy": "BoardPolicy"
+    },
+    {
+      "id": "policy_ability:export",
+      "label": "BoardPolicy::export",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "export",
+      "policy": "BoardPolicy"
+    },
+    {
+      "id": "policy_ability:duplicate",
+      "label": "BoardPolicy::duplicate",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "duplicate",
+      "policy": "BoardPolicy"
+    },
+    {
+      "id": "policy_ability:manageMembers",
+      "label": "BoardPolicy::manageMembers",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "manageMembers",
+      "policy": "BoardPolicy"
+    },
+    {
+      "id": "policy:CommentPolicy",
+      "label": "CommentPolicy",
+      "type": "policy",
+      "file": "app/Policies/CommentPolicy.php"
+    },
+    {
+      "id": "policy:TaskPolicy",
+      "label": "TaskPolicy",
+      "type": "policy",
+      "file": "app/Policies/TaskPolicy.php"
+    },
+    {
+      "id": "policy_ability:changeStatus",
+      "label": "TaskPolicy::changeStatus",
+      "type": "policy_ability",
+      "file": "app/Policies/TaskPolicy.php",
+      "ability": "changeStatus",
+      "policy": "TaskPolicy"
+    },
+    {
+      "id": "policy_ability:canMoveAssignedTask",
+      "label": "TaskPolicy::canMoveAssignedTask",
+      "type": "policy_ability",
+      "file": "app/Policies/TaskPolicy.php",
+      "ability": "canMoveAssignedTask",
+      "policy": "TaskPolicy"
+    },
+    {
+      "id": "policy_ability:reorder",
+      "label": "TaskPolicy::reorder",
+      "type": "policy_ability",
+      "file": "app/Policies/TaskPolicy.php",
+      "ability": "reorder",
+      "policy": "TaskPolicy"
+    },
+    {
+      "id": "policy_ability:changeGroup",
+      "label": "TaskPolicy::changeGroup",
+      "type": "policy_ability",
+      "file": "app/Policies/TaskPolicy.php",
+      "ability": "changeGroup",
+      "policy": "TaskPolicy"
+    },
+    {
+      "id": "policy_ability:manageDependencies",
+      "label": "TaskPolicy::manageDependencies",
+      "type": "policy_ability",
+      "file": "app/Policies/TaskPolicy.php",
+      "ability": "manageDependencies",
+      "policy": "TaskPolicy"
+    },
+    {
+      "id": "policy_ability:manageRecurrence",
+      "label": "TaskPolicy::manageRecurrence",
+      "type": "policy_ability",
+      "file": "app/Policies/TaskPolicy.php",
+      "ability": "manageRecurrence",
+      "policy": "TaskPolicy"
+    },
+    {
+      "id": "policy_ability:manageSubtasks",
+      "label": "TaskPolicy::manageSubtasks",
+      "type": "policy_ability",
+      "file": "app/Policies/TaskPolicy.php",
+      "ability": "manageSubtasks",
+      "policy": "TaskPolicy"
+    },
+    {
+      "id": "policy_ability:submitReview",
+      "label": "TaskPolicy::submitReview",
+      "type": "policy_ability",
+      "file": "app/Policies/TaskPolicy.php",
+      "ability": "submitReview",
+      "policy": "TaskPolicy"
+    },
+    {
+      "id": "policy_ability:reviewTask",
+      "label": "TaskPolicy::reviewTask",
+      "type": "policy_ability",
+      "file": "app/Policies/TaskPolicy.php",
+      "ability": "reviewTask",
+      "policy": "TaskPolicy"
+    },
+    {
+      "id": "policy:UserPolicy",
+      "label": "UserPolicy",
+      "type": "policy",
+      "file": "app/Policies/UserPolicy.php"
+    },
+    {
+      "id": "policy_ability:viewAny",
+      "label": "UserPolicy::viewAny",
+      "type": "policy_ability",
+      "file": "app/Policies/UserPolicy.php",
+      "ability": "viewAny",
+      "policy": "UserPolicy"
+    },
+    {
+      "id": "policy_ability:assignRole",
+      "label": "UserPolicy::assignRole",
+      "type": "policy_ability",
+      "file": "app/Policies/UserPolicy.php",
+      "ability": "assignRole",
+      "policy": "UserPolicy"
+    },
+    {
+      "id": "policy_ability:suspend",
+      "label": "UserPolicy::suspend",
+      "type": "policy_ability",
+      "file": "app/Policies/UserPolicy.php",
+      "ability": "suspend",
+      "policy": "UserPolicy"
+    },
+    {
+      "id": "policy:WorkspacePolicy",
+      "label": "WorkspacePolicy",
+      "type": "policy",
+      "file": "app/Policies/WorkspacePolicy.php"
+    },
+    {
+      "id": "model:AgencyProject",
+      "label": "AgencyProject",
+      "type": "model",
+      "file": "app/Models/AgencyProject.php"
+    },
+    {
+      "id": "model:AiConversation",
+      "label": "AiConversation",
+      "type": "model",
+      "file": "app/Models/AiConversation.php"
+    },
+    {
+      "id": "model:AiMessage",
+      "label": "AiMessage",
+      "type": "model",
+      "file": "app/Models/AiMessage.php"
+    },
+    {
+      "id": "model:AiProviderConfig",
+      "label": "AiProviderConfig",
+      "type": "model",
+      "file": "app/Models/AiProviderConfig.php"
+    },
+    {
+      "id": "model:AiUsageRecord",
+      "label": "AiUsageRecord",
+      "type": "model",
+      "file": "app/Models/AiUsageRecord.php"
+    },
+    {
+      "id": "model:AnalyticsReport",
+      "label": "AnalyticsReport",
+      "type": "model",
+      "file": "app/Models/AnalyticsReport.php"
+    },
+    {
+      "id": "model:ApiRequestLog",
+      "label": "ApiRequestLog",
+      "type": "model",
+      "file": "app/Models/ApiRequestLog.php"
+    },
+    {
+      "id": "model:ApiToken",
+      "label": "ApiToken",
+      "type": "model",
+      "file": "app/Models/ApiToken.php"
+    },
+    {
+      "id": "model:AuditLog",
+      "label": "AuditLog",
+      "type": "model",
+      "file": "app/Models/AuditLog.php"
+    },
+    {
+      "id": "model:AutomationExecution",
+      "label": "AutomationExecution",
+      "type": "model",
+      "file": "app/Models/AutomationExecution.php"
+    },
+    {
+      "id": "model:BoardAutomation",
+      "label": "BoardAutomation",
+      "type": "model",
+      "file": "app/Models/BoardAutomation.php"
+    },
+    {
+      "id": "model:BoardColumn",
+      "label": "BoardColumn",
+      "type": "model",
+      "file": "app/Models/BoardColumn.php"
+    },
+    {
+      "id": "model:BoardGroup",
+      "label": "BoardGroup",
+      "type": "model",
+      "file": "app/Models/BoardGroup.php"
+    },
+    {
+      "id": "model:BoardItemRelationship",
+      "label": "BoardItemRelationship",
+      "type": "model",
+      "file": "app/Models/BoardItemRelationship.php"
+    },
+    {
+      "id": "model:BoardMember",
+      "label": "BoardMember",
+      "type": "model",
+      "file": "app/Models/BoardMember.php"
+    },
+    {
+      "id": "model:BoardView",
+      "label": "BoardView",
+      "type": "model",
+      "file": "app/Models/BoardView.php"
+    },
+    {
+      "id": "model:ClientContact",
+      "label": "ClientContact",
+      "type": "model",
+      "file": "app/Models/ClientContact.php"
+    },
+    {
+      "id": "model:ClientPortalInvitation",
+      "label": "ClientPortalInvitation",
+      "type": "model",
+      "file": "app/Models/ClientPortalInvitation.php"
+    },
+    {
+      "id": "model:ClientProjectGrant",
+      "label": "ClientProjectGrant",
+      "type": "model",
+      "file": "app/Models/ClientProjectGrant.php"
+    },
+    {
+      "id": "model:ComplianceIncident",
+      "label": "ComplianceIncident",
+      "type": "model",
+      "file": "app/Models/ComplianceIncident.php"
+    },
+    {
+      "id": "model:CompliancePolicy",
+      "label": "CompliancePolicy",
+      "type": "model",
+      "file": "app/Models/CompliancePolicy.php"
+    },
+    {
+      "id": "model:ComplianceRisk",
+      "label": "ComplianceRisk",
+      "type": "model",
+      "file": "app/Models/ComplianceRisk.php"
+    },
+    {
+      "id": "model:CrossDepartmentLink",
+      "label": "CrossDepartmentLink",
+      "type": "model",
+      "file": "app/Models/CrossDepartmentLink.php"
+    },
+    {
+      "id": "model:Dashboard",
+      "label": "Dashboard",
+      "type": "model",
+      "file": "app/Models/Dashboard.php"
+    },
+    {
+      "id": "model:DashboardMember",
+      "label": "DashboardMember",
+      "type": "model",
+      "file": "app/Models/DashboardMember.php"
+    },
+    {
+      "id": "model:DashboardWidget",
+      "label": "DashboardWidget",
+      "type": "model",
+      "file": "app/Models/DashboardWidget.php"
+    },
+    {
+      "id": "model:Document",
+      "label": "Document",
+      "type": "model",
+      "file": "app/Models/Document.php"
+    },
+    {
+      "id": "model:DocumentCategory",
+      "label": "DocumentCategory",
+      "type": "model",
+      "file": "app/Models/DocumentCategory.php"
+    },
+    {
+      "id": "model:DocumentVersion",
+      "label": "DocumentVersion",
+      "type": "model",
+      "file": "app/Models/DocumentVersion.php"
+    },
+    {
+      "id": "model:ExternalResourceLink",
+      "label": "ExternalResourceLink",
+      "type": "model",
+      "file": "app/Models/ExternalResourceLink.php"
+    },
+    {
+      "id": "model:FinanceBudget",
+      "label": "FinanceBudget",
+      "type": "model",
+      "file": "app/Models/FinanceBudget.php"
+    },
+    {
+      "id": "model:FinanceExpense",
+      "label": "FinanceExpense",
+      "type": "model",
+      "file": "app/Models/FinanceExpense.php"
+    },
+    {
+      "id": "model:FinanceTransaction",
+      "label": "FinanceTransaction",
+      "type": "model",
+      "file": "app/Models/FinanceTransaction.php"
+    },
+    {
+      "id": "model:Form",
+      "label": "Form",
+      "type": "model",
+      "file": "app/Models/Form.php"
+    },
+    {
+      "id": "model:FormField",
+      "label": "FormField",
+      "type": "model",
+      "file": "app/Models/FormField.php"
+    },
+    {
+      "id": "model:FormSubmission",
+      "label": "FormSubmission",
+      "type": "model",
+      "file": "app/Models/FormSubmission.php"
+    },
+    {
+      "id": "model:FormSubmissionValue",
+      "label": "FormSubmissionValue",
+      "type": "model",
+      "file": "app/Models/FormSubmissionValue.php"
+    },
+    {
+      "id": "model:HrAttendance",
+      "label": "HrAttendance",
+      "type": "model",
+      "file": "app/Models/HrAttendance.php"
+    },
+    {
+      "id": "model:HrEmployee",
+      "label": "HrEmployee",
+      "type": "model",
+      "file": "app/Models/HrEmployee.php"
+    },
+    {
+      "id": "model:HrLeaveRequest",
+      "label": "HrLeaveRequest",
+      "type": "model",
+      "file": "app/Models/HrLeaveRequest.php"
+    },
+    {
+      "id": "model:HrPerformanceReview",
+      "label": "HrPerformanceReview",
+      "type": "model",
+      "file": "app/Models/HrPerformanceReview.php"
+    },
+    {
+      "id": "model:IncomingWebhookLog",
+      "label": "IncomingWebhookLog",
+      "type": "model",
+      "file": "app/Models/IncomingWebhookLog.php"
+    },
+    {
+      "id": "model:KanbanAttachment",
+      "label": "KanbanAttachment",
+      "type": "model",
+      "file": "app/Models/KanbanAttachment.php"
+    },
+    {
+      "id": "model:KanbanBoard",
+      "label": "KanbanBoard",
+      "type": "model",
+      "file": "app/Models/KanbanBoard.php"
+    },
+    {
+      "id": "model:KanbanColumn",
+      "label": "KanbanColumn",
+      "type": "model",
+      "file": "app/Models/KanbanColumn.php"
+    },
+    {
+      "id": "model:KanbanComment",
+      "label": "KanbanComment",
+      "type": "model",
+      "file": "app/Models/KanbanComment.php"
+    },
+    {
+      "id": "model:KanbanTask",
+      "label": "KanbanTask",
+      "type": "model",
+      "file": "app/Models/KanbanTask.php"
+    },
+    {
+      "id": "model:MarketingCampaign",
+      "label": "MarketingCampaign",
+      "type": "model",
+      "file": "app/Models/MarketingCampaign.php"
+    },
+    {
+      "id": "model:MarketingContent",
+      "label": "MarketingContent",
+      "type": "model",
+      "file": "app/Models/MarketingContent.php"
+    },
+    {
+      "id": "model:MediaAsset",
+      "label": "MediaAsset",
+      "type": "model",
+      "file": "app/Models/MediaAsset.php"
+    },
+    {
+      "id": "model:MediaUsage",
+      "label": "MediaUsage",
+      "type": "model",
+      "file": "app/Models/MediaUsage.php"
+    },
+    {
+      "id": "model:NotificationPreference",
+      "label": "NotificationPreference",
+      "type": "model",
+      "file": "app/Models/NotificationPreference.php"
+    },
+    {
+      "id": "model:OperationsTicket",
+      "label": "OperationsTicket",
+      "type": "model",
+      "file": "app/Models/OperationsTicket.php"
+    },
+    {
+      "id": "model:OperationsWorkflow",
+      "label": "OperationsWorkflow",
+      "type": "model",
+      "file": "app/Models/OperationsWorkflow.php"
+    },
+    {
+      "id": "model:Permission",
+      "label": "Permission",
+      "type": "model",
+      "file": "app/Models/Permission.php"
+    },
+    {
+      "id": "model:ProductionIncident",
+      "label": "ProductionIncident",
+      "type": "model",
+      "file": "app/Models/ProductionIncident.php"
+    },
+    {
+      "id": "model:ProductionQualityCheck",
+      "label": "ProductionQualityCheck",
+      "type": "model",
+      "file": "app/Models/ProductionQualityCheck.php"
+    },
+    {
+      "id": "model:ProductionWorkOrder",
+      "label": "ProductionWorkOrder",
+      "type": "model",
+      "file": "app/Models/ProductionWorkOrder.php"
+    },
+    {
+      "id": "model:ProjectDeliverable",
+      "label": "ProjectDeliverable",
+      "type": "model",
+      "file": "app/Models/ProjectDeliverable.php"
+    },
+    {
+      "id": "model:ProjectMember",
+      "label": "ProjectMember",
+      "type": "model",
+      "file": "app/Models/ProjectMember.php"
+    },
+    {
+      "id": "model:RolePermission",
+      "label": "RolePermission",
+      "type": "model",
+      "file": "app/Models/RolePermission.php"
+    },
+    {
+      "id": "model:SalesCustomer",
+      "label": "SalesCustomer",
+      "type": "model",
+      "file": "app/Models/SalesCustomer.php"
+    },
+    {
+      "id": "model:SalesInvoice",
+      "label": "SalesInvoice",
+      "type": "model",
+      "file": "app/Models/SalesInvoice.php"
+    },
+    {
+      "id": "model:SalesLead",
+      "label": "SalesLead",
+      "type": "model",
+      "file": "app/Models/SalesLead.php"
+    },
+    {
+      "id": "model:SalesTarget",
+      "label": "SalesTarget",
+      "type": "model",
+      "file": "app/Models/SalesTarget.php"
+    },
+    {
+      "id": "model:ScheduledReport",
+      "label": "ScheduledReport",
+      "type": "model",
+      "file": "app/Models/ScheduledReport.php"
+    },
+    {
+      "id": "model:SystemNotification",
+      "label": "SystemNotification",
+      "type": "model",
+      "file": "app/Models/SystemNotification.php"
+    },
+    {
+      "id": "model:TaskActivity",
+      "label": "TaskActivity",
+      "type": "model",
+      "file": "app/Models/TaskActivity.php"
+    },
+    {
+      "id": "model:TaskDependency",
+      "label": "TaskDependency",
+      "type": "model",
+      "file": "app/Models/TaskDependency.php"
+    },
+    {
+      "id": "model:TaskRecurrenceLog",
+      "label": "TaskRecurrenceLog",
+      "type": "model",
+      "file": "app/Models/TaskRecurrenceLog.php"
+    },
+    {
+      "id": "model:TaskRecurrenceRule",
+      "label": "TaskRecurrenceRule",
+      "type": "model",
+      "file": "app/Models/TaskRecurrenceRule.php"
+    },
+    {
+      "id": "model:TaskReminder",
+      "label": "TaskReminder",
+      "type": "model",
+      "file": "app/Models/TaskReminder.php"
+    },
+    {
+      "id": "model:TaskReviewCycle",
+      "label": "TaskReviewCycle",
+      "type": "model",
+      "file": "app/Models/TaskReviewCycle.php"
+    },
+    {
+      "id": "model:TaskReviewDecision",
+      "label": "TaskReviewDecision",
+      "type": "model",
+      "file": "app/Models/TaskReviewDecision.php"
+    },
+    {
+      "id": "model:TaskReviewStage",
+      "label": "TaskReviewStage",
+      "type": "model",
+      "file": "app/Models/TaskReviewStage.php"
+    },
+    {
+      "id": "model:ThirdPartyIntegration",
+      "label": "ThirdPartyIntegration",
+      "type": "model",
+      "file": "app/Models/ThirdPartyIntegration.php"
+    },
+    {
+      "id": "model:User",
+      "label": "User",
+      "type": "model",
+      "file": "app/Models/User.php"
+    },
+    {
+      "id": "model:UserInvitation",
+      "label": "UserInvitation",
+      "type": "model",
+      "file": "app/Models/UserInvitation.php"
+    },
+    {
+      "id": "model:WebhookDelivery",
+      "label": "WebhookDelivery",
+      "type": "model",
+      "file": "app/Models/WebhookDelivery.php"
+    },
+    {
+      "id": "model:WebhookSubscription",
+      "label": "WebhookSubscription",
+      "type": "model",
+      "file": "app/Models/WebhookSubscription.php"
+    },
+    {
+      "id": "model:Workdoc",
+      "label": "Workdoc",
+      "type": "model",
+      "file": "app/Models/Workdoc.php"
+    },
+    {
+      "id": "model:WorkdocComment",
+      "label": "WorkdocComment",
+      "type": "model",
+      "file": "app/Models/WorkdocComment.php"
+    },
+    {
+      "id": "model:WorkdocVersion",
+      "label": "WorkdocVersion",
+      "type": "model",
+      "file": "app/Models/WorkdocVersion.php"
+    },
+    {
+      "id": "model:WorkOsTemplate",
+      "label": "WorkOsTemplate",
+      "type": "model",
+      "file": "app/Models/WorkOsTemplate.php"
+    },
+    {
+      "id": "model:Workspace",
+      "label": "Workspace",
+      "type": "model",
+      "file": "app/Models/Workspace.php"
+    },
+    {
+      "id": "model:WorkspaceMember",
+      "label": "WorkspaceMember",
+      "type": "model",
+      "file": "app/Models/WorkspaceMember.php"
+    },
+    {
+      "id": "component:AddColumnModal",
+      "label": "AddColumnModal",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/AddColumnModal.tsx"
+    },
+    {
+      "id": "component:AutomationCenterModal",
+      "label": "AutomationCenterModal",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/AutomationCenterModal.tsx"
+    },
+    {
+      "id": "component:BoardHeader",
+      "label": "BoardHeader",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/BoardHeader.tsx"
+    },
+    {
+      "id": "component:BoardUnifiedHeader",
+      "label": "BoardUnifiedHeader",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/BoardUnifiedHeader.tsx"
+    },
+    {
+      "id": "component:CalendarView",
+      "label": "CalendarView",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/CalendarView.tsx"
+    },
+    {
+      "id": "component:ChartView",
+      "label": "ChartView",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/ChartView.tsx"
+    },
+    {
+      "id": "component:ConnectBoardsModal",
+      "label": "ConnectBoardsModal",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/ConnectBoardsModal.tsx"
+    },
+    {
+      "id": "component:DatePickerCell",
+      "label": "DatePickerCell",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/DatePickerCell.tsx"
+    },
+    {
+      "id": "component:EditableDropdownCell",
+      "label": "EditableDropdownCell",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/EditableDropdownCell.tsx"
+    },
+    {
+      "id": "component:EmployeeTaskPanel",
+      "label": "EmployeeTaskPanel",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/EmployeeTaskPanel.tsx"
+    },
+    {
+      "id": "component:FilesView",
+      "label": "FilesView",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/FilesView.tsx"
+    },
+    {
+      "id": "component:GalleryView",
+      "label": "GalleryView",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/GalleryView.tsx"
+    },
+    {
+      "id": "component:GanttView",
+      "label": "GanttView",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/GanttView.tsx"
+    },
+    {
+      "id": "component:ImageCell",
+      "label": "ImageCell",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/ImageCell.tsx"
+    },
+    {
+      "id": "component:ItemDetailDrawer",
+      "label": "ItemDetailDrawer",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/ItemDetailDrawer.tsx"
+    },
+    {
+      "id": "component:KanbanBoardView",
+      "label": "KanbanBoardView",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/KanbanBoardView.tsx"
+    },
+    {
+      "id": "component:MultiPeoplePicker",
+      "label": "MultiPeoplePicker",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/MultiPeoplePicker.tsx"
+    },
+    {
+      "id": "component:SubitemTable",
+      "label": "SubitemTable",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/SubitemTable.tsx"
+    },
+    {
+      "id": "component:TableRow",
+      "label": "TableRow",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/TableRow.tsx"
+    },
+    {
+      "id": "component:TableView",
+      "label": "TableView",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/TableView.tsx"
+    },
+    {
+      "id": "component:TimelineGanttView",
+      "label": "TimelineGanttView",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/TimelineGanttView.tsx"
+    },
+    {
+      "id": "component:WorkflowBlueprintModal",
+      "label": "WorkflowBlueprintModal",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/WorkflowBlueprintModal.tsx"
+    },
+    {
+      "id": "component:WorkloadView",
+      "label": "WorkloadView",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/WorkloadView.tsx"
+    },
+    {
+      "id": "component:WorkspaceBoardNav",
+      "label": "WorkspaceBoardNav",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/WorkspaceBoardNav.tsx"
+    },
+    {
+      "id": "component:index",
+      "label": "index",
+      "type": "component",
+      "file": "resources/js/pages/kanban/index.tsx"
+    },
+    {
+      "id": "component:types",
+      "label": "types",
+      "type": "component",
+      "file": "resources/js/pages/kanban/types.ts"
+    },
+    {
+      "id": "test:WorkOsAssignedTaskMovementAndFilterTest",
+      "label": "WorkOsAssignedTaskMovementAndFilterTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsAssignedTaskMovementAndFilterTest.php"
+    },
+    {
+      "id": "test:WorkOsAuthorizationTest",
+      "label": "WorkOsAuthorizationTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsAuthorizationTest.php"
+    },
+    {
+      "id": "test:WorkOsBoardTest",
+      "label": "WorkOsBoardTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsBoardTest.php"
+    },
+    {
+      "id": "test:WorkOsDirectAccessTest",
+      "label": "WorkOsDirectAccessTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsDirectAccessTest.php"
+    },
+    {
+      "id": "test:WorkOsEmployeeTaskModalTest",
+      "label": "WorkOsEmployeeTaskModalTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsEmployeeTaskModalTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase2SecurityAuditTest",
+      "label": "WorkOsPhase2SecurityAuditTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase2SecurityAuditTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase36ActivityAndMultiAssigneesTest",
+      "label": "WorkOsPhase36ActivityAndMultiAssigneesTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase36ActivityAndMultiAssigneesTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase36DynamicColumnsAndCellsTest",
+      "label": "WorkOsPhase36DynamicColumnsAndCellsTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase36DynamicColumnsAndCellsTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase36MediaLibraryAndWorkspaceTest",
+      "label": "WorkOsPhase36MediaLibraryAndWorkspaceTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase36MediaLibraryAndWorkspaceTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase36NestedSubtaskTableTest",
+      "label": "WorkOsPhase36NestedSubtaskTableTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase36NestedSubtaskTableTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase3SchedulingAndDeadlinesTest",
+      "label": "WorkOsPhase3SchedulingAndDeadlinesTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase3SchedulingAndDeadlinesTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase4CollaborationAndReviewTest",
+      "label": "WorkOsPhase4CollaborationAndReviewTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase4CollaborationAndReviewTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase5MultiStageReviewTest",
+      "label": "WorkOsPhase5MultiStageReviewTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase5MultiStageReviewTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase5ProductionAnalyticsTest",
+      "label": "WorkOsPhase5ProductionAnalyticsTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase5ProductionAnalyticsTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase5ProductionTemplatesTest",
+      "label": "WorkOsPhase5ProductionTemplatesTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase5ProductionTemplatesTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase5RecurringTasksTest",
+      "label": "WorkOsPhase5RecurringTasksTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase5RecurringTasksTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase5ReportsAndExportsTest",
+      "label": "WorkOsPhase5ReportsAndExportsTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase5ReportsAndExportsTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase5TaskDependenciesTest",
+      "label": "WorkOsPhase5TaskDependenciesTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase5TaskDependenciesTest.php"
+    },
+    {
+      "id": "test:WorkOsPhase5WorkloadCapacityTest",
+      "label": "WorkOsPhase5WorkloadCapacityTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPhase5WorkloadCapacityTest.php"
+    },
+    {
+      "id": "test:WorkOsRbacSecurityAuditTest",
+      "label": "WorkOsRbacSecurityAuditTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsRbacSecurityAuditTest.php"
+    },
+    {
+      "id": "test:WorkOsUserManagementTest",
+      "label": "WorkOsUserManagementTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsUserManagementTest.php"
+    }
+  ],
+  "edges": [
+    {
+      "source": "route:GET:/dashboard",
+      "target": "controller:DashboardController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/switch-role",
+      "target": "controller:RoleSwitchController",
+      "relationship": "routes_to",
+      "action": "switchRole"
+    },
+    {
+      "source": "route:GET:/kanban",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/workspaces",
+      "target": "controller:WorkspaceController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:PATCH:/workspaces/{workspace}",
+      "target": "controller:WorkspaceController",
+      "relationship": "routes_to",
+      "action": "update"
+    },
+    {
+      "source": "route:DELETE:/workspaces/{workspace}",
+      "target": "controller:WorkspaceController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:POST:/workspaces/{workspace}/favorite",
+      "target": "controller:WorkspaceController",
+      "relationship": "routes_to",
+      "action": "toggleFavorite"
+    },
+    {
+      "source": "route:POST:/workspaces/{workspace}/members",
+      "target": "controller:WorkspaceController",
+      "relationship": "routes_to",
+      "action": "addMember"
+    },
+    {
+      "source": "route:DELETE:/workspaces/{workspace}/members/{member}",
+      "target": "controller:WorkspaceController",
+      "relationship": "routes_to",
+      "action": "removeMember"
+    },
+    {
+      "source": "route:PATCH:/workspaces/{workspace}/members/{member}",
+      "target": "controller:WorkspaceController",
+      "relationship": "routes_to",
+      "action": "updateMemberRole"
+    },
+    {
+      "source": "route:POST:/kanban/boards",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeBoard"
+    },
+    {
+      "source": "route:PATCH:/kanban/boards/{board}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateBoard"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/duplicate",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "duplicateBoard"
+    },
+    {
+      "source": "route:DELETE:/kanban/boards/{board}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteBoard"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/favorite",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "toggleBoardFavorite"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/members",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "addBoardMember"
+    },
+    {
+      "source": "route:DELETE:/kanban/boards/{board}/members/{member}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "removeBoardMember"
+    },
+    {
+      "source": "route:PATCH:/kanban/boards/{board}/members/{member}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateBoardMemberRole"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/groups",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeGroup"
+    },
+    {
+      "source": "route:PATCH:/kanban/groups/{group}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateGroup"
+    },
+    {
+      "source": "route:DELETE:/kanban/groups/{group}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteGroup"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/stages",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeWorkflowStage"
+    },
+    {
+      "source": "route:PATCH:/kanban/stages/{column}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateWorkflowStage"
+    },
+    {
+      "source": "route:DELETE:/kanban/stages/{column}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteWorkflowStage"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/stages/reorder",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "reorderWorkflowStages"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/columns",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeBoardColumn"
+    },
+    {
+      "source": "route:PATCH:/kanban/board-columns/{column}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateBoardColumn"
+    },
+    {
+      "source": "route:POST:/kanban/board-columns/{column}/duplicate",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "duplicateBoardColumn"
+    },
+    {
+      "source": "route:DELETE:/kanban/board-columns/{column}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteBoardColumn"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/columns/reorder",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "reorderBoardColumns"
+    },
+    {
+      "source": "route:POST:/kanban/tasks",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeTask"
+    },
+    {
+      "source": "route:PATCH:/kanban/tasks/{task}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateTask"
+    },
+    {
+      "source": "route:PATCH:/kanban/tasks/{task}/column",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateTaskColumn"
+    },
+    {
+      "source": "route:PATCH:/kanban/tasks/{task}/group",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateTaskGroup"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/reorder",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "reorderTasks"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/subitems",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeSubitem"
+    },
+    {
+      "source": "route:DELETE:/kanban/tasks/{task}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteTask"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/comments",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeComment"
+    },
+    {
+      "source": "route:DELETE:/kanban/comments/{comment}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteComment"
+    },
+    {
+      "source": "route:POST:/kanban/comments/{comment}/reactions",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "toggleCommentReaction"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/attachments",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeAttachment"
+    },
+    {
+      "source": "route:GET:/kanban/attachments/{attachment}/download",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "downloadAttachment"
+    },
+    {
+      "source": "route:DELETE:/kanban/attachments/{attachment}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteAttachment"
+    },
+    {
+      "source": "route:GET:/media",
+      "target": "controller:MediaController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/media/upload",
+      "target": "controller:MediaController",
+      "relationship": "routes_to",
+      "action": "upload"
+    },
+    {
+      "source": "route:POST:/media/attach",
+      "target": "controller:MediaController",
+      "relationship": "routes_to",
+      "action": "attach"
+    },
+    {
+      "source": "route:POST:/media/detach",
+      "target": "controller:MediaController",
+      "relationship": "routes_to",
+      "action": "detach"
+    },
+    {
+      "source": "route:DELETE:/media/{mediaAsset}",
+      "target": "controller:MediaController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/views",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeView"
+    },
+    {
+      "source": "route:PATCH:/kanban/views/{view}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateView"
+    },
+    {
+      "source": "route:DELETE:/kanban/views/{view}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteView"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/views/reorder",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "reorderViews"
+    },
+    {
+      "source": "route:GET:/kanban/tasks/{task}/dependencies",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "getTaskDependencies"
+    },
+    {
+      "source": "route:GET:/kanban/tasks/{task}/linkable-tasks",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "searchLinkableTasks"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/dependencies",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeDependency"
+    },
+    {
+      "source": "route:DELETE:/kanban/dependencies/{dependency}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteDependency"
+    },
+    {
+      "source": "route:PATCH:/kanban/tasks/{task}/schedule",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateTaskSchedule"
+    },
+    {
+      "source": "route:GET:/kanban/tasks/{task}/recurrence",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "getTaskRecurrence"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/recurrence",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeTaskRecurrence"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/recurrence/toggle",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "toggleTaskRecurrence"
+    },
+    {
+      "source": "route:DELETE:/kanban/tasks/{task}/recurrence",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteTaskRecurrence"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/recurrence/run-now",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "runTaskRecurrenceNow"
+    },
+    {
+      "source": "route:GET:/kanban/connected-items/search",
+      "target": "controller:BoardRelationshipController",
+      "relationship": "routes_to",
+      "action": "searchTargetItems"
+    },
+    {
+      "source": "route:POST:/kanban/relationships",
+      "target": "controller:BoardRelationshipController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:DELETE:/kanban/relationships/{relationship}",
+      "target": "controller:BoardRelationshipController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/automations",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "storeAutomation"
+    },
+    {
+      "source": "route:PATCH:/kanban/automations/{automation}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateAutomation"
+    },
+    {
+      "source": "route:POST:/kanban/automations/{automation}/toggle",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "toggleAutomation"
+    },
+    {
+      "source": "route:POST:/kanban/automations/{automation}/duplicate",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "duplicateAutomation"
+    },
+    {
+      "source": "route:DELETE:/kanban/automations/{automation}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "deleteAutomation"
+    },
+    {
+      "source": "route:POST:/kanban/automations/{automation}/test",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "testAutomation"
+    },
+    {
+      "source": "route:GET:/kanban/sync",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "pollSync"
+    },
+    {
+      "source": "route:POST:/user/preferences",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updatePreferences"
+    },
+    {
+      "source": "route:GET:/notifications",
+      "target": "controller:\\App\\Http\\Controllers\\NotificationController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:PATCH:/notifications/{notification}/read",
+      "target": "controller:\\App\\Http\\Controllers\\NotificationController",
+      "relationship": "routes_to",
+      "action": "markRead"
+    },
+    {
+      "source": "route:POST:/notifications/mark-all-read",
+      "target": "controller:\\App\\Http\\Controllers\\NotificationController",
+      "relationship": "routes_to",
+      "action": "markAllRead"
+    },
+    {
+      "source": "route:DELETE:/notifications/{notification}",
+      "target": "controller:\\App\\Http\\Controllers\\NotificationController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:GET:/notifications/preferences",
+      "target": "controller:\\App\\Http\\Controllers\\NotificationController",
+      "relationship": "routes_to",
+      "action": "getPreferences"
+    },
+    {
+      "source": "route:PUT:/notifications/preferences",
+      "target": "controller:\\App\\Http\\Controllers\\NotificationController",
+      "relationship": "routes_to",
+      "action": "updatePreferences"
+    },
+    {
+      "source": "route:GET:/production",
+      "target": "controller:\\App\\Http\\Controllers\\ProductionController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/production/work-orders",
+      "target": "controller:\\App\\Http\\Controllers\\ProductionController",
+      "relationship": "routes_to",
+      "action": "storeWorkOrder"
+    },
+    {
+      "source": "route:PATCH:/production/work-orders/{order}",
+      "target": "controller:\\App\\Http\\Controllers\\ProductionController",
+      "relationship": "routes_to",
+      "action": "updateWorkOrderStatus"
+    },
+    {
+      "source": "route:POST:/production/qc",
+      "target": "controller:\\App\\Http\\Controllers\\ProductionController",
+      "relationship": "routes_to",
+      "action": "storeQualityCheck"
+    },
+    {
+      "source": "route:POST:/production/incidents",
+      "target": "controller:\\App\\Http\\Controllers\\ProductionController",
+      "relationship": "routes_to",
+      "action": "storeIncident"
+    },
+    {
+      "source": "route:GET:/hr",
+      "target": "controller:\\App\\Http\\Controllers\\HrController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/hr/leaves",
+      "target": "controller:\\App\\Http\\Controllers\\HrController",
+      "relationship": "routes_to",
+      "action": "storeLeave"
+    },
+    {
+      "source": "route:PATCH:/hr/leaves/{leave}",
+      "target": "controller:\\App\\Http\\Controllers\\HrController",
+      "relationship": "routes_to",
+      "action": "updateLeaveStatus"
+    },
+    {
+      "source": "route:GET:/sales",
+      "target": "controller:\\App\\Http\\Controllers\\SalesController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:GET:/marketing",
+      "target": "controller:\\App\\Http\\Controllers\\MarketingController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:GET:/finance",
+      "target": "controller:\\App\\Http\\Controllers\\FinanceController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:GET:/operations",
+      "target": "controller:\\App\\Http\\Controllers\\OperationsController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:GET:/compliance",
+      "target": "controller:\\App\\Http\\Controllers\\ComplianceController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:GET:/documents",
+      "target": "controller:\\App\\Http\\Controllers\\DocumentController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:GET:/analytics",
+      "target": "controller:\\App\\Http\\Controllers\\AnalyticsController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:GET:/audit-logs",
+      "target": "controller:\\App\\Http\\Controllers\\AuditLogController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:GET:/rbac",
+      "target": "controller:\\App\\Http\\Controllers\\RbacController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/rbac/roles/{role}/permissions",
+      "target": "controller:\\App\\Http\\Controllers\\RbacController",
+      "relationship": "routes_to",
+      "action": "updateRolePermissions"
+    },
+    {
+      "source": "route:GET:/projects",
+      "target": "controller:\\App\\Http\\Controllers\\AgencyProjectController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/projects",
+      "target": "controller:\\App\\Http\\Controllers\\AgencyProjectController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:GET:/projects/{project}",
+      "target": "controller:\\App\\Http\\Controllers\\AgencyProjectController",
+      "relationship": "routes_to",
+      "action": "show"
+    },
+    {
+      "source": "route:PATCH:/projects/{project}",
+      "target": "controller:\\App\\Http\\Controllers\\AgencyProjectController",
+      "relationship": "routes_to",
+      "action": "update"
+    },
+    {
+      "source": "route:DELETE:/projects/{project}",
+      "target": "controller:\\App\\Http\\Controllers\\AgencyProjectController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:POST:/projects/{project}/members",
+      "target": "controller:\\App\\Http\\Controllers\\AgencyProjectController",
+      "relationship": "routes_to",
+      "action": "assignMember"
+    },
+    {
+      "source": "route:DELETE:/projects/{project}/members/{member}",
+      "target": "controller:\\App\\Http\\Controllers\\AgencyProjectController",
+      "relationship": "routes_to",
+      "action": "removeMember"
+    },
+    {
+      "source": "route:POST:/projects/{project}/deliverables",
+      "target": "controller:\\App\\Http\\Controllers\\DeliverableController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:POST:/deliverables/{deliverable}/review",
+      "target": "controller:\\App\\Http\\Controllers\\DeliverableController",
+      "relationship": "routes_to",
+      "action": "internalReview"
+    },
+    {
+      "source": "route:DELETE:/deliverables/{deliverable}",
+      "target": "controller:\\App\\Http\\Controllers\\DeliverableController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:GET:/deliverables/{deliverable}/download",
+      "target": "controller:\\App\\Http\\Controllers\\DeliverableController",
+      "relationship": "routes_to",
+      "action": "download"
+    },
+    {
+      "source": "route:GET:/client-portal",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "dashboard"
+    },
+    {
+      "source": "route:GET:/client-portal/projects/{project}",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "project"
+    },
+    {
+      "source": "route:POST:/client-portal/deliverables/{deliverable}/feedback",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "submitFeedback"
+    },
+    {
+      "source": "route:POST:/cross-department/links",
+      "target": "controller:\\App\\Http\\Controllers\\BoardRelationshipController",
+      "relationship": "routes_to",
+      "action": "linkDepartmentEntity"
+    },
+    {
+      "source": "route:GET:/forms",
+      "target": "controller:\\App\\Http\\Controllers\\FormController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/forms",
+      "target": "controller:\\App\\Http\\Controllers\\FormController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:GET:/forms/{form}/edit",
+      "target": "controller:\\App\\Http\\Controllers\\FormController",
+      "relationship": "routes_to",
+      "action": "edit"
+    },
+    {
+      "source": "route:PATCH:/forms/{form}",
+      "target": "controller:\\App\\Http\\Controllers\\FormController",
+      "relationship": "routes_to",
+      "action": "update"
+    },
+    {
+      "source": "route:DELETE:/forms/{form}",
+      "target": "controller:\\App\\Http\\Controllers\\FormController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:POST:/forms/{form}/fields/sync",
+      "target": "controller:\\App\\Http\\Controllers\\FormController",
+      "relationship": "routes_to",
+      "action": "syncFields"
+    },
+    {
+      "source": "route:GET:/forms/{form}/submissions",
+      "target": "controller:\\App\\Http\\Controllers\\FormController",
+      "relationship": "routes_to",
+      "action": "submissions"
+    },
+    {
+      "source": "route:GET:/workdocs",
+      "target": "controller:\\App\\Http\\Controllers\\WorkdocController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/workdocs",
+      "target": "controller:\\App\\Http\\Controllers\\WorkdocController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:GET:/workdocs/{workdoc}",
+      "target": "controller:\\App\\Http\\Controllers\\WorkdocController",
+      "relationship": "routes_to",
+      "action": "show"
+    },
+    {
+      "source": "route:PATCH:/workdocs/{workdoc}",
+      "target": "controller:\\App\\Http\\Controllers\\WorkdocController",
+      "relationship": "routes_to",
+      "action": "update"
+    },
+    {
+      "source": "route:DELETE:/workdocs/{workdoc}",
+      "target": "controller:\\App\\Http\\Controllers\\WorkdocController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:POST:/workdocs/{workdoc}/comments",
+      "target": "controller:\\App\\Http\\Controllers\\WorkdocController",
+      "relationship": "routes_to",
+      "action": "storeComment"
+    },
+    {
+      "source": "route:PATCH:/workdocs/comments/{comment}/toggle",
+      "target": "controller:\\App\\Http\\Controllers\\WorkdocController",
+      "relationship": "routes_to",
+      "action": "toggleCommentResolve"
+    },
+    {
+      "source": "route:POST:/workdocs/{workdoc}/versions/{version}/restore",
+      "target": "controller:\\App\\Http\\Controllers\\WorkdocController",
+      "relationship": "routes_to",
+      "action": "restoreVersion"
+    },
+    {
+      "source": "route:GET:/templates",
+      "target": "controller:\\App\\Http\\Controllers\\TemplateController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/templates",
+      "target": "controller:\\App\\Http\\Controllers\\TemplateController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:POST:/templates/save-board/{board}",
+      "target": "controller:\\App\\Http\\Controllers\\TemplateController",
+      "relationship": "routes_to",
+      "action": "saveBoardAsTemplate"
+    },
+    {
+      "source": "route:POST:/templates/{template}/instantiate",
+      "target": "controller:\\App\\Http\\Controllers\\TemplateController",
+      "relationship": "routes_to",
+      "action": "instantiate"
+    },
+    {
+      "source": "route:DELETE:/templates/{template}",
+      "target": "controller:\\App\\Http\\Controllers\\TemplateController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:GET:/kanban/boards/{board}/task-blueprints",
+      "target": "controller:\\App\\Http\\Controllers\\TemplateController",
+      "relationship": "routes_to",
+      "action": "getTaskBlueprints"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/task-blueprints/instantiate",
+      "target": "controller:\\App\\Http\\Controllers\\TemplateController",
+      "relationship": "routes_to",
+      "action": "instantiateTaskBlueprint"
+    },
+    {
+      "source": "route:POST:/kanban/groups/{group}/save-as-blueprint",
+      "target": "controller:\\App\\Http\\Controllers\\TemplateController",
+      "relationship": "routes_to",
+      "action": "saveGroupAsBlueprint"
+    },
+    {
+      "source": "route:GET:/kanban/boards/{board}/workload-analytics",
+      "target": "controller:\\App\\Http\\Controllers\\WorkloadCapacityController",
+      "relationship": "routes_to",
+      "action": "getBoardWorkload"
+    },
+    {
+      "source": "route:GET:/kanban/boards/{board}/delivery-metrics",
+      "target": "controller:\\App\\Http\\Controllers\\ProductionAnalyticsController",
+      "relationship": "routes_to",
+      "action": "getDeliveryMetrics"
+    },
+    {
+      "source": "route:PATCH:/users/{user}/capacity",
+      "target": "controller:\\App\\Http\\Controllers\\WorkloadCapacityController",
+      "relationship": "routes_to",
+      "action": "updateUserCapacity"
+    },
+    {
+      "source": "route:GET:/kanban/boards/{board}/export",
+      "target": "controller:\\App\\Http\\Controllers\\BoardDataExportController",
+      "relationship": "routes_to",
+      "action": "exportBoardTasks"
+    },
+    {
+      "source": "route:GET:/kanban/boards/{board}/workload-analytics/export",
+      "target": "controller:\\App\\Http\\Controllers\\BoardDataExportController",
+      "relationship": "routes_to",
+      "action": "exportWorkload"
+    },
+    {
+      "source": "route:GET:/kanban/boards/{board}/delivery-metrics/export",
+      "target": "controller:\\App\\Http\\Controllers\\BoardDataExportController",
+      "relationship": "routes_to",
+      "action": "exportDeliveryMetrics"
+    },
+    {
+      "source": "route:GET:/dashboards",
+      "target": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/dashboards",
+      "target": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:GET:/dashboards/{dashboard}",
+      "target": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "relationship": "routes_to",
+      "action": "show"
+    },
+    {
+      "source": "route:PATCH:/dashboards/{dashboard}",
+      "target": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "relationship": "routes_to",
+      "action": "update"
+    },
+    {
+      "source": "route:DELETE:/dashboards/{dashboard}",
+      "target": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:POST:/dashboards/{dashboard}/widgets",
+      "target": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "relationship": "routes_to",
+      "action": "storeWidget"
+    },
+    {
+      "source": "route:PATCH:/dashboards/{dashboard}/widgets/{widget}",
+      "target": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "relationship": "routes_to",
+      "action": "updateWidget"
+    },
+    {
+      "source": "route:DELETE:/dashboards/{dashboard}/widgets/{widget}",
+      "target": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "relationship": "routes_to",
+      "action": "destroyWidget"
+    },
+    {
+      "source": "route:POST:/dashboards/{dashboard}/layout",
+      "target": "controller:\\App\\Http\\Controllers\\CustomDashboardController",
+      "relationship": "routes_to",
+      "action": "updateLayout"
+    },
+    {
+      "source": "route:GET:/reports",
+      "target": "controller:\\App\\Http\\Controllers\\ReportBuilderController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/reports",
+      "target": "controller:\\App\\Http\\Controllers\\ReportBuilderController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:GET:/reports/{report}/preview",
+      "target": "controller:\\App\\Http\\Controllers\\ReportBuilderController",
+      "relationship": "routes_to",
+      "action": "preview"
+    },
+    {
+      "source": "route:GET:/reports/{report}/export",
+      "target": "controller:\\App\\Http\\Controllers\\ReportBuilderController",
+      "relationship": "routes_to",
+      "action": "export"
+    },
+    {
+      "source": "route:DELETE:/reports/{report}",
+      "target": "controller:\\App\\Http\\Controllers\\ReportBuilderController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:POST:/reports/{report}/schedules",
+      "target": "controller:\\App\\Http\\Controllers\\ReportBuilderController",
+      "relationship": "routes_to",
+      "action": "storeSchedule"
+    },
+    {
+      "source": "route:DELETE:/reports/schedules/{schedule}",
+      "target": "controller:\\App\\Http\\Controllers\\ReportBuilderController",
+      "relationship": "routes_to",
+      "action": "destroySchedule"
+    },
+    {
+      "source": "route:GET:/ai",
+      "target": "controller:\\App\\Http\\Controllers\\AiController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/ai/conversations",
+      "target": "controller:\\App\\Http\\Controllers\\AiController",
+      "relationship": "routes_to",
+      "action": "createConversation"
+    },
+    {
+      "source": "route:POST:/ai/conversations/{conversationId}/messages",
+      "target": "controller:\\App\\Http\\Controllers\\AiController",
+      "relationship": "routes_to",
+      "action": "sendMessage"
+    },
+    {
+      "source": "route:POST:/ai/actions/approve-tasks",
+      "target": "controller:\\App\\Http\\Controllers\\AiController",
+      "relationship": "routes_to",
+      "action": "approveTasks"
+    },
+    {
+      "source": "route:POST:/ai/actions/approve-automation",
+      "target": "controller:\\App\\Http\\Controllers\\AiController",
+      "relationship": "routes_to",
+      "action": "approveAutomation"
+    },
+    {
+      "source": "route:POST:/ai/actions/assist-workdoc",
+      "target": "controller:\\App\\Http\\Controllers\\AiController",
+      "relationship": "routes_to",
+      "action": "assistWorkdoc"
+    },
+    {
+      "source": "route:POST:/ai/config",
+      "target": "controller:\\App\\Http\\Controllers\\AiController",
+      "relationship": "routes_to",
+      "action": "updateConfig"
+    },
+    {
+      "source": "route:GET:/integrations",
+      "target": "controller:\\App\\Http\\Controllers\\IntegrationCenterController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/integrations/connect",
+      "target": "controller:\\App\\Http\\Controllers\\IntegrationCenterController",
+      "relationship": "routes_to",
+      "action": "connect"
+    },
+    {
+      "source": "route:DELETE:/integrations/{id}",
+      "target": "controller:\\App\\Http\\Controllers\\IntegrationCenterController",
+      "relationship": "routes_to",
+      "action": "disconnect"
+    },
+    {
+      "source": "route:GET:/developer",
+      "target": "controller:\\App\\Http\\Controllers\\DeveloperHubController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/developer/tokens",
+      "target": "controller:\\App\\Http\\Controllers\\DeveloperHubController",
+      "relationship": "routes_to",
+      "action": "storeToken"
+    },
+    {
+      "source": "route:DELETE:/developer/tokens/{id}",
+      "target": "controller:\\App\\Http\\Controllers\\DeveloperHubController",
+      "relationship": "routes_to",
+      "action": "revokeToken"
+    },
+    {
+      "source": "route:POST:/developer/webhooks",
+      "target": "controller:\\App\\Http\\Controllers\\DeveloperHubController",
+      "relationship": "routes_to",
+      "action": "storeWebhook"
+    },
+    {
+      "source": "route:DELETE:/developer/webhooks/{id}",
+      "target": "controller:\\App\\Http\\Controllers\\DeveloperHubController",
+      "relationship": "routes_to",
+      "action": "deleteWebhook"
+    },
+    {
+      "source": "route:POST:/developer/webhooks/{id}/test",
+      "target": "controller:\\App\\Http\\Controllers\\DeveloperHubController",
+      "relationship": "routes_to",
+      "action": "testWebhook"
+    },
+    {
+      "source": "route:GET:/kanban/tasks/{task}/review",
+      "target": "controller:\\App\\Http\\Controllers\\TaskReviewController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/review/submit",
+      "target": "controller:\\App\\Http\\Controllers\\TaskReviewController",
+      "relationship": "routes_to",
+      "action": "submit"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/review/decide",
+      "target": "controller:\\App\\Http\\Controllers\\TaskReviewController",
+      "relationship": "routes_to",
+      "action": "decide"
+    },
+    {
+      "source": "route:GET:/users",
+      "target": "controller:\\App\\Http\\Controllers\\UserController",
+      "relationship": "routes_to",
+      "action": "index"
+    },
+    {
+      "source": "route:POST:/users",
+      "target": "controller:\\App\\Http\\Controllers\\UserController",
+      "relationship": "routes_to",
+      "action": "store"
+    },
+    {
+      "source": "route:DELETE:/users/{user}",
+      "target": "controller:\\App\\Http\\Controllers\\UserController",
+      "relationship": "routes_to",
+      "action": "destroy"
+    },
+    {
+      "source": "route:POST:/users/invite",
+      "target": "controller:\\App\\Http\\Controllers\\UserController",
+      "relationship": "routes_to",
+      "action": "invite"
+    },
+    {
+      "source": "route:POST:/users/invitations/{invitation}/resend",
+      "target": "controller:\\App\\Http\\Controllers\\UserController",
+      "relationship": "routes_to",
+      "action": "resendInvitation"
+    },
+    {
+      "source": "route:DELETE:/users/invitations/{invitation}",
+      "target": "controller:\\App\\Http\\Controllers\\UserController",
+      "relationship": "routes_to",
+      "action": "revokeInvitation"
+    },
+    {
+      "source": "route:GET:/invitations/{token}",
+      "target": "controller:\\App\\Http\\Controllers\\Auth\\InvitationRedemptionController",
+      "relationship": "routes_to",
+      "action": "show"
+    },
+    {
+      "source": "route:POST:/invitations/{token}",
+      "target": "controller:\\App\\Http\\Controllers\\Auth\\InvitationRedemptionController",
+      "relationship": "routes_to",
+      "action": "accept"
+    },
+    {
+      "source": "route:GET:/forms/view/{uuid}",
+      "target": "controller:\\App\\Http\\Controllers\\FormController",
+      "relationship": "routes_to",
+      "action": "showPublic"
+    },
+    {
+      "source": "route:POST:/forms/view/{uuid}/submit",
+      "target": "controller:\\App\\Http\\Controllers\\FormController",
+      "relationship": "routes_to",
+      "action": "submit"
+    },
+    {
+      "source": "controller:AgencyProjectController",
+      "target": "component:pages/projects/index",
+      "relationship": "renders",
+      "page": "projects/index"
+    },
+    {
+      "source": "controller:AgencyProjectController",
+      "target": "component:pages/projects/show",
+      "relationship": "renders",
+      "page": "projects/show"
+    },
+    {
+      "source": "controller:AiController",
+      "target": "component:pages/ai/index",
+      "relationship": "renders",
+      "page": "ai/index"
+    },
+    {
+      "source": "controller:AnalyticsController",
+      "target": "component:pages/analytics/index",
+      "relationship": "renders",
+      "page": "analytics/index"
+    },
+    {
+      "source": "controller:AuditLogController",
+      "target": "component:pages/audit/index",
+      "relationship": "renders",
+      "page": "audit/index"
+    },
+    {
+      "source": "controller:ClientPortalController",
+      "target": "component:pages/client-portal/dashboard",
+      "relationship": "renders",
+      "page": "client-portal/dashboard"
+    },
+    {
+      "source": "controller:ClientPortalController",
+      "target": "component:pages/client-portal/project",
+      "relationship": "renders",
+      "page": "client-portal/project"
+    },
+    {
+      "source": "controller:ComplianceController",
+      "target": "component:pages/compliance/index",
+      "relationship": "renders",
+      "page": "compliance/index"
+    },
+    {
+      "source": "controller:CustomDashboardController",
+      "target": "component:pages/dashboards/index",
+      "relationship": "renders",
+      "page": "dashboards/index"
+    },
+    {
+      "source": "controller:CustomDashboardController",
+      "target": "component:pages/dashboards/show",
+      "relationship": "renders",
+      "page": "dashboards/show"
+    },
+    {
+      "source": "controller:DashboardController",
+      "target": "component:pages/dashboard",
+      "relationship": "renders",
+      "page": "dashboard"
+    },
+    {
+      "source": "controller:DeveloperHubController",
+      "target": "component:pages/developer/index",
+      "relationship": "renders",
+      "page": "developer/index"
+    },
+    {
+      "source": "controller:DocumentController",
+      "target": "component:pages/documents/index",
+      "relationship": "renders",
+      "page": "documents/index"
+    },
+    {
+      "source": "controller:FinanceController",
+      "target": "component:pages/finance/index",
+      "relationship": "renders",
+      "page": "finance/index"
+    },
+    {
+      "source": "controller:FormController",
+      "target": "component:pages/forms/index",
+      "relationship": "renders",
+      "page": "forms/index"
+    },
+    {
+      "source": "controller:FormController",
+      "target": "component:pages/forms/builder",
+      "relationship": "renders",
+      "page": "forms/builder"
+    },
+    {
+      "source": "controller:FormController",
+      "target": "component:pages/forms/submissions",
+      "relationship": "renders",
+      "page": "forms/submissions"
+    },
+    {
+      "source": "controller:FormController",
+      "target": "component:pages/forms/public",
+      "relationship": "renders",
+      "page": "forms/public"
+    },
+    {
+      "source": "controller:HrController",
+      "target": "component:pages/hr/index",
+      "relationship": "renders",
+      "page": "hr/index"
+    },
+    {
+      "source": "controller:IntegrationCenterController",
+      "target": "component:pages/integrations/index",
+      "relationship": "renders",
+      "page": "integrations/index"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "component:pages/kanban/index",
+      "relationship": "renders",
+      "page": "kanban/index"
+    },
+    {
+      "source": "controller:MarketingController",
+      "target": "component:pages/marketing/index",
+      "relationship": "renders",
+      "page": "marketing/index"
+    },
+    {
+      "source": "controller:OperationsController",
+      "target": "component:pages/operations/index",
+      "relationship": "renders",
+      "page": "operations/index"
+    },
+    {
+      "source": "controller:ProductionController",
+      "target": "component:pages/production/index",
+      "relationship": "renders",
+      "page": "production/index"
+    },
+    {
+      "source": "controller:RbacController",
+      "target": "component:pages/rbac/index",
+      "relationship": "renders",
+      "page": "rbac/index"
+    },
+    {
+      "source": "controller:ReportBuilderController",
+      "target": "component:pages/reports/index",
+      "relationship": "renders",
+      "page": "reports/index"
+    },
+    {
+      "source": "controller:SalesController",
+      "target": "component:pages/sales/index",
+      "relationship": "renders",
+      "page": "sales/index"
+    },
+    {
+      "source": "controller:TemplateController",
+      "target": "component:pages/templates/index",
+      "relationship": "renders",
+      "page": "templates/index"
+    },
+    {
+      "source": "controller:UserController",
+      "target": "component:pages/users/index",
+      "relationship": "renders",
+      "page": "users/index"
+    },
+    {
+      "source": "controller:WorkdocController",
+      "target": "component:pages/workdocs/index",
+      "relationship": "renders",
+      "page": "workdocs/index"
+    },
+    {
+      "source": "controller:WorkdocController",
+      "target": "component:pages/workdocs/show",
+      "relationship": "renders",
+      "page": "workdocs/show"
+    },
+    {
+      "source": "policy:AttachmentPolicy",
+      "target": "policy_ability:before",
+      "relationship": "defines_ability",
+      "ability": "before"
+    },
+    {
+      "source": "policy:AttachmentPolicy",
+      "target": "policy_ability:view",
+      "relationship": "defines_ability",
+      "ability": "view"
+    },
+    {
+      "source": "policy:AttachmentPolicy",
+      "target": "policy_ability:create",
+      "relationship": "defines_ability",
+      "ability": "create"
+    },
+    {
+      "source": "policy:AttachmentPolicy",
+      "target": "policy_ability:delete",
+      "relationship": "defines_ability",
+      "ability": "delete"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:before",
+      "relationship": "defines_ability",
+      "ability": "before"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:view",
+      "relationship": "defines_ability",
+      "ability": "view"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:create",
+      "relationship": "defines_ability",
+      "ability": "create"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:update",
+      "relationship": "defines_ability",
+      "ability": "update"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:manageStatuses",
+      "relationship": "defines_ability",
+      "ability": "manageStatuses"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:manageColumns",
+      "relationship": "defines_ability",
+      "ability": "manageColumns"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:manageGroups",
+      "relationship": "defines_ability",
+      "ability": "manageGroups"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:manageAutomations",
+      "relationship": "defines_ability",
+      "ability": "manageAutomations"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:export",
+      "relationship": "defines_ability",
+      "ability": "export"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:delete",
+      "relationship": "defines_ability",
+      "ability": "delete"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:duplicate",
+      "relationship": "defines_ability",
+      "ability": "duplicate"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:manageMembers",
+      "relationship": "defines_ability",
+      "ability": "manageMembers"
+    },
+    {
+      "source": "policy:CommentPolicy",
+      "target": "policy_ability:before",
+      "relationship": "defines_ability",
+      "ability": "before"
+    },
+    {
+      "source": "policy:CommentPolicy",
+      "target": "policy_ability:create",
+      "relationship": "defines_ability",
+      "ability": "create"
+    },
+    {
+      "source": "policy:CommentPolicy",
+      "target": "policy_ability:delete",
+      "relationship": "defines_ability",
+      "ability": "delete"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:before",
+      "relationship": "defines_ability",
+      "ability": "before"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:view",
+      "relationship": "defines_ability",
+      "ability": "view"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:create",
+      "relationship": "defines_ability",
+      "ability": "create"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:update",
+      "relationship": "defines_ability",
+      "ability": "update"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:delete",
+      "relationship": "defines_ability",
+      "ability": "delete"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:changeStatus",
+      "relationship": "defines_ability",
+      "ability": "changeStatus"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:canMoveAssignedTask",
+      "relationship": "defines_ability",
+      "ability": "canMoveAssignedTask"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:reorder",
+      "relationship": "defines_ability",
+      "ability": "reorder"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:changeGroup",
+      "relationship": "defines_ability",
+      "ability": "changeGroup"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:manageDependencies",
+      "relationship": "defines_ability",
+      "ability": "manageDependencies"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:manageRecurrence",
+      "relationship": "defines_ability",
+      "ability": "manageRecurrence"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:manageSubtasks",
+      "relationship": "defines_ability",
+      "ability": "manageSubtasks"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:submitReview",
+      "relationship": "defines_ability",
+      "ability": "submitReview"
+    },
+    {
+      "source": "policy:TaskPolicy",
+      "target": "policy_ability:reviewTask",
+      "relationship": "defines_ability",
+      "ability": "reviewTask"
+    },
+    {
+      "source": "policy:UserPolicy",
+      "target": "policy_ability:before",
+      "relationship": "defines_ability",
+      "ability": "before"
+    },
+    {
+      "source": "policy:UserPolicy",
+      "target": "policy_ability:viewAny",
+      "relationship": "defines_ability",
+      "ability": "viewAny"
+    },
+    {
+      "source": "policy:UserPolicy",
+      "target": "policy_ability:view",
+      "relationship": "defines_ability",
+      "ability": "view"
+    },
+    {
+      "source": "policy:UserPolicy",
+      "target": "policy_ability:create",
+      "relationship": "defines_ability",
+      "ability": "create"
+    },
+    {
+      "source": "policy:UserPolicy",
+      "target": "policy_ability:update",
+      "relationship": "defines_ability",
+      "ability": "update"
+    },
+    {
+      "source": "policy:UserPolicy",
+      "target": "policy_ability:assignRole",
+      "relationship": "defines_ability",
+      "ability": "assignRole"
+    },
+    {
+      "source": "policy:UserPolicy",
+      "target": "policy_ability:suspend",
+      "relationship": "defines_ability",
+      "ability": "suspend"
+    },
+    {
+      "source": "policy:UserPolicy",
+      "target": "policy_ability:delete",
+      "relationship": "defines_ability",
+      "ability": "delete"
+    },
+    {
+      "source": "policy:WorkspacePolicy",
+      "target": "policy_ability:before",
+      "relationship": "defines_ability",
+      "ability": "before"
+    },
+    {
+      "source": "policy:WorkspacePolicy",
+      "target": "policy_ability:viewAny",
+      "relationship": "defines_ability",
+      "ability": "viewAny"
+    },
+    {
+      "source": "policy:WorkspacePolicy",
+      "target": "policy_ability:view",
+      "relationship": "defines_ability",
+      "ability": "view"
+    },
+    {
+      "source": "policy:WorkspacePolicy",
+      "target": "policy_ability:create",
+      "relationship": "defines_ability",
+      "ability": "create"
+    },
+    {
+      "source": "policy:WorkspacePolicy",
+      "target": "policy_ability:update",
+      "relationship": "defines_ability",
+      "ability": "update"
+    },
+    {
+      "source": "policy:WorkspacePolicy",
+      "target": "policy_ability:delete",
+      "relationship": "defines_ability",
+      "ability": "delete"
+    },
+    {
+      "source": "policy:WorkspacePolicy",
+      "target": "policy_ability:manageMembers",
+      "relationship": "defines_ability",
+      "ability": "manageMembers"
+    },
+    {
+      "source": "component:AddColumnModal",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:AutomationCenterModal",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardHeader",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardUnifiedHeader",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:CalendarView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ChartView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ConnectBoardsModal",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:EmployeeTaskPanel",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:FilesView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:GalleryView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:GanttView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ImageCell",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ItemDetailDrawer",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ItemDetailDrawer",
+      "target": "component:MultiPeoplePicker",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ItemDetailDrawer",
+      "target": "component:ImageCell",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ItemDetailDrawer",
+      "target": "component:EmployeeTaskPanel",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:KanbanBoardView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:MultiPeoplePicker",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:SubitemTable",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:SubitemTable",
+      "target": "component:DatePickerCell",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:SubitemTable",
+      "target": "component:EditableDropdownCell",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:SubitemTable",
+      "target": "component:MultiPeoplePicker",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:SubitemTable",
+      "target": "component:ImageCell",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableRow",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableRow",
+      "target": "component:ConnectBoardsModal",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableRow",
+      "target": "component:DatePickerCell",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableRow",
+      "target": "component:EditableDropdownCell",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableRow",
+      "target": "component:MultiPeoplePicker",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableRow",
+      "target": "component:SubitemTable",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableRow",
+      "target": "component:ImageCell",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableView",
+      "target": "component:AddColumnModal",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableView",
+      "target": "component:TableRow",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TimelineGanttView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkflowBlueprintModal",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkloadView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkspaceBoardNav",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:AddColumnModal",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:AutomationCenterModal",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:BoardHeader",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:BoardUnifiedHeader",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:CalendarView",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:ChartView",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:FilesView",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:GalleryView",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:GanttView",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:ItemDetailDrawer",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:KanbanBoardView",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:TableView",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:WorkflowBlueprintModal",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:WorkloadView",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:WorkspaceBoardNav",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "test:WorkOsAssignedTaskMovementAndFilterTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsEmployeeTaskModalTest",
+      "target": "policy:TaskPolicy",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:WorkOsEmployeeTaskModalTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsPhase36ActivityAndMultiAssigneesTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsPhase36NestedSubtaskTableTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsPhase4CollaborationAndReviewTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsPhase5MultiStageReviewTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsPhase5RecurringTasksTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsPhase5WorkloadCapacityTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsRbacSecurityAuditTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsUserManagementTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    }
+  ],
+  "clusters": [
+    {
+      "id": "rbac",
+      "label": "RBAC & Authorization Engine",
+      "nodes": [
+        "policy:TaskPolicy",
+        "policy:BoardPolicy",
+        "policy:TaskReviewPolicy",
+        "test:WorkOsRbacSecurityAuditTest",
+        "test:WorkOsEmployeeTaskMovementTest",
+        "test:WorkOsEmployeeTaskModalTest"
+      ]
+    },
+    {
+      "id": "kanban",
+      "label": "Kanban Core & Canvas",
+      "nodes": [
+        "controller:KanbanController",
+        "model:KanbanTask",
+        "model:KanbanColumn",
+        "model:BoardGroup",
+        "component:TableView",
+        "component:KanbanBoardView",
+        "component:BoardUnifiedHeader"
+      ]
+    },
+    {
+      "id": "task_modal",
+      "label": "Task Details & Employee Panel",
+      "nodes": [
+        "component:ItemDetailDrawer",
+        "component:EmployeeTaskPanel",
+        "component:SubitemTable"
+      ]
+    },
+    {
+      "id": "reviews",
+      "label": "Review & Approval Workflow",
+      "nodes": [
+        "controller:TaskReviewController",
+        "model:TaskReviewCycle",
+        "policy:TaskReviewPolicy"
+      ]
+    },
+    {
+      "id": "workload",
+      "label": "Workload & Capacity Analytics",
+      "nodes": [
+        "controller:WorkloadCapacityController",
+        "component:WorkloadView",
+        "test:WorkOsPhase5WorkloadCapacityTest"
+      ]
+    },
+    {
+      "id": "dependencies",
+      "label": "Dependencies & Recurrence",
+      "nodes": [
+        "model:TaskDependency",
+        "model:TaskRecurrenceRule",
+        "test:WorkOsPhase5TaskDependenciesTest",
+        "test:WorkOsPhase5TaskRecurrenceTest"
+      ]
+    }
+  ]
+}
