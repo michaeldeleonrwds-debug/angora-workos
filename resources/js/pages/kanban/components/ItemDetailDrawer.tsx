@@ -4,11 +4,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDate } from '@/lib/utils';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import {
     Activity,
+    AlertCircle,
+    AlertTriangle,
     AtSign,
     Check,
+    CheckCircle2,
     CornerDownRight,
     Download,
     ExternalLink,
@@ -18,15 +21,17 @@ import {
     Link2,
     MessageCircle,
     Paperclip,
+    RotateCcw,
     Send,
+    ShieldCheck,
     Trash2,
     Upload,
     User as UserIcon,
     X,
 } from 'lucide-react';
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { KanbanBoard, MediaAsset, Task, User } from '../types';
+import { KanbanBoard, MediaAsset, Task, TaskReviewCycle, User } from '../types';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
@@ -42,7 +47,104 @@ interface ItemDetailDrawerProps {
 export default function ItemDetailDrawer({ task, board, users = [], onClose, onSelectTask }: ItemDetailDrawerProps) {
     if (!task) return null;
 
-    const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity'>('updates');
+    const { auth } = usePage().props as any;
+    const currentUser = auth?.user;
+    const isSuperAdminOrAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+    const isReviewerRole = isSuperAdminOrAdmin || currentUser?.role === 'project_manager' || currentUser?.role === 'account_manager';
+
+    const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity' | 'reviews'>('updates');
+    const [reviewCycles, setReviewCycles] = useState<TaskReviewCycle[]>(task.review_cycles || []);
+    const [submitNotes, setSubmitNotes] = useState('');
+    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+    const [decisionFeedback, setDecisionFeedback] = useState('');
+    const [isDeciding, setIsDeciding] = useState(false);
+    const [reviewErrorMessage, setReviewErrorMessage] = useState<string | null>(null);
+
+    const fetchReviewCycles = async () => {
+        try {
+            const res = await fetch(`/kanban/tasks/${task.id}/review`, {
+                headers: { Accept: 'application/json' },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setReviewCycles(data.review_cycles || []);
+            }
+        } catch (err) {
+            console.error('Failed to load review cycles:', err);
+        }
+    };
+
+    useEffect(() => {
+        if (task.id) {
+            fetchReviewCycles();
+        }
+    }, [task.id]);
+
+    const currentCycle = reviewCycles.length > 0 ? reviewCycles[reviewCycles.length - 1] : null;
+    const isPendingReview = currentCycle?.state === 'pending';
+    const isSubmitter = currentCycle?.submitted_by === currentUser?.id;
+    const canDecideReview = isPendingReview && (isReviewerRole && (!isSubmitter || isSuperAdminOrAdmin));
+
+    const handleSubmitReview = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmittingReview(true);
+        setReviewErrorMessage(null);
+        try {
+            const res = await fetch(`/kanban/tasks/${task.id}/review/submit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                },
+                body: JSON.stringify({ notes: submitNotes.trim() }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setSubmitNotes('');
+                await fetchReviewCycles();
+                router.reload({ only: ['boards', 'tasks'] });
+            } else {
+                setReviewErrorMessage(data.error || 'Failed to submit review');
+            }
+        } catch (err) {
+            setReviewErrorMessage('Network error while submitting review');
+        } finally {
+            setIsSubmittingReview(false);
+        }
+    };
+
+    const handleDecideReview = async (decision: 'approved' | 'revision_requested') => {
+        setIsDeciding(true);
+        setReviewErrorMessage(null);
+        try {
+            const res = await fetch(`/kanban/tasks/${task.id}/review/decide`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                },
+                body: JSON.stringify({
+                    decision,
+                    feedback: decisionFeedback.trim(),
+                }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setDecisionFeedback('');
+                await fetchReviewCycles();
+                router.reload({ only: ['boards', 'tasks'] });
+            } else {
+                setReviewErrorMessage(data.error || 'Failed to record review decision');
+            }
+        } catch (err) {
+            setReviewErrorMessage('Network error while recording review decision');
+        } finally {
+            setIsDeciding(false);
+        }
+    };
+
     const [titleInput, setTitleInput] = useState(task.title);
     const [commentText, setCommentText] = useState('');
     const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
@@ -776,6 +878,21 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 <Activity className="h-4 w-4" />
                                 <span>Activity Log</span>
                             </button>
+
+                            <button
+                                onClick={() => setActiveCollabTab('reviews')}
+                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                    activeCollabTab === 'reviews'
+                                        ? 'border-primary text-primary'
+                                        : 'text-muted-foreground hover:text-foreground border-transparent'
+                                }`}
+                            >
+                                <ShieldCheck className="h-4 w-4" />
+                                <span>Reviews ({reviewCycles.length})</span>
+                                {isPendingReview && (
+                                    <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                )}
+                            </button>
                         </div>
 
                         {/* Tab Contents */}
@@ -1238,6 +1355,227 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                             </div>
                                         </div>
                                     )}
+                                </div>
+                            )}
+
+                            {/* 4. REVIEWS & APPROVALS TAB */}
+                            {activeCollabTab === 'reviews' && (
+                                <div className="space-y-6">
+                                    {/* Error Banner */}
+                                    {reviewErrorMessage && (
+                                        <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs text-red-600 border border-red-200 dark:bg-red-950/30 dark:border-red-900/50">
+                                            <AlertCircle className="h-4 w-4 shrink-0" />
+                                            <span>{reviewErrorMessage}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Active Review / Decision Block */}
+                                    {isPendingReview ? (
+                                        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-white font-bold text-xs">
+                                                        {currentCycle?.round_number}
+                                                    </span>
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-[#191927] dark:text-white">
+                                                            Round {currentCycle?.round_number} In Review
+                                                        </h4>
+                                                        <p className="text-[11px] text-slate-500">
+                                                            Submitted by {currentCycle?.submitter?.name || 'Designer'} on {currentCycle?.submitted_at ? formatDate(currentCycle.submitted_at) : 'recently'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-bold text-amber-600 dark:bg-amber-500/20">
+                                                    Pending Review
+                                                </span>
+                                            </div>
+
+                                            {currentCycle?.notes && (
+                                                <div className="rounded-xl bg-white p-3 text-xs text-slate-700 shadow-2xs dark:bg-[#1E1E2F] dark:text-slate-300">
+                                                    <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                                                        Designer Notes
+                                                    </span>
+                                                    {currentCycle.notes}
+                                                </div>
+                                            )}
+
+                                            {/* Decision Form for Authorized Reviewers */}
+                                            {canDecideReview ? (
+                                                <div className="space-y-3 pt-2 border-t border-amber-200/70 dark:border-amber-900/40">
+                                                    <Label className="text-xs font-bold text-[#191927] dark:text-white">
+                                                        Reviewer Decision & Feedback
+                                                    </Label>
+                                                    <textarea
+                                                        rows={3}
+                                                        value={decisionFeedback}
+                                                        onChange={(e) => setDecisionFeedback(e.target.value)}
+                                                        placeholder="Provide revision notes, feedback, or approval comments..."
+                                                        className="w-full rounded-xl border border-border bg-white p-2.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none dark:bg-[#1E1E2F]"
+                                                    />
+
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Button
+                                                            size="sm"
+                                                            type="button"
+                                                            disabled={isDeciding}
+                                                            onClick={() => handleDecideReview('revision_requested')}
+                                                            className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold gap-1.5 shadow-2xs"
+                                                        >
+                                                            <RotateCcw className="h-3.5 w-3.5" />
+                                                            <span>Request Revisions</span>
+                                                        </Button>
+
+                                                        <Button
+                                                            size="sm"
+                                                            type="button"
+                                                            disabled={isDeciding}
+                                                            onClick={() => handleDecideReview('approved')}
+                                                            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 shadow-2xs"
+                                                        >
+                                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                                            <span>Approve Deliverable</span>
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            ) : isSubmitter && !isSuperAdminOrAdmin ? (
+                                                <p className="text-[11px] text-slate-500 italic">
+                                                    You submitted this review round. An authorized Project Manager or Reviewer will evaluate your deliverables.
+                                                </p>
+                                            ) : (
+                                                <p className="text-[11px] text-slate-500 italic">
+                                                    Awaiting review decisions from assigned team leads.
+                                                </p>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        /* Submission Block for Next Round */
+                                        <form onSubmit={handleSubmitReview} className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-2xs">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0073ea] text-white font-bold text-xs">
+                                                        {reviewCycles.length + 1}
+                                                    </span>
+                                                    <h4 className="text-xs font-bold text-[#191927] dark:text-white">
+                                                        Submit Deliverables for Review (Round {reviewCycles.length + 1})
+                                                    </h4>
+                                                </div>
+                                                <span className="text-[11px] font-semibold text-slate-400">
+                                                    Round {reviewCycles.length + 1}
+                                                </span>
+                                            </div>
+
+                                            <textarea
+                                                rows={3}
+                                                value={submitNotes}
+                                                onChange={(e) => setSubmitNotes(e.target.value)}
+                                                placeholder="Describe deliverables ready for review (e.g. Canva/Figma links, asset exports, change highlights)..."
+                                                className="w-full rounded-xl border border-border bg-background p-2.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                                            />
+
+                                            <div className="flex justify-end">
+                                                <Button
+                                                    size="sm"
+                                                    type="submit"
+                                                    disabled={isSubmittingReview}
+                                                    className="rounded-xl bg-[#0073ea] hover:bg-[#0060c0] text-white text-xs font-bold gap-1.5 shadow-2xs"
+                                                >
+                                                    <Send className="h-3.5 w-3.5" />
+                                                    <span>{isSubmittingReview ? 'Submitting...' : `Submit Round ${reviewCycles.length + 1} for Review`}</span>
+                                                </Button>
+                                            </div>
+                                        </form>
+                                    )}
+
+                                    {/* Review History Rounds Timeline */}
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-xs font-bold text-[#191927] dark:text-white">
+                                                Review History & Rounds ({reviewCycles.length})
+                                            </h4>
+                                        </div>
+
+                                        {reviewCycles.length === 0 ? (
+                                            <div className="rounded-2xl border border-dashed border-border/70 p-6 text-center text-xs text-slate-400">
+                                                No review rounds submitted yet. When work is completed, submit Round 1 above for team review and sign-off.
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                {[...reviewCycles].reverse().map((cycle) => (
+                                                    <div
+                                                        key={cycle.id}
+                                                        className="rounded-xl border border-border bg-card p-3.5 text-xs space-y-3 shadow-2xs"
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-[#252538] dark:text-slate-300">
+                                                                    R{cycle.round_number}
+                                                                </span>
+                                                                <span className="font-bold text-[#191927] dark:text-white">
+                                                                    Round {cycle.round_number}
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-400">
+                                                                    by {cycle.submitter?.name || 'Assignee'}
+                                                                </span>
+                                                            </div>
+
+                                                            <span
+                                                                className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
+                                                                    cycle.state === 'approved'
+                                                                        ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20'
+                                                                        : cycle.state === 'revision_requested'
+                                                                        ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20'
+                                                                        : 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20'
+                                                                }`}
+                                                            >
+                                                                {cycle.state.replace('_', ' ')}
+                                                            </span>
+                                                        </div>
+
+                                                        {cycle.notes && (
+                                                            <p className="text-[11px] text-slate-600 dark:text-slate-400 bg-muted/20 p-2 rounded-lg">
+                                                                <span className="font-semibold text-slate-500">Notes: </span>
+                                                                {cycle.notes}
+                                                            </p>
+                                                        )}
+
+                                                        {/* Decisions recorded for this cycle */}
+                                                        {cycle.decisions && cycle.decisions.length > 0 && (
+                                                            <div className="space-y-2 border-t border-border/60 pt-2">
+                                                                {cycle.decisions.map((dec) => (
+                                                                    <div
+                                                                        key={dec.id}
+                                                                        className={`rounded-lg p-2.5 text-[11px] space-y-1 ${
+                                                                            dec.decision === 'approved'
+                                                                                ? 'bg-emerald-50/50 border border-emerald-100 dark:bg-emerald-950/20 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300'
+                                                                                : 'bg-amber-50/50 border border-amber-100 dark:bg-amber-950/20 dark:border-amber-900/40 text-amber-800 dark:text-amber-300'
+                                                                        }`}
+                                                                    >
+                                                                        <div className="flex items-center justify-between font-bold">
+                                                                            <span className="flex items-center gap-1">
+                                                                                {dec.decision === 'approved' ? (
+                                                                                    <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                                                                ) : (
+                                                                                    <RotateCcw className="h-3 w-3 text-amber-600" />
+                                                                                )}
+                                                                                {dec.decision === 'approved' ? 'Approved' : 'Revision Requested'} by {dec.reviewer?.name || 'Reviewer'}
+                                                                            </span>
+                                                                            <span className="text-[10px] font-normal text-slate-400">
+                                                                                {dec.decided_at ? formatDate(dec.decided_at) : ''}
+                                                                            </span>
+                                                                        </div>
+                                                                        {dec.feedback && (
+                                                                            <p className="pl-4 leading-relaxed">{dec.feedback}</p>
+                                                                        )}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             )}
                         </div>

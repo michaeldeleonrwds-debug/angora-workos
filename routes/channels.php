@@ -7,6 +7,10 @@ use App\Models\KanbanTask;
 use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 
+Broadcast::channel('users.{userId}', function (User $user, int $userId) {
+    return (int) $user->id === (int) $userId || $user->isSuperAdmin();
+});
+
 Broadcast::channel('boards.{boardId}', function (User $user, int $boardId) {
     if ($user->isSuperAdmin()) {
         return true;

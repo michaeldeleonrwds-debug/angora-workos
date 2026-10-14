@@ -115,6 +115,19 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/kanban/sync', [KanbanController::class, 'pollSync'])->name('kanban.sync');
     Route::post('/user/preferences', [KanbanController::class, 'updatePreferences'])->name('user.preferences.update');
 
+    // Notification Center & Preferences
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])->name('notifications.index');
+    Route::patch('/notifications/{notification}/read', [\App\Http\Controllers\NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::post('/notifications/mark-all-read', [\App\Http\Controllers\NotificationController::class, 'markAllRead'])->name('notifications.mark-all-read');
+    Route::delete('/notifications/{notification}', [\App\Http\Controllers\NotificationController::class, 'destroy'])->name('notifications.destroy');
+    Route::get('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'getPreferences'])->name('notifications.preferences');
+    Route::put('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'updatePreferences'])->name('notifications.preferences.update');
+
+    // Review & Approval Workflow
+    Route::get('/kanban/tasks/{task}/review', [\App\Http\Controllers\TaskReviewController::class, 'index'])->name('kanban.tasks.review.index');
+    Route::post('/kanban/tasks/{task}/review/submit', [\App\Http\Controllers\TaskReviewController::class, 'submit'])->name('kanban.tasks.review.submit');
+    Route::post('/kanban/tasks/{task}/review/decide', [\App\Http\Controllers\TaskReviewController::class, 'decide'])->name('kanban.tasks.review.decide');
+
     // 2. User Management & Administrative Operations
     Route::get('/users', [\App\Http\Controllers\UserController::class, 'index'])->name('users.index');
     Route::post('/users', [\App\Http\Controllers\UserController::class, 'store'])->name('users.store');

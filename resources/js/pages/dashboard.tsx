@@ -16,7 +16,9 @@ import {
     Kanban,
     Layers,
     Plus,
+    ShieldCheck,
     Sparkles,
+    Users,
 } from 'lucide-react';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -36,6 +38,10 @@ interface DashboardProps {
         completed_tasks: number;
         in_progress_tasks: number;
         urgent_tasks: number;
+        overdue_tasks?: number;
+        pending_reviews?: number;
+        approved_reviews?: number;
+        revision_reviews?: number;
         completion_rate: number;
         total_boards: number;
         total_workspaces: number;
@@ -49,7 +55,7 @@ interface DashboardProps {
         board?: { id: number; title: string };
         column?: { id: number; title?: string; name?: string; color?: string };
         group?: { id: number; title: string; color?: string };
-        assignee?: { id: number; name: string; email: string };
+        assignee?: { id: number; name: string; email: string; avatar?: string };
     }>;
     activeBoards: Array<{
         id: number;
@@ -63,9 +69,22 @@ interface DashboardProps {
     statusBreakdown: {
         done: number;
         working_on_it: number;
+        review?: number;
         stuck: number;
         backlog: number;
     };
+    teamWorkload?: Array<{
+        id: number;
+        name: string;
+        email: string;
+        avatar?: string;
+        role: string;
+        department?: string;
+        active_tasks: number;
+        completed_tasks: number;
+        overdue_tasks: number;
+    }>;
+    selectedWorkspaceId?: number | null;
 }
 
 export default function Dashboard({
@@ -74,15 +93,21 @@ export default function Dashboard({
         completed_tasks: 0,
         in_progress_tasks: 0,
         urgent_tasks: 0,
+        overdue_tasks: 0,
+        pending_reviews: 0,
+        approved_reviews: 0,
+        revision_reviews: 0,
         completion_rate: 0,
         total_boards: 0,
         total_workspaces: 0,
     },
     recentTasks = [],
     activeBoards = [],
-    statusBreakdown = { done: 0, working_on_it: 0, stuck: 0, backlog: 0 },
+    statusBreakdown = { done: 0, working_on_it: 0, review: 0, stuck: 0, backlog: 0 },
+    teamWorkload = [],
+    selectedWorkspaceId = null,
 }: DashboardProps) {
-    const { auth } = usePage<SharedData>().props as any;
+    const { auth, userWorkspaces = [] } = usePage<SharedData>().props as any;
     const user = auth?.user as any;
     const firstName = user?.name?.split(' ')[0] || 'Team';
 
@@ -178,8 +203,8 @@ export default function Dashboard({
                     </div>
                 </div>
 
-                {/* 4 KPI Metric Cards */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-5 lg:grid-cols-4">
+                {/* 5 KPI Metric Cards */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-5 lg:grid-cols-5">
                     {/* Card 1: Total Tasks */}
                     <div className="flex flex-col justify-between space-y-3 rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:border-[#28283E] dark:bg-[#1E1E2F]">
                         <div className="flex items-center justify-between">
@@ -206,11 +231,29 @@ export default function Dashboard({
                         </div>
                         <div>
                             <div className="text-3xl font-black tracking-tight text-[#fdab3d]">{stats.in_progress_tasks}</div>
-                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">In active development</p>
+                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">In active production</p>
                         </div>
                     </div>
 
-                    {/* Card 3: Completed */}
+                    {/* Card 3: Reviews & Approvals */}
+                    <div className="flex flex-col justify-between space-y-3 rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:border-[#28283E] dark:bg-[#1E1E2F]">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold tracking-wider text-[#777785] uppercase dark:text-slate-400">In Review</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:bg-purple-500/20 dark:text-purple-400">
+                                <ShieldCheck className="h-5 w-5" />
+                            </div>
+                        </div>
+                        <div>
+                            <div className="text-3xl font-black tracking-tight text-purple-600 dark:text-purple-400">
+                                {stats.pending_reviews || 0}
+                            </div>
+                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">
+                                {stats.revision_reviews || 0} revisions requested
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Card 4: Completed */}
                     <div className="flex flex-col justify-between space-y-3 rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:border-[#28283E] dark:bg-[#1E1E2F]">
                         <div className="flex items-center justify-between">
                             <span className="text-xs font-bold tracking-wider text-[#777785] uppercase dark:text-slate-400">Completed</span>
@@ -227,17 +270,21 @@ export default function Dashboard({
                         </div>
                     </div>
 
-                    {/* Card 4: Urgent / Stuck */}
+                    {/* Card 5: Urgent & Overdue */}
                     <div className="flex flex-col justify-between space-y-3 rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:border-[#28283E] dark:bg-[#1E1E2F]">
                         <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold tracking-wider text-[#777785] uppercase dark:text-slate-400">Urgent / Stuck</span>
+                            <span className="text-xs font-bold tracking-wider text-[#777785] uppercase dark:text-slate-400">Urgent & Overdue</span>
                             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#e2445c]/10 text-[#e2445c] dark:bg-[#e2445c]/20">
                                 <AlertCircle className="h-5 w-5" />
                             </div>
                         </div>
                         <div>
-                            <div className="text-3xl font-black tracking-tight text-[#e2445c]">{stats.urgent_tasks}</div>
-                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">Requiring immediate action</p>
+                            <div className="text-3xl font-black tracking-tight text-[#e2445c]">
+                                {(stats.urgent_tasks || 0) + (stats.overdue_tasks || 0)}
+                            </div>
+                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">
+                                {stats.overdue_tasks || 0} overdue deliverables
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -315,6 +362,115 @@ export default function Dashboard({
                             </div>
                         </div>
                     </div>
+                </div>
+
+                {/* Team Workload & Capacity Section */}
+                <div className="rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] dark:border-[#28283E] dark:bg-[#1E1E2F]">
+                    <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-center">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <Users className="h-4 w-4 text-[#0073ea]" />
+                                <h2 className="text-sm font-bold text-[#191927] dark:text-white">Team Workload & Capacity</h2>
+                            </div>
+                            <p className="text-xs text-[#777785] dark:text-slate-400">
+                                Live task distribution, bandwidth capacity, and delivery risk per team member
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-500">
+                            <span className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full bg-[#00c875]" /> Healthy (&le; 5)
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full bg-[#fdab3d]" /> Moderate (6–8)
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="h-2 w-2 rounded-full bg-[#e2445c]" /> High Load (&gt; 8)
+                            </span>
+                        </div>
+                    </div>
+
+                    {teamWorkload.length === 0 ? (
+                        <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400 dark:border-slate-800">
+                            No team workload data available.
+                        </div>
+                    ) : (
+                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                            {teamWorkload.map((member) => {
+                                const maxCap = 8;
+                                const active = member.active_tasks;
+                                const capPct = Math.min(100, Math.round((active / maxCap) * 100));
+                                const isOverloaded = active > 8;
+                                const isModerate = active >= 5 && active <= 8;
+                                const barColor = isOverloaded
+                                    ? 'bg-[#e2445c]'
+                                    : isModerate
+                                    ? 'bg-[#fdab3d]'
+                                    : 'bg-[#00c875]';
+
+                                const roleLabel =
+                                    member.role === 'dept_user'
+                                        ? 'Designer'
+                                        : member.role === 'project_manager'
+                                        ? 'Project Manager'
+                                        : member.role === 'account_manager'
+                                        ? 'Account Manager'
+                                        : member.role === 'admin'
+                                        ? 'Admin'
+                                        : member.role;
+
+                                return (
+                                    <div
+                                        key={member.id}
+                                        className="flex flex-col justify-between rounded-xl border border-slate-100 bg-slate-50/50 p-3.5 transition-all hover:border-[#0073ea]/30 hover:bg-white hover:shadow-xs dark:border-slate-800 dark:bg-slate-900/40 dark:hover:border-slate-700 dark:hover:bg-slate-800/60"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <Avatar className="h-8 w-8 shrink-0">
+                                                    <AvatarFallback className="bg-[#0073ea]/15 text-xs font-bold text-[#0073ea] dark:bg-[#0073ea]/30 dark:text-[#579bfc]">
+                                                        {member.name.charAt(0).toUpperCase()}
+                                                    </AvatarFallback>
+                                                </Avatar>
+                                                <div className="min-w-0">
+                                                    <p className="truncate text-xs font-bold text-slate-900 dark:text-white" title={member.name}>
+                                                        {member.name}
+                                                    </p>
+                                                    <p className="truncate text-[11px] text-slate-400 capitalize">
+                                                        {roleLabel}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            {member.overdue_tasks > 0 && (
+                                                <Badge
+                                                    variant="outline"
+                                                    className="shrink-0 border-[#e2445c]/30 bg-[#e2445c]/10 text-[10px] font-bold text-[#e2445c]"
+                                                    title={`${member.overdue_tasks} overdue`}
+                                                >
+                                                    {member.overdue_tasks} overdue
+                                                </Badge>
+                                            )}
+                                        </div>
+
+                                        <div className="mt-3 space-y-1.5">
+                                            <div className="flex items-center justify-between text-[11px]">
+                                                <span className="font-medium text-slate-600 dark:text-slate-400">
+                                                    {active} active {active === 1 ? 'task' : 'tasks'}
+                                                </span>
+                                                <span className="text-[10px] text-slate-400">
+                                                    {member.completed_tasks} completed
+                                                </span>
+                                            </div>
+                                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                                                <div
+                                                    className={`h-full transition-all duration-300 ${barColor}`}
+                                                    style={{ width: `${Math.max(active > 0 ? 8 : 0, capPct)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
 
                 {/* Main Content Grid: Active Boards & Recent Work */}

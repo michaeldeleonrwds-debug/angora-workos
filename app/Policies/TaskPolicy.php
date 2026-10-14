@@ -111,4 +111,47 @@ class TaskPolicy
 
         return $user->can('update', $board);
     }
+
+    /**
+     * Determine whether the user can submit the task for review.
+     */
+    public function submitReview(User $user, KanbanTask $task): bool
+    {
+        if (in_array($user->role, ['client', 'guest'], true)) {
+            return false;
+        }
+
+        if ($task->assigned_to === $user->id || $task->created_by === $user->id) {
+            return true;
+        }
+
+        return $this->update($user, $task);
+    }
+
+    /**
+     * Determine whether the user can approve or request revisions on a task.
+     */
+    public function reviewTask(User $user, KanbanTask $task): bool
+    {
+        if ($user->isSuperAdmin()) {
+            return true;
+        }
+
+        // Roles permitted to review: admin, project_manager, account_manager, board owner
+        if (in_array($user->role, ['admin', 'project_manager', 'account_manager'], true)) {
+            return true;
+        }
+
+        $board = $task->board;
+        if ($board && $board->created_by === $user->id) {
+            return true;
+        }
+
+        $boardMember = $board?->members()->where('user_id', $user->id)->first();
+        if ($boardMember && in_array($boardMember->role, ['owner', 'admin'], true)) {
+            return true;
+        }
+
+        return false;
+    }
 }

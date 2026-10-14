@@ -138,6 +138,16 @@ class KanbanTask extends Model
         return $this->hasMany(ProjectDeliverable::class, 'task_id')->latest();
     }
 
+    public function reviewCycles()
+    {
+        return $this->hasMany(TaskReviewCycle::class, 'task_id')->with(['submitter', 'decisions.reviewer'])->orderBy('round_number', 'asc');
+    }
+
+    public function latestReviewCycle()
+    {
+        return $this->hasOne(TaskReviewCycle::class, 'task_id')->latestOfMany('round_number')->with(['submitter', 'decisions.reviewer']);
+    }
+
     public function outgoingRelationships()
     {
         return $this->hasMany(BoardItemRelationship::class, 'source_task_id')

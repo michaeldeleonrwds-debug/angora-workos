@@ -195,6 +195,35 @@ export interface Task {
     mediaUsages?: MediaUsage[];
     outgoingRelationships?: BoardItemRelationship[];
     incomingRelationships?: BoardItemRelationship[];
+    review_cycles?: TaskReviewCycle[];
+    latest_review_cycle?: TaskReviewCycle;
+}
+
+export interface TaskReviewDecision {
+    id: number;
+    review_cycle_id: number;
+    reviewer_id: number;
+    decision: 'approved' | 'revision_requested';
+    feedback?: string | null;
+    attachments?: any[] | null;
+    decided_at?: string | null;
+    created_at?: string;
+    reviewer?: User;
+}
+
+export interface TaskReviewCycle {
+    id: number;
+    task_id: number;
+    round_number: number;
+    submitted_by: number;
+    state: 'pending' | 'approved' | 'revision_requested';
+    notes?: string | null;
+    submitted_at?: string | null;
+    resolved_at?: string | null;
+    created_at?: string;
+    submitter?: User;
+    decisions?: TaskReviewDecision[];
+    latest_decision?: TaskReviewDecision;
 }
 
 export interface BoardItemRelationship {

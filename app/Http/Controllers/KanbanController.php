@@ -31,11 +31,16 @@ class KanbanController extends Controller
 {
     protected AutomationEngineService $automationEngine;
     protected CrossBoardService $crossBoardService;
+    protected \App\Services\NotificationService $notificationService;
 
-    public function __construct(AutomationEngineService $automationEngine, CrossBoardService $crossBoardService)
-    {
+    public function __construct(
+        AutomationEngineService $automationEngine,
+        CrossBoardService $crossBoardService,
+        \App\Services\NotificationService $notificationService
+    ) {
         $this->automationEngine = $automationEngine;
         $this->crossBoardService = $crossBoardService;
+        $this->notificationService = $notificationService;
     }
     public function index(Request $request)
     {
@@ -893,6 +898,13 @@ class KanbanController extends Controller
         // Dispatch Automations for Item Created
         $this->automationEngine->dispatch('item_created', $task, [], auth()->user());
 
+        if ($task->assigned_to && $task->assigned_to !== auth()->id()) {
+            $assignee = User::find($task->assigned_to);
+            if ($assignee) {
+                $this->notificationService->notifyAssignment($task, $assignee, auth()->user());
+            }
+        }
+
         return back()->with('success', 'Task created successfully');
     }
 
@@ -1088,6 +1100,12 @@ class KanbanController extends Controller
         }
         if (isset($validated['assigned_to']) && $validated['assigned_to'] !== $prevAssigned) {
             $this->automationEngine->dispatch('item_assigned', $task, ['prev_assigned' => $prevAssigned], auth()->user());
+            if ($validated['assigned_to'] && (int) $validated['assigned_to'] !== (int) auth()->id()) {
+                $assignee = User::find($validated['assigned_to']);
+                if ($assignee) {
+                    $this->notificationService->notifyAssignment($task, $assignee, auth()->user());
+                }
+            }
         }
         if (isset($validated['column_id'])) {
             $this->automationEngine->dispatch('status_changed', $task, ['prev_column' => $prevColumn], auth()->user());
@@ -1114,6 +1132,19 @@ class KanbanController extends Controller
         }
 
         $newColumn = KanbanColumn::find($validated['column_id'])?->title;
+
+        // Cross-view sync: if board groups correspond to stages, sync group_id
+        if ($newColumn && $task->board_id) {
+            $matchingGroup = BoardGroup::where('board_id', $task->board_id)
+                ->where(function ($q) use ($newColumn) {
+                    $q->where('title', $newColumn)
+                      ->orWhere('title', 'like', "%{$newColumn}%");
+                })->first();
+
+            if ($matchingGroup && $task->group_id !== $matchingGroup->id) {
+                $task->group_id = $matchingGroup->id;
+            }
+        }
 
         if (strtolower($newColumn ?? '') === 'completed' || strtolower($newColumn ?? '') === 'done') {
             $task->completed_at = now();
@@ -1323,6 +1354,61 @@ class KanbanController extends Controller
         );
 
         \App\Events\CommentAddedEvent::dispatch($comment);
+
+        // Notify mentioned users (@Name or @FirstName)
+        $users = User::where('id', '!=', auth()->id())->get();
+        $notifiedUserIds = [];
+        foreach ($users as $user) {
+            $firstName = explode(' ', $user->name)[0];
+            $escapedFullName = preg_quote($user->name, '/');
+            $escapedFirstName = preg_quote($firstName, '/');
+
+            if (
+                preg_match('/@' . $escapedFullName . '\b/i', $validated['message']) ||
+                preg_match('/@' . $escapedFirstName . '\b/i', $validated['message'])
+            ) {
+                $this->notificationService->notifyMention($task, $user, auth()->user(), $validated['message']);
+                $notifiedUserIds[] = $user->id;
+            }
+        }
+
+        // Notify parent comment author if reply
+        if ($comment->parent_id) {
+            $parent = KanbanComment::find($comment->parent_id);
+            if ($parent && $parent->user_id && $parent->user_id !== auth()->id() && !in_array($parent->user_id, $notifiedUserIds)) {
+                $parentUser = User::find($parent->user_id);
+                if ($parentUser) {
+                    $this->notificationService->notify(
+                        recipient: $parentUser,
+                        title: 'New reply to your update',
+                        message: auth()->user()->name . ' replied to your update on "' . $task->title . '"',
+                        type: 'info',
+                        category: 'mentions',
+                        link: "/kanban?task_id={$task->id}",
+                        actorId: auth()->id(),
+                        metadata: ['task_id' => $task->id, 'comment_id' => $comment->id]
+                    );
+                    $notifiedUserIds[] = $parentUser->id;
+                }
+            }
+        }
+
+        // Notify task assignee if someone else commented and they weren't already notified
+        if ($task->assigned_to && $task->assigned_to !== auth()->id() && !in_array($task->assigned_to, $notifiedUserIds)) {
+            $assignee = User::find($task->assigned_to);
+            if ($assignee) {
+                $this->notificationService->notify(
+                    recipient: $assignee,
+                    title: 'New update on your task',
+                    message: auth()->user()->name . ' posted an update on "' . $task->title . '"',
+                    type: 'info',
+                    category: 'system',
+                    link: "/kanban?task_id={$task->id}",
+                    actorId: auth()->id(),
+                    metadata: ['task_id' => $task->id, 'comment_id' => $comment->id]
+                );
+            }
+        }
 
         return back()->with('success', 'Update posted');
     }
@@ -1822,7 +1908,8 @@ class KanbanController extends Controller
         }
 
         // Get unread notifications
-        $notifications = \App\Models\SystemNotification::where('user_id', $user->id)
+        $notifications = \App\Models\SystemNotification::with('actor:id,name,avatar')
+            ->where('user_id', $user->id)
             ->where('is_read', false)
             ->latest()
             ->take(10)
