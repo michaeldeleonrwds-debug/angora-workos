@@ -17,12 +17,15 @@ import {
     ExternalLink,
     Eye,
     FileText,
+    GitFork,
     Image as ImageIcon,
     Link2,
     MessageCircle,
     Paperclip,
     RotateCcw,
+    Search,
     Send,
+    ShieldAlert,
     ShieldCheck,
     Trash2,
     Upload,
@@ -52,13 +55,102 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
     const isSuperAdminOrAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
     const isReviewerRole = isSuperAdminOrAdmin || currentUser?.role === 'project_manager' || currentUser?.role === 'account_manager';
 
-    const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity' | 'reviews'>('updates');
+    const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity' | 'reviews' | 'dependencies'>('updates');
     const [reviewCycles, setReviewCycles] = useState<TaskReviewCycle[]>(task.review_cycles || []);
     const [submitNotes, setSubmitNotes] = useState('');
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
     const [decisionFeedback, setDecisionFeedback] = useState('');
     const [isDeciding, setIsDeciding] = useState(false);
     const [reviewErrorMessage, setReviewErrorMessage] = useState<string | null>(null);
+
+    // Dependencies & Blockers state
+    const [dependencySummary, setDependencySummary] = useState<{
+        is_blocked: boolean;
+        blocked_by: any[];
+        blocks: any[];
+        related: any[];
+    }>({
+        is_blocked: Boolean(task.is_blocked),
+        blocked_by: [],
+        blocks: [],
+        related: [],
+    });
+    const [isLoadingDependencies, setIsLoadingDependencies] = useState(false);
+    const [depSearchQuery, setDepSearchQuery] = useState('');
+    const [linkableTasks, setLinkableTasks] = useState<any[]>([]);
+    const [selectedLinkTaskId, setSelectedLinkTaskId] = useState<number | null>(null);
+    const [depRelType, setDepRelType] = useState<'blocked_by' | 'blocks' | 'related_to'>('blocked_by');
+    const [depLagDays, setDepLagDays] = useState(0);
+    const [isSavingDep, setIsSavingDep] = useState(false);
+    const [depErrorMessage, setDepErrorMessage] = useState<string | null>(null);
+
+    const fetchDependencies = async () => {
+        setIsLoadingDependencies(true);
+        try {
+            const res = await axios.get(`/kanban/tasks/${task.id}/dependencies`);
+            if (res.data) {
+                setDependencySummary(res.data);
+            }
+        } catch (err) {
+            console.error('Failed to fetch dependencies:', err);
+        } finally {
+            setIsLoadingDependencies(false);
+        }
+    };
+
+    const searchLinkable = async (q: string) => {
+        setDepSearchQuery(q);
+        try {
+            const res = await axios.get(`/kanban/tasks/${task.id}/linkable-tasks`, {
+                params: { query: q },
+            });
+            setLinkableTasks(res.data || []);
+        } catch (err) {
+            console.error('Failed to search linkable tasks:', err);
+        }
+    };
+
+    const handleAddDependency = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedLinkTaskId) {
+            setDepErrorMessage('Please select a task to link.');
+            return;
+        }
+
+        setIsSavingDep(true);
+        setDepErrorMessage(null);
+
+        try {
+            await axios.post(`/kanban/tasks/${task.id}/dependencies`, {
+                depends_on_task_id: selectedLinkTaskId,
+                relationship_type: depRelType,
+                lag_days: depLagDays,
+            });
+
+            setSelectedLinkTaskId(null);
+            setDepSearchQuery('');
+            setLinkableTasks([]);
+            setDepLagDays(0);
+            await fetchDependencies();
+            router.reload({ only: ['boards', 'tasks'] });
+        } catch (err: any) {
+            const msg = err.response?.data?.message || err.response?.data?.errors?.target_task_id?.[0] || 'Failed to establish dependency';
+            setDepErrorMessage(msg);
+        } finally {
+            setIsSavingDep(false);
+        }
+    };
+
+    const handleRemoveDependency = async (dependencyId: number) => {
+        if (!confirm('Remove this dependency relationship?')) return;
+        try {
+            await axios.delete(`/kanban/dependencies/${dependencyId}`);
+            await fetchDependencies();
+            router.reload({ only: ['boards', 'tasks'] });
+        } catch (err) {
+            console.error('Failed to delete dependency:', err);
+        }
+    };
 
     const fetchReviewCycles = async () => {
         try {
@@ -77,6 +169,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
     useEffect(() => {
         if (task.id) {
             fetchReviewCycles();
+            fetchDependencies();
         }
     }, [task.id]);
 
@@ -852,6 +945,36 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                             </div>
                         </div>
 
+                        {/* Dependencies & Blockers Summary */}
+                        <div className="border-border/60 space-y-2 border-t pt-4">
+                            <div className="flex items-center justify-between text-xs font-black">
+                                <span className="flex items-center gap-1.5 text-foreground">
+                                    <GitFork className="text-primary h-3.5 w-3.5" />
+                                    <span>Dependencies ({dependencySummary.blocked_by.length + dependencySummary.blocks.length + dependencySummary.related.length})</span>
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveCollabTab('dependencies')}
+                                    className="text-[11px] font-semibold text-primary hover:underline"
+                                >
+                                    Manage
+                                </button>
+                            </div>
+
+                            {dependencySummary.is_blocked ? (
+                                <div className="flex items-center gap-2 rounded-xl bg-red-500/10 border border-red-500/20 p-2 text-xs font-semibold text-red-600 dark:text-red-400">
+                                    <ShieldAlert className="h-4 w-4 shrink-0" />
+                                    <span>Blocked by {dependencySummary.blocked_by.filter(b => !b.is_completed).length} predecessor(s)</span>
+                                </div>
+                            ) : (dependencySummary.blocked_by.length + dependencySummary.blocks.length + dependencySummary.related.length) > 0 ? (
+                                <p className="text-[11px] text-muted-foreground">
+                                    {dependencySummary.blocked_by.length} blocker(s) • {dependencySummary.blocks.length} dependent(s) • {dependencySummary.related.length} related
+                                </p>
+                            ) : (
+                                <p className="text-[11px] text-muted-foreground italic">No dependencies configured.</p>
+                            )}
+                        </div>
+
                         {/* Connected Boards & Workflows (Phase 6) */}
                         <div className="border-border/60 space-y-3 border-t pt-4">
                             <h4 className="text-foreground flex items-center justify-between text-xs font-black">
@@ -951,6 +1074,21 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 <span>Reviews ({reviewCycles.length})</span>
                                 {isPendingReview && (
                                     <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                )}
+                            </button>
+
+                            <button
+                                onClick={() => setActiveCollabTab('dependencies')}
+                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                    activeCollabTab === 'dependencies'
+                                        ? 'border-primary text-primary'
+                                        : 'text-muted-foreground hover:text-foreground border-transparent'
+                                }`}
+                            >
+                                <GitFork className="h-4 w-4" />
+                                <span>Dependencies ({dependencySummary.blocked_by.length + dependencySummary.blocks.length + dependencySummary.related.length})</span>
+                                {dependencySummary.is_blocked && (
+                                    <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" title="Task is blocked" />
                                 )}
                             </button>
                         </div>
@@ -1635,6 +1773,340 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                 ))}
                                             </div>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Dependencies & Blockers Tab */}
+                            {activeCollabTab === 'dependencies' && (
+                                <div className="space-y-6">
+                                    {/* Overall Blocker Banner */}
+                                    <div
+                                        className={`flex items-start gap-3 rounded-xl p-4 border transition-colors ${
+                                            dependencySummary.is_blocked
+                                                ? 'bg-rose-50/70 border-rose-200 dark:bg-rose-950/20 dark:border-rose-900/50 text-rose-900 dark:text-rose-200'
+                                                : 'bg-emerald-50/70 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-200'
+                                        }`}
+                                    >
+                                        <div className="mt-0.5 shrink-0">
+                                            {dependencySummary.is_blocked ? (
+                                                <ShieldAlert className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                                            ) : (
+                                                <ShieldCheck className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                                            )}
+                                        </div>
+                                        <div className="flex-1 space-y-1 text-xs">
+                                            <p className="font-semibold text-sm">
+                                                {dependencySummary.is_blocked
+                                                    ? 'Task is Blocked'
+                                                    : 'Task is Ready / Unblocked'}
+                                            </p>
+                                            <p className="leading-relaxed opacity-90">
+                                                {dependencySummary.is_blocked
+                                                    ? 'This task cannot proceed or be completed until all predecessor tasks are marked done.'
+                                                    : 'All prerequisite dependencies are resolved or not blocked. Team can work freely.'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Add New Dependency Form */}
+                                    <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-sm">
+                                        <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                <Link2 className="h-3.5 w-3.5 text-primary" />
+                                                Add Dependency Link
+                                            </h4>
+                                        </div>
+
+                                        {depErrorMessage && (
+                                            <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-2.5 text-xs text-rose-700 dark:bg-rose-950/30 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                                                <AlertCircle className="h-4 w-4 shrink-0" />
+                                                <span>{depErrorMessage}</span>
+                                            </div>
+                                        )}
+
+                                        <form onSubmit={handleAddDependency} className="space-y-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                                                        Relationship
+                                                    </label>
+                                                    <select
+                                                        value={depRelType}
+                                                        onChange={(e) => setDepRelType(e.target.value as any)}
+                                                        className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                                    >
+                                                        <option value="blocked_by">Blocked By (Needs target first)</option>
+                                                        <option value="blocks">Blocks (Target needs this first)</option>
+                                                        <option value="related_to">Related To (Reference link)</option>
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                                                        Lag Days (Buffer)
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={depLagDays}
+                                                        onChange={(e) => setDepLagDays(Math.max(0, parseInt(e.target.value) || 0))}
+                                                        className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                                                    Select Task in Workspace
+                                                </label>
+                                                <div className="relative">
+                                                    <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                                                    <input
+                                                        type="text"
+                                                        value={depSearchQuery}
+                                                        onChange={(e) => searchLinkable(e.target.value)}
+                                                        placeholder="Type to search tasks..."
+                                                        className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
+                                                    />
+                                                </div>
+
+                                                {linkableTasks.length > 0 && (
+                                                    <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover shadow-md divide-y divide-border/40 text-xs">
+                                                        {linkableTasks.map((t) => (
+                                                            <button
+                                                                key={t.id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSelectedLinkTaskId(t.id);
+                                                                    setDepSearchQuery(`${t.title} (${t.board?.title || 'Board'})`);
+                                                                    setLinkableTasks([]);
+                                                                }}
+                                                                className={`w-full text-left p-2 hover:bg-muted/60 flex items-center justify-between transition-colors ${
+                                                                    selectedLinkTaskId === t.id ? 'bg-primary/10 text-primary font-semibold' : ''
+                                                                }`}
+                                                            >
+                                                                <span className="truncate pr-2">{t.title}</span>
+                                                                <span className="shrink-0 text-[10px] text-muted-foreground">
+                                                                    {t.board?.title || 'Board'}
+                                                                </span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="flex justify-end pt-1">
+                                                <Button
+                                                    type="submit"
+                                                    size="sm"
+                                                    disabled={isSavingDep || !selectedLinkTaskId}
+                                                    className="h-8 text-xs font-semibold"
+                                                >
+                                                    {isSavingDep ? 'Linking...' : 'Establish Dependency'}
+                                                </Button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    {/* Dependencies Lists */}
+                                    <div className="space-y-4">
+                                        {/* Blocked By List */}
+                                        <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-xs font-bold uppercase tracking-wider text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                                                    <ShieldAlert className="h-3.5 w-3.5" />
+                                                    Blocked By (Prerequisites)
+                                                </h4>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-600 dark:bg-rose-500/20">
+                                                    {dependencySummary.blocked_by.length}
+                                                </span>
+                                            </div>
+
+                                            {dependencySummary.blocked_by.length === 0 ? (
+                                                <p className="text-xs text-muted-foreground italic py-1">
+                                                    No prerequisite blockers. This task does not wait on anything.
+                                                </p>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {dependencySummary.blocked_by.map((dep: any) => {
+                                                        const targetTask = dep.dependency_task;
+                                                        const isDone = Boolean(targetTask?.completed_at || (targetTask?.progress && targetTask.progress >= 100));
+                                                        return (
+                                                            <div
+                                                                key={dep.id}
+                                                                className="flex items-center justify-between p-2.5 rounded-lg border border-border/80 bg-background hover:bg-muted/30 transition-colors text-xs"
+                                                            >
+                                                                <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                                                                    <span
+                                                                        className={`h-2 w-2 rounded-full shrink-0 ${
+                                                                            isDone ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'
+                                                                        }`}
+                                                                    />
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="font-semibold truncate text-foreground">
+                                                                            {targetTask?.title || `Task #${dep.depends_on_task_id}`}
+                                                                        </p>
+                                                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                                                            <span>{targetTask?.board?.title || 'Board'}</span>
+                                                                            {targetTask?.column && (
+                                                                                <>
+                                                                                    <span>•</span>
+                                                                                    <span className="px-1.5 py-0.2 rounded bg-muted">
+                                                                                        {targetTask.column.title}
+                                                                                    </span>
+                                                                                </>
+                                                                            )}
+                                                                            {dep.lag_days > 0 && (
+                                                                                <>
+                                                                                    <span>•</span>
+                                                                                    <span>+{dep.lag_days}d buffer</span>
+                                                                                </>
+                                                                            )}
+                                                                            <span>•</span>
+                                                                            <span className={isDone ? 'text-emerald-600 font-semibold' : 'text-rose-600 font-semibold'}>
+                                                                                {isDone ? 'Completed' : 'Blocking'}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveDependency(dep.id)}
+                                                                    className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                                                    title="Remove dependency"
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Blocks List */}
+                                        <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                                                    <GitFork className="h-3.5 w-3.5" />
+                                                    Blocks (Successors Waiting on This)
+                                                </h4>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:bg-amber-500/20">
+                                                    {dependencySummary.blocks.length}
+                                                </span>
+                                            </div>
+
+                                            {dependencySummary.blocks.length === 0 ? (
+                                                <p className="text-xs text-muted-foreground italic py-1">
+                                                    This task is not holding up any other tasks.
+                                                </p>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {dependencySummary.blocks.map((dep: any) => {
+                                                        const successorTask = dep.task;
+                                                        return (
+                                                            <div
+                                                                key={dep.id}
+                                                                className="flex items-center justify-between p-2.5 rounded-lg border border-border/80 bg-background hover:bg-muted/30 transition-colors text-xs"
+                                                            >
+                                                                <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="font-semibold truncate text-foreground">
+                                                                            {successorTask?.title || `Task #${dep.task_id}`}
+                                                                        </p>
+                                                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                                                            <span>{successorTask?.board?.title || 'Board'}</span>
+                                                                            {successorTask?.column && (
+                                                                                <>
+                                                                                    <span>•</span>
+                                                                                    <span className="px-1.5 py-0.2 rounded bg-muted">
+                                                                                        {successorTask.column.title}
+                                                                                    </span>
+                                                                                </>
+                                                                            )}
+                                                                            {dep.lag_days > 0 && (
+                                                                                <>
+                                                                                    <span>•</span>
+                                                                                    <span>+{dep.lag_days}d buffer</span>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveDependency(dep.id)}
+                                                                    className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                                                    title="Remove dependency"
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Related Tasks */}
+                                        <div className="rounded-xl border border-border bg-card p-4 space-y-3 shadow-sm">
+                                            <div className="flex items-center justify-between">
+                                                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                    <Link2 className="h-3.5 w-3.5 text-primary" />
+                                                    Related References
+                                                </h4>
+                                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                                                    {dependencySummary.related.length}
+                                                </span>
+                                            </div>
+
+                                            {dependencySummary.related.length === 0 ? (
+                                                <p className="text-xs text-muted-foreground italic py-1">
+                                                    No related references linked.
+                                                </p>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {dependencySummary.related.map((dep: any) => {
+                                                        const targetTask = dep.task_id === task.id ? dep.dependency_task : dep.task;
+                                                        return (
+                                                            <div
+                                                                key={dep.id}
+                                                                className="flex items-center justify-between p-2.5 rounded-lg border border-border/80 bg-background hover:bg-muted/30 transition-colors text-xs"
+                                                            >
+                                                                <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-2">
+                                                                    <div className="min-w-0 flex-1">
+                                                                        <p className="font-semibold truncate text-foreground">
+                                                                            {targetTask?.title || `Task #${dep.task_id === task.id ? dep.depends_on_task_id : dep.task_id}`}
+                                                                        </p>
+                                                                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                                                            <span>{targetTask?.board?.title || 'Board'}</span>
+                                                                            {targetTask?.column && (
+                                                                                <>
+                                                                                    <span>•</span>
+                                                                                    <span className="px-1.5 py-0.2 rounded bg-muted">
+                                                                                        {targetTask.column.title}
+                                                                                    </span>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveDependency(dep.id)}
+                                                                    className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                                                    title="Remove link"
+                                                                >
+                                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                                </button>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             )}

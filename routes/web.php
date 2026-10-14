@@ -94,6 +94,8 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/kanban/boards/{board}/views/reorder', [KanbanController::class, 'reorderViews'])->name('kanban.views.reorder');
 
     // Task Dependencies & Scheduling
+    Route::get('/kanban/tasks/{task}/dependencies', [KanbanController::class, 'getTaskDependencies'])->name('kanban.tasks.dependencies.get');
+    Route::get('/kanban/tasks/{task}/linkable-tasks', [KanbanController::class, 'searchLinkableTasks'])->name('kanban.tasks.linkable.search');
     Route::post('/kanban/tasks/{task}/dependencies', [KanbanController::class, 'storeDependency'])->name('kanban.tasks.dependencies.store');
     Route::delete('/kanban/dependencies/{dependency}', [KanbanController::class, 'deleteDependency'])->name('kanban.dependencies.delete');
     Route::patch('/kanban/tasks/{task}/schedule', [KanbanController::class, 'updateTaskSchedule'])->name('kanban.tasks.schedule.update');

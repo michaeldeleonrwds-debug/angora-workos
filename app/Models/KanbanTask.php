@@ -53,7 +53,40 @@ class KanbanTask extends Model
 
     protected $appends = [
         'deadline_status',
+        'is_blocked',
     ];
+
+    public function getIsBlockedAttribute(): bool
+    {
+        if ($this->completed_at !== null || (int) $this->progress === 100) {
+            return false;
+        }
+
+        if ($this->relationLoaded('column') && $this->column && in_array(strtolower($this->column->title), ['done', 'completed'])) {
+            return false;
+        }
+
+        $dependencies = $this->relationLoaded('dependencies')
+            ? $this->dependencies
+            : $this->dependencies()->with('dependencyTask.column')->get();
+
+        foreach ($dependencies as $dep) {
+            if ($dep->relationship_type === 'related_to') {
+                continue;
+            }
+            $t = $dep->dependencyTask;
+            if ($t) {
+                $isDone = $t->completed_at !== null 
+                    || (int) $t->progress === 100 
+                    || ($t->column && in_array(strtolower($t->column->title), ['done', 'completed']));
+                if (!$isDone) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
 
     public function getDueDateAttribute($value)
     {

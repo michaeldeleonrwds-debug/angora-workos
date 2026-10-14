@@ -43,12 +43,16 @@ export interface BoardColumn {
 
 export interface TaskDependency {
     id: number;
+    workspace_id?: number;
     task_id: number;
     depends_on_task_id: number;
+    relationship_type?: 'blocks' | 'blocked_by' | 'related_to';
     dependency_type: 'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish';
     lag_days: number;
+    created_by?: number;
     task?: Task;
     dependency_task?: Task;
+    dependencyTask?: Task;
 }
 
 export interface BoardView {
@@ -168,6 +172,7 @@ export interface Task {
     reminder_lead_minutes?: number | null;
     reminder_sent_at?: string | null;
     deadline_status?: 'overdue' | 'due_today' | 'due_soon' | 'upcoming' | 'completed_on_time' | 'completed_late' | 'no_deadline';
+    is_blocked?: boolean;
     estimated_hours?: number | null;
     actual_hours?: number | null;
     progress: number;

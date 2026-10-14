@@ -32,15 +32,18 @@ class KanbanController extends Controller
     protected AutomationEngineService $automationEngine;
     protected CrossBoardService $crossBoardService;
     protected \App\Services\NotificationService $notificationService;
+    protected \App\Services\TaskDependencyService $dependencyService;
 
     public function __construct(
         AutomationEngineService $automationEngine,
         CrossBoardService $crossBoardService,
-        \App\Services\NotificationService $notificationService
+        \App\Services\NotificationService $notificationService,
+        \App\Services\TaskDependencyService $dependencyService
     ) {
         $this->automationEngine = $automationEngine;
         $this->crossBoardService = $crossBoardService;
         $this->notificationService = $notificationService;
+        $this->dependencyService = $dependencyService;
     }
     public function index(Request $request)
     {
@@ -129,8 +132,8 @@ class KanbanController extends Controller
                 'comments.user',
                 'comments.replies.user',
                 'attachments.user',
-                'dependencies.dependencyTask',
-                'dependents.task',
+                'dependencies.dependencyTask.column',
+                'dependents.task.column',
                 'activities' => function ($aq) {
                     $aq->latest()->take(10)->with('user');
                 },
@@ -183,8 +186,8 @@ class KanbanController extends Controller
                 'comments.user',
                 'comments.replies.user',
                 'attachments.user',
-                'dependencies.dependencyTask',
-                'dependents.task',
+                'dependencies.dependencyTask.column',
+                'dependents.task.column',
                 'activities.user',
                 'outgoingRelationships.targetBoard',
                 'outgoingRelationships.targetTask.column',
@@ -1597,65 +1600,81 @@ class KanbanController extends Controller
         return back()->with('success', 'Views reordered');
     }
 
-    // --- Task Dependencies (Gantt & Sequencing with Cycle Detection) ---
+    // --- Task Dependencies & Sequencing ---
+    public function getTaskDependencies(KanbanTask $task)
+    {
+        Gate::authorize('view', $task);
+        return response()->json($this->dependencyService->getTaskDependenciesSummary($task));
+    }
+
+    public function searchLinkableTasks(Request $request, KanbanTask $task)
+    {
+        Gate::authorize('view', $task);
+        $search = $request->query('query', '');
+        $workspaceId = $task->board?->workspace_id;
+
+        $tasks = KanbanTask::whereHas('board', function ($q) use ($workspaceId) {
+                if ($workspaceId) {
+                    $q->where('workspace_id', $workspaceId);
+                }
+            })
+            ->where('id', '!=', $task->id)
+            ->when($search, function ($q, $search) {
+                $q->where('title', 'like', "%{$search}%");
+            })
+            ->with(['column:id,title,color'])
+            ->limit(25)
+            ->get(['id', 'board_id', 'column_id', 'title', 'due_date', 'priority', 'progress', 'completed_at']);
+
+        return response()->json($tasks);
+    }
+
     public function storeDependency(Request $request, KanbanTask $task)
     {
         Gate::authorize('update', $task);
 
         $validated = $request->validate([
-            'depends_on_task_id' => 'required|exists:kanban_tasks,id|different:task_id',
+            'depends_on_task_id' => 'required|integer|exists:kanban_tasks,id|different:task_id',
+            'relationship_type' => 'nullable|string|in:blocks,blocked_by,related_to',
             'dependency_type' => 'nullable|string|in:finish_to_start,start_to_start,finish_to_finish,start_to_finish',
             'lag_days' => 'nullable|integer',
         ]);
 
-        $targetId = (int) $validated['depends_on_task_id'];
-
-        if ($task->id === $targetId) {
-            return back()->with('error', 'A task cannot depend on itself');
+        try {
+            $dep = $this->dependencyService->addDependency(
+                task: $task,
+                targetTaskId: (int) $validated['depends_on_task_id'],
+                relationshipType: $validated['relationship_type'] ?? 'blocked_by',
+                user: $request->user(),
+                lagDays: $validated['lag_days'] ?? 0,
+                dependencyType: $validated['dependency_type'] ?? 'finish_to_start'
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            if ($request->wantsJson()) {
+                throw $e;
+            }
+            $errorMsg = collect($e->errors())->flatten()->first() ?? 'Invalid dependency.';
+            return back()->with('error', $errorMsg)->withErrors($e->errors());
         }
 
-        // Circular dependency check: will adding (task_id -> targetId) create a directed cycle?
-        // i.e., can we already reach task_id by traversing dependencies starting from targetId?
-        if ($this->hasCircularDependency($targetId, $task->id)) {
-            return back()->with('error', 'Circular dependency detected. This relationship would cause a loop.');
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Dependency established successfully',
+                'dependency' => $dep,
+            ]);
         }
 
-        TaskDependency::updateOrCreate(
-            ['task_id' => $task->id, 'depends_on_task_id' => $targetId],
-            [
-                'dependency_type' => $validated['dependency_type'] ?? 'finish_to_start',
-                'lag_days' => $validated['lag_days'] ?? 0,
-            ]
-        );
-
-        $targetTitle = KanbanTask::find($targetId)?->title ?? "#{$targetId}";
-        TaskActivityService::log(
-            task: $task,
-            eventType: 'dependency_added',
-            description: auth()->user()->name . " added dependency on '{$targetTitle}'",
-            metadata: ['target_id' => $targetId, 'target_title' => $targetTitle]
-        );
-
-        return back()->with('success', 'Dependency added successfully');
+        return back()->with('success', 'Dependency established successfully');
     }
 
-    public function deleteDependency(TaskDependency $dependency)
+    public function deleteDependency(Request $request, TaskDependency $dependency)
     {
-        $task = $dependency->task;
-        if ($task) {
-            Gate::authorize('update', $task);
+        $this->dependencyService->removeDependency($dependency, $request->user());
+
+        if ($request->wantsJson()) {
+            return response()->json(['message' => 'Dependency removed']);
         }
 
-        $targetTitle = $dependency->dependencyTask?->title ?? "#{$dependency->depends_on_task_id}";
-        $dependency->delete();
-
-        if ($task) {
-            TaskActivityService::log(
-                task: $task,
-                eventType: 'dependency_removed',
-                description: auth()->user()->name . " removed dependency on '{$targetTitle}'"
-            );
-        }
         return back()->with('success', 'Dependency removed');
     }
 

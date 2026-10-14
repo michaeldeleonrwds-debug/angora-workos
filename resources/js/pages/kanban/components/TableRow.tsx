@@ -1,7 +1,7 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatDate, formatTime } from '@/lib/utils';
 import { router } from '@inertiajs/react';
-import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, Star, Trash2, User as UserIcon } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, ShieldAlert, Star, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
 import { BoardColumn, BoardGroup, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../types';
 import ConnectBoardsModal from './ConnectBoardsModal';
@@ -195,13 +195,24 @@ export default function TableRow({
                             className="bg-background border-primary w-full rounded border px-1.5 py-0.5 text-xs font-semibold focus:outline-none"
                         />
                     ) : (
-                        <span
-                            onClick={() => onSelectTask(task)}
-                            className="text-foreground hover:text-primary max-w-sm cursor-pointer truncate font-semibold"
-                            title="Click to open item details"
-                        >
-                            {task.title}
-                        </span>
+                        <div className="flex items-center gap-1.5 min-w-0 truncate">
+                            {task.is_blocked && (
+                                <span
+                                    title="Blocked by unfinished predecessor"
+                                    className="inline-flex shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+                                >
+                                    <ShieldAlert className="h-2.5 w-2.5" />
+                                    Blocked
+                                </span>
+                            )}
+                            <span
+                                onClick={() => onSelectTask(task)}
+                                className="text-foreground hover:text-primary max-w-sm cursor-pointer truncate font-semibold"
+                                title="Click to open item details"
+                            >
+                                {task.title}
+                            </span>
+                        </div>
                     )}
 
                     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">

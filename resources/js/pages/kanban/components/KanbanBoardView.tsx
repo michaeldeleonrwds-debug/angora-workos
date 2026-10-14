@@ -18,6 +18,7 @@ import {
     MessageCircle,
     MoreHorizontal,
     Plus,
+    ShieldAlert,
     Star,
     Trash2,
     User as UserIcon,
@@ -345,6 +346,16 @@ export default function KanbanBoardView({
                                                     <span className="flex items-center gap-0.5 rounded border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-bold text-red-600">
                                                         <AlertCircle className="h-2.5 w-2.5" />
                                                         <span>Overdue</span>
+                                                    </span>
+                                                )}
+
+                                                {task.is_blocked && (
+                                                    <span
+                                                        title="Blocked by unfinished predecessor"
+                                                        className="flex items-center gap-0.5 rounded border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400"
+                                                    >
+                                                        <ShieldAlert className="h-2.5 w-2.5" />
+                                                        <span>Blocked</span>
                                                     </span>
                                                 )}
 
