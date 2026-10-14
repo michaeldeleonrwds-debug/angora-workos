@@ -604,7 +604,9 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
     return (
         <div
             data-drawer-root="true"
-            onClick={onClose}
+            onClick={(event) => {
+                if (event.target === event.currentTarget) onClose();
+            }}
             className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-xs duration-200 sm:p-6"
         >
             <div
