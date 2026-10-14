@@ -373,11 +373,11 @@ export default function UsersIndex({
                                         setRoleFilter(e.target.value);
                                         handleFilter(search, e.target.value, statusFilter);
                                     }}
-                                    className="h-8.5 rounded-xl border border-input bg-transparent px-3 text-xs text-foreground focus:outline-hidden focus:ring-1 focus:ring-ring"
+                                    className="h-8.5 rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                                 >
-                                    <option value="">All Roles</option>
+                                    <option value="" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">All Roles</option>
                                     {Object.entries(systemRoles).map(([val, label]) => (
-                                        <option key={val} value={val}>
+                                        <option key={val} value={val} className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">
                                             {label}
                                         </option>
                                     ))}
@@ -389,12 +389,12 @@ export default function UsersIndex({
                                         setStatusFilter(e.target.value);
                                         handleFilter(search, roleFilter, e.target.value);
                                     }}
-                                    className="h-8.5 rounded-xl border border-input bg-transparent px-3 text-xs text-foreground focus:outline-hidden focus:ring-1 focus:ring-ring"
+                                    className="h-8.5 rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                                 >
-                                    <option value="">All Statuses</option>
-                                    <option value="active">Active</option>
-                                    <option value="suspended">Suspended</option>
-                                    <option value="inactive">Inactive</option>
+                                    <option value="" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">All Statuses</option>
+                                    <option value="active" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">Active</option>
+                                    <option value="suspended" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">Suspended</option>
+                                    <option value="inactive" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">Inactive</option>
                                 </select>
 
                                 {(search || roleFilter || statusFilter) && (
@@ -714,10 +714,10 @@ export default function UsersIndex({
                                 <select
                                     value={createForm.data.role}
                                     onChange={(e) => createForm.setData('role', e.target.value)}
-                                    className="mt-1 h-9 w-full rounded-xl border border-input bg-transparent px-3 text-xs"
+                                    className="mt-1 h-9 w-full rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                                 >
                                     {Object.entries(systemRoles).map(([val, label]) => (
-                                        <option key={val} value={val}>
+                                        <option key={val} value={val} className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">
                                             {label}
                                         </option>
                                     ))}
@@ -801,10 +801,10 @@ export default function UsersIndex({
                             <select
                                 value={inviteForm.data.role}
                                 onChange={(e) => inviteForm.setData('role', e.target.value)}
-                                className="mt-1 h-9 w-full rounded-xl border border-input bg-transparent px-3 text-xs"
+                                className="mt-1 h-9 w-full rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                             >
                                 {Object.entries(systemRoles).map(([val, label]) => (
-                                    <option key={val} value={val}>
+                                    <option key={val} value={val} className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">
                                         {label}
                                     </option>
                                 ))}
@@ -817,11 +817,11 @@ export default function UsersIndex({
                             <select
                                 value={inviteForm.data.workspace_id}
                                 onChange={(e) => inviteForm.setData('workspace_id', e.target.value)}
-                                className="mt-1 h-9 w-full rounded-xl border border-input bg-transparent px-3 text-xs"
+                                className="mt-1 h-9 w-full rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                             >
-                                <option value="">None (Global / Unassigned)</option>
+                                <option value="" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">None (Global / Unassigned)</option>
                                 {workspaces.map((ws) => (
-                                    <option key={ws.id} value={ws.id}>
+                                    <option key={ws.id} value={ws.id} className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">
                                         {ws.name}
                                     </option>
                                 ))}
@@ -833,11 +833,11 @@ export default function UsersIndex({
                             <select
                                 value={inviteForm.data.board_id}
                                 onChange={(e) => inviteForm.setData('board_id', e.target.value)}
-                                className="mt-1 h-9 w-full rounded-xl border border-input bg-transparent px-3 text-xs"
+                                className="mt-1 h-9 w-full rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                             >
-                                <option value="">None</option>
+                                <option value="" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">None</option>
                                 {boards.map((b) => (
-                                    <option key={b.id} value={b.id}>
+                                    <option key={b.id} value={b.id} className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">
                                         {b.title}
                                     </option>
                                 ))}
@@ -896,10 +896,10 @@ export default function UsersIndex({
                                     <select
                                         value={editForm.data.role}
                                         onChange={(e) => editForm.setData('role', e.target.value)}
-                                        className="mt-1 h-9 w-full rounded-xl border border-input bg-transparent px-3 text-xs"
+                                        className="mt-1 h-9 w-full rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                                     >
                                         {Object.entries(systemRoles).map(([val, label]) => (
-                                            <option key={val} value={val}>
+                                            <option key={val} value={val} className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">
                                                 {label}
                                             </option>
                                         ))}
@@ -912,11 +912,11 @@ export default function UsersIndex({
                                     <select
                                         value={editForm.data.status}
                                         onChange={(e) => editForm.setData('status', e.target.value as any)}
-                                        className="mt-1 h-9 w-full rounded-xl border border-input bg-transparent px-3 text-xs"
+                                        className="mt-1 h-9 w-full rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                                     >
-                                        <option value="active">Active</option>
-                                        <option value="suspended">Suspended</option>
-                                        <option value="inactive">Inactive</option>
+                                        <option value="active" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">Active</option>
+                                        <option value="suspended" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">Suspended</option>
+                                        <option value="inactive" className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">Inactive</option>
                                     </select>
                                 </div>
                             </div>

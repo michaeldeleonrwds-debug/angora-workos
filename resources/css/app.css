@@ -232,6 +232,31 @@
         width: 10px;
         height: 10px;
     }
+
+    /* Native Form Select & Option Dark Mode Contrast */
+    select {
+        color-scheme: light;
+    }
+
+    .dark select {
+        color-scheme: dark !important;
+        background-color: #1e1e30;
+        color: #ffffff;
+    }
+
+    select option,
+    select optgroup,
+    option {
+        background-color: #ffffff;
+        color: #0f172a;
+    }
+
+    .dark select option,
+    .dark select optgroup,
+    .dark option {
+        background-color: #1e1e30 !important;
+        color: #ffffff !important;
+    }
 }
 
 /* Scrollbar Utility Classes */
