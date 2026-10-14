@@ -12,6 +12,7 @@ import {
     Columns3,
     Filter,
     GanttChartSquare,
+    Layers,
     LayoutGrid,
     MoreVertical,
     Paperclip,
@@ -42,6 +43,7 @@ interface BoardHeaderProps {
     onOpenNewGroup: () => void;
     onOpenNewColumn: () => void;
     onOpenAutomate?: () => void;
+    onOpenBlueprints?: () => void;
 }
 
 export default function BoardHeader({
@@ -59,6 +61,7 @@ export default function BoardHeader({
     onOpenNewGroup,
     onOpenNewColumn,
     onOpenAutomate,
+    onOpenBlueprints,
 }: BoardHeaderProps) {
     const [isAddViewModalOpen, setIsAddViewModalOpen] = useState(false);
     const [newViewName, setNewViewName] = useState('');
@@ -210,6 +213,17 @@ export default function BoardHeader({
                                     {(board.automations || []).length}
                                 </span>
                             )}
+                        </Button>
+                    )}
+
+                    {onOpenBlueprints && (
+                        <Button
+                            variant="outline"
+                            onClick={onOpenBlueprints}
+                            className="border-indigo-500/30 bg-indigo-500/5 hover:bg-indigo-500/10 text-indigo-500 h-9 rounded-xl px-3 text-xs font-bold shadow-2xs"
+                        >
+                            <Layers className="mr-1 h-3.5 w-3.5" />
+                            Blueprints
                         </Button>
                     )}
                 </div>

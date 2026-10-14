@@ -238,4 +238,238 @@ class TemplateEngineService
 
         return $doc;
     }
+
+    /**
+     * Instantiate a task list blueprint / bundle template into an existing board.
+     */
+    public function instantiateTaskBlueprint(WorkOsTemplate $template, KanbanBoard $board, array $options, User $user): array
+    {
+        return DB::transaction(function () use ($template, $board, $options, $user) {
+            $schema = $template->content_schema ?? [];
+            $tasksBlueprint = $schema['tasks'] ?? [];
+            $totalDuration = (int) ($schema['total_duration_days'] ?? 14);
+
+            $dateMode = $options['date_mapping_mode'] ?? 'kickoff'; // kickoff or deadline
+            $refDateStr = $options['reference_date'] ?? now()->format('Y-m-d');
+            $refDate = \Illuminate\Support\Carbon::parse($refDateStr);
+
+            // 1. Resolve or create BoardGroup
+            if (!empty($options['target_group_id'])) {
+                $group = BoardGroup::where('board_id', $board->id)->find($options['target_group_id']);
+            } elseif (!empty($options['new_group_title'])) {
+                $group = BoardGroup::create([
+                    'board_id' => $board->id,
+                    'title' => $options['new_group_title'],
+                    'color' => $template->color ?? '#579BFC',
+                    'position' => $board->groups()->count(),
+                ]);
+            } else {
+                $groupTitle = $schema['group_name'] ?? $template->title;
+                $group = BoardGroup::create([
+                    'board_id' => $board->id,
+                    'title' => $groupTitle,
+                    'color' => $template->color ?? '#579BFC',
+                    'position' => $board->groups()->count(),
+                ]);
+            }
+
+            // 2. Resolve columns
+            $boardColumns = $board->columns()->orderBy('position')->get();
+            $defaultColumn = $boardColumns->first();
+            $columnMap = [];
+            foreach ($boardColumns as $col) {
+                $columnMap[strtolower($col->title)] = $col->id;
+            }
+
+            $createdTasks = [];
+            $taskKeyMap = [];
+            $dependencyService = app(\App\Services\TaskDependencyService::class);
+
+            // 3. Create all tasks
+            foreach ($tasksBlueprint as $idx => $t) {
+                $key = $t['key'] ?? $t['temp_id'] ?? $t['id'] ?? "task_{$idx}";
+                $offset = (int) ($t['offset_days'] ?? 0);
+                $duration = max(1, (int) ($t['duration_days'] ?? 1));
+
+                // Calculate dates
+                if ($dateMode === 'deadline') {
+                    // Offset relative backward from target completion deadline
+                    $daysBeforeDeadline = max(0, $totalDuration - ($offset + $duration));
+                    $calculatedDueDate = $refDate->copy()->subDays($daysBeforeDeadline);
+                    $calculatedStartDate = $calculatedDueDate->copy()->subDays($duration);
+                } else {
+                    // Offset forward from kickoff date
+                    $calculatedStartDate = $refDate->copy()->addDays($offset);
+                    $calculatedDueDate = $calculatedStartDate->copy()->addDays($duration);
+                }
+
+                // Determine column
+                $colId = $defaultColumn?->id;
+                if (!empty($t['stage'])) {
+                    $stageKey = strtolower($t['stage']);
+                    if (isset($columnMap[$stageKey])) {
+                        $colId = $columnMap[$stageKey];
+                    }
+                }
+
+                $task = KanbanTask::create([
+                    'board_id' => $board->id,
+                    'column_id' => $colId,
+                    'board_group_id' => $group->id,
+                    'group_id' => $group->id,
+                    'title' => $t['title'],
+                    'description' => $t['description'] ?? null,
+                    'priority' => $t['priority'] ?? 'Medium',
+                    'start_date' => $calculatedStartDate->format('Y-m-d'),
+                    'due_date' => $calculatedDueDate->format('Y-m-d'),
+                    'estimated_hours' => $t['estimated_hours'] ?? null,
+                    'assigned_to' => $options['assigned_to'] ?? null,
+                    'progress' => 0,
+                    'created_by' => $user->id,
+                    'position' => $idx,
+                ]);
+
+                // Create subtasks
+                if (!empty($t['subtasks']) && is_array($t['subtasks'])) {
+                    foreach ($t['subtasks'] as $sidx => $sub) {
+                        $subTitle = is_array($sub) ? ($sub['title'] ?? 'Subtask') : (string) $sub;
+                        KanbanTask::create([
+                            'board_id' => $board->id,
+                            'column_id' => $colId,
+                            'board_group_id' => $group->id,
+                            'group_id' => $group->id,
+                            'parent_id' => $task->id,
+                            'title' => $subTitle,
+                            'priority' => 'Medium',
+                            'progress' => 0,
+                            'created_by' => $user->id,
+                            'position' => $sidx,
+                        ]);
+                    }
+                }
+
+                $createdTasks[] = $task;
+                $taskKeyMap[$key] = $task;
+            }
+
+            // 4. Wire up dependency links
+            foreach ($tasksBlueprint as $idx => $t) {
+                $key = $t['key'] ?? $t['temp_id'] ?? $t['id'] ?? "task_{$idx}";
+                if (!isset($taskKeyMap[$key])) {
+                    continue;
+                }
+                $currentTask = $taskKeyMap[$key];
+                $dependsOnKeys = $t['depends_on'] ?? [];
+
+                foreach ($dependsOnKeys as $prereqKey) {
+                    if (isset($taskKeyMap[$prereqKey])) {
+                        $predecessorTask = $taskKeyMap[$prereqKey];
+                        // Current task is blocked by predecessor
+                        try {
+                            $dependencyService->addDependency(
+                                task: $currentTask,
+                                targetTaskId: $predecessorTask->id,
+                                relationshipType: 'blocked_by',
+                                user: $user
+                            );
+                        } catch (\Throwable $e) {
+                            // Cycle or error guard
+                        }
+                    }
+                }
+            }
+
+            return [
+                'group' => $group,
+                'tasks' => $createdTasks,
+                'count' => count($createdTasks),
+            ];
+        });
+    }
+
+    /**
+     * Save an existing BoardGroup with its tasks, subtasks, and dependencies as a reusable blueprint.
+     */
+    public function saveGroupAsTemplate(BoardGroup $group, string $title, ?string $description, ?string $category, User $user): WorkOsTemplate
+    {
+        $group->load(['board', 'tasks.subitems', 'tasks.column', 'tasks.dependencies']);
+        $tasks = $group->tasks->whereNull('parent_id')->sortBy('position')->values();
+
+        $earliestStart = null;
+        $latestDue = null;
+        foreach ($tasks as $t) {
+            if ($t->start_date) {
+                $s = \Illuminate\Support\Carbon::parse($t->start_date);
+                if (!$earliestStart || $s->lt($earliestStart)) {
+                    $earliestStart = $s;
+                }
+            }
+            if ($t->due_date) {
+                $d = \Illuminate\Support\Carbon::parse($t->due_date);
+                if (!$latestDue || $d->gt($latestDue)) {
+                    $latestDue = $d;
+                }
+            }
+        }
+
+        $baseDate = $earliestStart ?? now();
+        $totalDuration = ($earliestStart && $latestDue) ? max(1, $earliestStart->diffInDays($latestDue)) : 14;
+
+        $idToKeyMap = [];
+        $tasksSchema = [];
+
+        foreach ($tasks as $idx => $t) {
+            $key = "task_" . ($idx + 1);
+            $idToKeyMap[$t->id] = $key;
+        }
+
+        foreach ($tasks as $idx => $t) {
+            $key = $idToKeyMap[$t->id];
+            $startDate = $t->start_date ? \Illuminate\Support\Carbon::parse($t->start_date) : null;
+            $dueDate = $t->due_date ? \Illuminate\Support\Carbon::parse($t->due_date) : null;
+
+            $offsetDays = $startDate ? $baseDate->diffInDays($startDate) : ($idx * 2);
+            $durationDays = ($startDate && $dueDate) ? max(1, $startDate->diffInDays($dueDate)) : 2;
+
+            $internalDeps = [];
+            foreach ($t->dependencies as $dep) {
+                if (isset($idToKeyMap[$dep->depends_on_task_id])) {
+                    $internalDeps[] = $idToKeyMap[$dep->depends_on_task_id];
+                }
+            }
+
+            $subtasks = [];
+            foreach ($t->subitems as $sub) {
+                $subtasks[] = $sub->title;
+            }
+
+            $tasksSchema[] = [
+                'key' => $key,
+                'title' => $t->title,
+                'stage' => $t->column?->title ?? 'To Do',
+                'offset_days' => $offsetDays,
+                'duration_days' => $durationDays,
+                'priority' => $t->priority ?? 'Medium',
+                'estimated_hours' => $t->estimated_hours,
+                'subtasks' => $subtasks,
+                'depends_on' => $internalDeps,
+            ];
+        }
+
+        return WorkOsTemplate::create([
+            'title' => $title,
+            'description' => $description ?? "Custom blueprint created from '{$group->title}'",
+            'type' => 'task',
+            'category' => $category ?? 'general',
+            'created_by' => $user->id,
+            'is_system_template' => false,
+            'icon' => 'Sparkles',
+            'color' => $group->color ?? '#579BFC',
+            'content_schema' => [
+                'group_name' => $title,
+                'total_duration_days' => $totalDuration,
+                'tasks' => $tasksSchema,
+            ],
+        ]);
+    }
 }

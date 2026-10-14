@@ -189,7 +189,125 @@ class TemplateController extends Controller
                 ->with('success', 'Workdoc created from template.');
         }
 
+        if ($template->type === 'task') {
+            $validated = $request->validate([
+                'board_id' => 'required|exists:kanban_boards,id',
+                'date_mapping_mode' => 'nullable|string|in:kickoff,deadline',
+                'reference_date' => 'nullable|date',
+                'target_group_id' => 'nullable|exists:board_groups,id',
+                'new_group_title' => 'nullable|string|max:255',
+                'assigned_to' => 'nullable|exists:users,id',
+            ]);
+
+            $board = KanbanBoard::findOrFail($validated['board_id']);
+            if ($user->cannot('update', $board)) {
+                abort(403);
+            }
+
+            $result = $this->templateEngine->instantiateTaskBlueprint(
+                template: $template,
+                board: $board,
+                options: $validated,
+                user: $user
+            );
+
+            return redirect()->route('kanban.index', ['workspace' => $board->workspace_id, 'board' => $board->id])
+                ->with('success', "Task blueprint '{$template->title}' instantiated with {$result['count']} tasks.");
+        }
+
         return back()->with('error', 'Unsupported template type.');
+    }
+
+    /**
+     * Get available task list blueprints for a board
+     */
+    public function getTaskBlueprints(Request $request, KanbanBoard $board)
+    {
+        $user = $request->user();
+        if ($user->cannot('view', $board)) {
+            abort(403);
+        }
+
+        $blueprints = WorkOsTemplate::where('type', 'task')
+            ->orderBy('is_system_template', 'desc')
+            ->orderBy('title')
+            ->get();
+
+        return response()->json($blueprints);
+    }
+
+    /**
+     * Instantiate task blueprint directly into board
+     */
+    public function instantiateTaskBlueprint(Request $request, KanbanBoard $board)
+    {
+        $user = $request->user();
+        if ($user->cannot('update', $board)) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'template_id' => 'required|exists:work_os_templates,id',
+            'date_mapping_mode' => 'nullable|string|in:kickoff,deadline',
+            'reference_date' => 'nullable|date',
+            'target_group_id' => 'nullable|exists:board_groups,id',
+            'new_group_title' => 'nullable|string|max:255',
+            'assigned_to' => 'nullable|exists:users,id',
+        ]);
+
+        $template = WorkOsTemplate::where('type', 'task')->findOrFail($validated['template_id']);
+
+        $result = $this->templateEngine->instantiateTaskBlueprint(
+            template: $template,
+            board: $board,
+            options: $validated,
+            user: $user
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => "Workflow blueprint '{$template->title}' instantiated successfully",
+                'group' => $result['group'],
+                'tasks_count' => $result['count'],
+            ]);
+        }
+
+        return back()->with('success', "Workflow blueprint '{$template->title}' instantiated successfully with {$result['count']} tasks.");
+    }
+
+    /**
+     * Save an existing task group as a reusable blueprint
+     */
+    public function saveGroupAsBlueprint(Request $request, \App\Models\BoardGroup $group)
+    {
+        $user = $request->user();
+        $board = $group->board;
+        if ($board && $user->cannot('update', $board)) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'category' => 'nullable|string|max:50',
+        ]);
+
+        $template = $this->templateEngine->saveGroupAsTemplate(
+            group: $group,
+            title: $validated['title'],
+            description: $validated['description'] ?? null,
+            category: $validated['category'] ?? 'general',
+            user: $user
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => "Blueprint '{$template->title}' saved successfully",
+                'template' => $template,
+            ]);
+        }
+
+        return back()->with('success', "Blueprint '{$template->title}' saved successfully");
     }
 
     /**

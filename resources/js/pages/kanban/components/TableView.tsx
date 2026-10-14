@@ -4,7 +4,8 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { router } from '@inertiajs/react';
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import axios from 'axios';
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, Layers, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
 import { BoardColumn, getTableGridTemplate, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 import AddColumnModal from './AddColumnModal';
@@ -40,6 +41,32 @@ export default function TableView({
     const [renameColumn, setRenameColumn] = useState<BoardColumn | null>(null);
     const [renameTitleInput, setRenameTitleInput] = useState('');
     const [isAddSubtaskColumnOpen, setIsAddSubtaskColumnOpen] = useState(false);
+
+    // Save Group as Blueprint States
+    const [blueprintGroup, setBlueprintGroup] = useState<any | null>(null);
+    const [blueprintTitle, setBlueprintTitle] = useState('');
+    const [blueprintCategory, setBlueprintCategory] = useState('production');
+    const [blueprintDesc, setBlueprintDesc] = useState('');
+    const [isSavingBlueprint, setIsSavingBlueprint] = useState(false);
+
+    const handleSaveGroupAsBlueprint = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!blueprintGroup || !blueprintTitle.trim()) return;
+        setIsSavingBlueprint(true);
+        try {
+            await axios.post(`/kanban/groups/${blueprintGroup.id}/save-as-blueprint`, {
+                title: blueprintTitle.trim(),
+                description: blueprintDesc.trim(),
+                category: blueprintCategory,
+            });
+            setBlueprintGroup(null);
+            alert('Group workflow saved as blueprint successfully!');
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'Failed to save blueprint');
+        } finally {
+            setIsSavingBlueprint(false);
+        }
+    };
 
     const toggleCollapse = (groupId: number) => {
         setCollapsedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
@@ -296,6 +323,17 @@ export default function TableView({
                                     <DropdownMenuItem onClick={() => setEditingGroupTitle(group.id)}>
                                         <Edit3 className="mr-2 h-3.5 w-3.5" />
                                         <span>Rename Group</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={() => {
+                                            setBlueprintGroup(group);
+                                            setBlueprintTitle(`${group.title} Blueprint`);
+                                            setBlueprintDesc(`Standard workflow for ${group.title}`);
+                                            setBlueprintCategory('production');
+                                        }}
+                                    >
+                                        <Layers className="mr-2 h-3.5 w-3.5 text-indigo-500" />
+                                        <span>Save as Blueprint</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={() => handleDeleteGroup(group.id)} className="text-red-500">
@@ -586,6 +624,69 @@ export default function TableView({
                 onClose={() => setIsAddSubtaskColumnOpen(false)}
                 scope="subtask"
             />
+
+            {/* Save Group as Blueprint Modal */}
+            <Dialog open={!!blueprintGroup} onOpenChange={(open) => !open && setBlueprintGroup(null)}>
+                <DialogContent className="rounded-2xl sm:max-w-md">
+                    <form onSubmit={handleSaveGroupAsBlueprint}>
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Layers className="h-5 w-5 text-indigo-500" />
+                                Save Group as Workflow Blueprint
+                            </DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-3">
+                            <div>
+                                <Label htmlFor="bp-title">Blueprint Title</Label>
+                                <Input
+                                    id="bp-title"
+                                    value={blueprintTitle}
+                                    onChange={(e) => setBlueprintTitle(e.target.value)}
+                                    placeholder="e.g. Video Production Batch"
+                                    required
+                                    className="mt-1"
+                                />
+                            </div>
+
+                            <div>
+                                <Label htmlFor="bp-category">Category</Label>
+                                <select
+                                    id="bp-category"
+                                    value={blueprintCategory}
+                                    onChange={(e) => setBlueprintCategory(e.target.value)}
+                                    className="border-border bg-background mt-1 w-full rounded-xl border p-2 text-xs"
+                                >
+                                    <option value="production">Production & Video</option>
+                                    <option value="design">Design & Creative</option>
+                                    <option value="marketing">Marketing Campaign</option>
+                                    <option value="development">Engineering & Sprints</option>
+                                    <option value="operations">Operations & General</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <Label htmlFor="bp-desc">Description</Label>
+                                <textarea
+                                    id="bp-desc"
+                                    rows={2}
+                                    value={blueprintDesc}
+                                    onChange={(e) => setBlueprintDesc(e.target.value)}
+                                    placeholder="Brief summary of workflow stages and tasks in this blueprint..."
+                                    className="border-border bg-background mt-1 w-full rounded-xl border p-2 text-xs"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setBlueprintGroup(null)}>
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={isSavingBlueprint} className="bg-indigo-600 hover:bg-indigo-700 text-white">
+                                {isSavingBlueprint ? 'Saving...' : 'Save Blueprint'}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

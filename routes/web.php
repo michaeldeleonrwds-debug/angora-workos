@@ -201,6 +201,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/templates/save-board/{board}', [\App\Http\Controllers\TemplateController::class, 'saveBoardAsTemplate'])->name('templates.save-board');
     Route::post('/templates/{template}/instantiate', [\App\Http\Controllers\TemplateController::class, 'instantiate'])->name('templates.instantiate');
     Route::delete('/templates/{template}', [\App\Http\Controllers\TemplateController::class, 'destroy'])->name('templates.destroy');
+    Route::get('/kanban/boards/{board}/task-blueprints', [\App\Http\Controllers\TemplateController::class, 'getTaskBlueprints'])->name('kanban.boards.task-blueprints.index');
+    Route::post('/kanban/boards/{board}/task-blueprints/instantiate', [\App\Http\Controllers\TemplateController::class, 'instantiateTaskBlueprint'])->name('kanban.boards.task-blueprints.instantiate');
+    Route::post('/kanban/groups/{group}/save-as-blueprint', [\App\Http\Controllers\TemplateController::class, 'saveGroupAsBlueprint'])->name('kanban.groups.save-as-blueprint');
 
     // Dashboards & Reporting
     Route::get('/dashboards', [\App\Http\Controllers\CustomDashboardController::class, 'index'])->name('dashboards.index');

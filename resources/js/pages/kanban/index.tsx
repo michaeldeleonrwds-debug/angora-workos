@@ -18,6 +18,7 @@ import GanttView from './components/GanttView';
 import ItemDetailDrawer from './components/ItemDetailDrawer';
 import KanbanBoardView from './components/KanbanBoardView';
 import TableView from './components/TableView';
+import WorkflowBlueprintModal from './components/WorkflowBlueprintModal';
 import WorkloadView from './components/WorkloadView';
 import WorkspaceBoardNav from './components/WorkspaceBoardNav';
 import { KanbanBoard, KanbanPageProps, Task } from './types';
@@ -174,6 +175,7 @@ export default function KanbanPage({
     const [isNewGroupModalOpen, setIsNewGroupModalOpen] = useState(false);
     const [isNewColumnModalOpen, setIsNewColumnModalOpen] = useState(false);
     const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
+    const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
 
     // New Task Form
     const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -281,6 +283,7 @@ export default function KanbanPage({
                         onOpenNewGroup={() => setIsNewGroupModalOpen(true)}
                         onOpenNewColumn={() => setIsNewColumnModalOpen(true)}
                         onOpenAutomate={() => setIsAutomationModalOpen(true)}
+                        onOpenBlueprints={() => setIsBlueprintModalOpen(true)}
                     />
                 </div>
 
@@ -404,6 +407,15 @@ export default function KanbanPage({
 
             {/* Automation Center Modal */}
             <AutomationCenterModal board={board} isOpen={isAutomationModalOpen} onClose={() => setIsAutomationModalOpen(false)} users={users} />
+
+            {/* Workflow Blueprints Modal */}
+            <WorkflowBlueprintModal
+                isOpen={isBlueprintModalOpen}
+                onClose={() => setIsBlueprintModalOpen(false)}
+                board={board}
+                groups={board.groups || []}
+                users={users}
+            />
 
             {/* New Group Modal */}
             <Dialog open={isNewGroupModalOpen} onOpenChange={setIsNewGroupModalOpen}>
