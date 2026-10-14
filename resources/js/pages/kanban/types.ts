@@ -305,6 +305,9 @@ export const DEFAULT_TASK_TYPES = [
 export const DEFAULT_COLUMN_WIDTH = 140;
 
 export const getColumnWidth = (col: BoardColumn): number => {
+    if (col.type === 'date') {
+        return Math.max(col.width || 0, 205);
+    }
     if (col.width && col.width > 0) return col.width;
     switch (col.type) {
         case 'people':
@@ -314,7 +317,7 @@ export const getColumnWidth = (col: BoardColumn): number => {
         case 'priority':
             return 130;
         case 'date':
-            return 180;
+            return 205;
         case 'timeline':
             return 170;
         case 'progress':
@@ -344,6 +347,6 @@ export const getColumnWidth = (col: BoardColumn): number => {
 
 export const getTableGridTemplate = (visibleColumns: BoardColumn[]): string => {
     const dynamicTracks = visibleColumns.map((c) => `${getColumnWidth(c)}px`).join(' ');
-    return `6px 44px minmax(280px, 1fr) ${dynamicTracks} 40px`;
+    return `6px 44px 250px ${dynamicTracks} 40px`;
 };
 

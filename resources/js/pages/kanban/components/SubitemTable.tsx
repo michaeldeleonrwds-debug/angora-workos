@@ -65,7 +65,7 @@ export default function SubitemTable({
         }
         return [
             { id: 9001, board_id: parentTask.board_id, key: 'sub_designer', title: 'Designer', type: 'people', position: 0, is_visible: true, width: 150 },
-            { id: 9002, board_id: parentTask.board_id, key: 'sub_deadline', title: 'Deadline', type: 'date', position: 1, is_visible: true, width: 180 },
+            { id: 9002, board_id: parentTask.board_id, key: 'sub_deadline', title: 'Deadline', type: 'date', position: 1, is_visible: true, width: 205 },
             {
                 id: 9003,
                 board_id: parentTask.board_id,
@@ -298,7 +298,7 @@ export default function SubitemTable({
                                 {effectiveColumns.map((col) => (
                                     <div
                                         key={col.id}
-                                        style={{ width: col.width || (col.type === 'date' ? 180 : 140) }}
+                                        style={{ width: col.type === 'date' ? Math.max(col.width || 0, 205) : (col.width || 140) }}
                                         className="border-border/30 group/scol flex flex-shrink-0 items-center justify-between border-r px-2 py-2 text-center"
                                     >
                                         <span className="w-full truncate">{col.title}</span>
@@ -500,7 +500,7 @@ export default function SubitemTable({
                                                 return (
                                                     <div
                                                         key={col.id}
-                                                        style={{ width: col.width || 180 }}
+                                                        style={{ width: col.type === 'date' ? Math.max(col.width || 0, 205) : (col.width || 140) }}
                                                         className="border-border/30 flex flex-shrink-0 items-center justify-center border-r px-1 py-1 text-center min-w-0 overflow-hidden"
                                                     >
                                                         <DatePickerCell

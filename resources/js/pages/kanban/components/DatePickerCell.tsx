@@ -359,7 +359,7 @@ export default function DatePickerCell({
                     }`}
                     title={cellDisplayText ? `${cellDisplayText} (Click to edit)` : placeholder}
                 >
-                    <span className="truncate flex-1 min-w-0 text-center">
+                    <span className="truncate flex-1 min-w-0 text-center whitespace-nowrap">
                         {cellDisplayText || (
                             <span className="text-muted-foreground/50 font-normal italic">
                                 {placeholder}

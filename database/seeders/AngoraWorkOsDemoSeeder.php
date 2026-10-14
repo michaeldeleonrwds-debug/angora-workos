@@ -492,14 +492,14 @@ class AngoraWorkOsDemoSeeder extends Seeder
                 'key' => 'due_date', // Deadline
                 'title' => 'Deadline',
                 'type' => 'date',
-                'width' => 140,
+                'width' => 205,
                 'position' => 4,
             ],
             [
                 'key' => 'client_deadline', // Client Deadline
                 'title' => 'Client Deadline',
                 'type' => 'date',
-                'width' => 140,
+                'width' => 205,
                 'position' => 5,
             ],
             [
@@ -549,7 +549,7 @@ class AngoraWorkOsDemoSeeder extends Seeder
                 'key' => 'sub_deadline',
                 'title' => 'Deadline',
                 'type' => 'date',
-                'width' => 130,
+                'width' => 205,
                 'position' => 1,
             ],
             [
