@@ -614,10 +614,11 @@ export default function BoardUnifiedHeader({
                                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Assignee</Label>
                                     <Select value={personFilter} onValueChange={onPersonFilterChange}>
                                         <SelectTrigger className="mt-1 h-8 rounded-lg text-xs">
-                                            <SelectValue placeholder="All People" />
+                                            <SelectValue placeholder="Filter by Assignee" />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl text-xs">
-                                            <SelectItem value="all">All People</SelectItem>
+                                            <SelectItem value="me">My Tasks</SelectItem>
+                                            <SelectItem value="all">All Accessible Tasks</SelectItem>
                                             {users.map((u) => (
                                                 <SelectItem key={u.id} value={String(u.id)}>
                                                     {u.name}
@@ -701,7 +702,7 @@ export default function BoardUnifiedHeader({
                 <div className="hidden lg:flex items-center gap-2 shrink-0">
                     <div className="flex items-center gap-1.5 rounded-lg border border-border/50 bg-background/80 px-2.5 py-1 text-xs">
                         <ListTodo className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="text-muted-foreground">Total:</span>
+                        <span className="text-muted-foreground">Total (Board):</span>
                         <span className="font-bold text-foreground">{stats.total}</span>
                     </div>
 

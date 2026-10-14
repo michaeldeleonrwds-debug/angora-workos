@@ -1186,16 +1186,39 @@ class KanbanController extends Controller
 
     public function updateTaskColumn(Request $request, KanbanTask $task)
     {
-        Gate::authorize('changeStatus', $task);
-
         $validated = $request->validate([
             'column_id' => 'required|exists:kanban_columns,id',
             'position' => 'nullable|integer',
         ]);
 
-        $prevColumn = $task->column?->title;
-        $status = KanbanColumn::where('board_id', $task->board_id)->findOrFail($validated['column_id']);
+        $status = KanbanColumn::findOrFail($validated['column_id']);
+        if ((int) $status->board_id !== (int) $task->board_id) {
+            abort(403, 'Cross-board or cross-workspace movement is not permitted.');
+        }
+        Gate::authorize('changeStatus', [$task, $status]);
+
         abort_if($status->is_archived && $status->id !== $task->column_id, 422, 'Archived statuses cannot be assigned.');
+
+        // Review safety: if moving to in_review, ensure a review cycle is registered
+        if ($status->semantic_category === 'in_review' || str_contains(strtolower($status->title), 'review')) {
+            $pendingCycle = $task->reviewCycles()->where('state', 'pending')->first();
+            if (!$pendingCycle) {
+                $latestCycle = $task->reviewCycles()->latest('round_number')->first();
+                $roundNumber = $latestCycle ? ($latestCycle->round_number + 1) : 1;
+                \App\Models\TaskReviewCycle::create([
+                    'task_id' => $task->id,
+                    'round_number' => $roundNumber,
+                    'submitted_by' => auth()->id(),
+                    'state' => 'pending',
+                    'total_stages' => 1,
+                    'current_stage_index' => 1,
+                    'notes' => 'Submitted via workflow movement',
+                    'submitted_at' => now(),
+                ]);
+            }
+        }
+
+        $prevColumn = $task->column?->title;
         $task->applyWorkflowStatus($status);
         if (isset($validated['position'])) {
             $task->position = $validated['position'];
@@ -1260,26 +1283,64 @@ class KanbanController extends Controller
 
     public function reorderTasks(Request $request)
     {
-        if ($request->user()->role === 'designer') {
-            abort(403, 'Designers are not authorized to reorder tasks.');
+        $user = $request->user();
+
+        if ($request->has('tasks') && is_array($request->input('tasks'))) {
+            $taskItems = $request->input('tasks');
+            $taskIds = array_column($taskItems, 'id');
+        } else {
+            $validated = $request->validate([
+                'task_ids' => 'required|array',
+                'task_ids.*' => 'exists:kanban_tasks,id',
+                'column_id' => 'nullable|exists:kanban_columns,id',
+            ]);
+            $taskIds = $validated['task_ids'];
         }
 
-        $validated = $request->validate([
-            'task_ids' => 'required|array',
-            'task_ids.*' => 'exists:kanban_tasks,id',
-            'column_id' => 'nullable|exists:kanban_columns,id',
-        ]);
+        $tasks = KanbanTask::whereIn('id', $taskIds)->get()->keyBy('id');
 
-        foreach ($validated['task_ids'] as $idx => $id) {
-            $task = KanbanTask::find($id);
-            if ($task && auth()->user()->can('update', $task)) {
-                $data = ['position' => $idx];
-                if (isset($validated['column_id'])) {
-                    $data['column_id'] = $validated['column_id'];
+        // Check authorization: if user is designer, ALL reordered tasks must be assigned to them!
+        if ($user->role === 'designer') {
+            foreach ($taskIds as $id) {
+                $task = $tasks->get($id);
+                if (!$task || !$task->isAssignedTo($user)) {
+                    abort(403, 'Designers are not authorized to reorder tasks assigned to other employees.');
                 }
-                $task->update($data);
+            }
+        } else {
+            foreach ($taskIds as $id) {
+                $task = $tasks->get($id);
+                if ($task && !$user->can('update', $task)) {
+                    abort(403, 'Unauthorized to reorder tasks.');
+                }
             }
         }
+
+        $targetColId = $request->input('column_id');
+        $targetCol = $targetColId ? KanbanColumn::find($targetColId) : null;
+
+        if ($targetCol && $user->role === 'designer') {
+            foreach ($taskIds as $id) {
+                $task = $tasks->get($id);
+                if ($task && !$user->can('changeStatus', [$task, $targetCol])) {
+                    abort(403, 'Unauthorized workflow transition during reorder.');
+                }
+            }
+        }
+
+        // Apply positions
+        DB::transaction(function () use ($taskIds, $tasks, $targetColId) {
+            foreach ($taskIds as $idx => $id) {
+                $task = $tasks->get($id);
+                if ($task) {
+                    $update = ['position' => $idx];
+                    if ($targetColId) {
+                        $update['column_id'] = $targetColId;
+                    }
+                    $task->update($update);
+                }
+            }
+        });
 
         return back()->with('success', 'Tasks reordered');
     }

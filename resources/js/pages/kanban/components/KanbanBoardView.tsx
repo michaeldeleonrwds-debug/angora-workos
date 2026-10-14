@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDate, formatTime, getExactTimeRemaining } from '@/lib/utils';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     Calendar,
@@ -34,6 +34,7 @@ interface KanbanBoardViewProps {
     personFilter: string;
     priorityFilter: string;
     users: User[];
+    currentUser?: User;
     permissions?: BoardPermissions;
     onSelectTask: (task: Task) => void;
     onQuickAddTask: (columnId: number) => void;
@@ -45,10 +46,13 @@ export default function KanbanBoardView({
     personFilter,
     priorityFilter,
     users = [],
+    currentUser,
     permissions,
     onSelectTask,
     onQuickAddTask,
 }: KanbanBoardViewProps) {
+    const { auth } = usePage<any>().props;
+    const effectiveCurrentUser = currentUser || auth?.user;
     const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
     const [dragOverColumnId, setDragOverColumnId] = useState<number | null>(null);
     const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
@@ -147,6 +151,16 @@ export default function KanbanBoardView({
         );
     };
 
+    const canMoveTask = (task: Task) => {
+        if (permissions?.canChangeStatus !== false) {
+            return true;
+        }
+        if (permissions?.canMoveAssignedTask !== false && isUserAssignedToTask(task, effectiveCurrentUser?.id || 'me', effectiveCurrentUser?.id)) {
+            return true;
+        }
+        return false;
+    };
+
     // Filter tasks
     const filterTask = (task: Task) => {
         if (task.parent_id) return false;
@@ -156,7 +170,7 @@ export default function KanbanBoardView({
             const matchesDesc = (task.description || '').toLowerCase().includes(term);
             if (!matchesTitle && !matchesDesc) return false;
         }
-        if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter)) {
+        if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter, effectiveCurrentUser?.id)) {
             return false;
         }
         if (priorityFilter !== 'all' && task.priority !== priorityFilter) {
@@ -166,18 +180,18 @@ export default function KanbanBoardView({
     };
 
     // Drag and Drop
-    const handleDragStart = (e: React.DragEvent, taskId: number) => {
-        if (permissions?.canChangeStatus === false) {
+    const handleDragStart = (e: React.DragEvent, task: Task) => {
+        if (!canMoveTask(task)) {
             e.preventDefault();
             return;
         }
-        setDraggingTaskId(taskId);
-        e.dataTransfer.setData('text/plain', String(taskId));
+        setDraggingTaskId(task.id);
+        e.dataTransfer.setData('text/plain', String(task.id));
         e.dataTransfer.effectAllowed = 'move';
     };
 
     const handleDragOver = (e: React.DragEvent, columnId: number) => {
-        if (permissions?.canChangeStatus === false) return;
+        if (permissions?.canChangeStatus === false && permissions?.canMoveAssignedTask === false) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         if (dragOverColumnId !== columnId) {
@@ -195,18 +209,34 @@ export default function KanbanBoardView({
     const handleDrop = (e: React.DragEvent, targetColumnId: number) => {
         e.preventDefault();
         setDragOverColumnId(null);
-        if (permissions?.canChangeStatus === false) return;
         const taskIdStr = e.dataTransfer.getData('text/plain');
         const taskId = taskIdStr ? parseInt(taskIdStr, 10) : draggingTaskId;
 
         if (!taskId) return;
+
+        const allTasks = columns.flatMap((c) => c.tasks || []);
+        const task = allTasks.find((t) => t.id === taskId);
+        if (!task || !canMoveTask(task)) {
+            setDraggingTaskId(null);
+            return;
+        }
+
+        if (task.column_id === targetColumnId) {
+            setDraggingTaskId(null);
+            return;
+        }
 
         router.patch(
             `/kanban/tasks/${taskId}/column`,
             {
                 column_id: targetColumnId,
             },
-            { preserveScroll: true },
+            {
+                preserveScroll: true,
+                onError: (errors) => {
+                    console.error('Task move failed:', errors);
+                },
+            },
         );
         setDraggingTaskId(null);
     };
@@ -360,8 +390,8 @@ export default function KanbanBoardView({
                                 return (
                                     <div
                                         key={task.id}
-                                        draggable={permissions?.canChangeStatus !== false}
-                                        onDragStart={(e) => handleDragStart(e, task.id)}
+                                        draggable={canMoveTask(task)}
+                                        onDragStart={(e) => handleDragStart(e, task)}
                                         onClick={() => onSelectTask(task)}
                                         className={`group relative cursor-pointer rounded-xl border border-border/80 bg-card p-3 text-card-foreground shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md ${
                                             draggingTaskId === task.id ? 'scale-95 opacity-40' : 'opacity-100'
@@ -671,8 +701,9 @@ export default function KanbanBoardView({
                             })}
 
                             {colTasks.length === 0 && (
-                                <div className="flex h-28 items-center justify-center rounded-xl border-2 border-dashed border-border/60 text-xs text-muted-foreground/60 select-none">
-                                    Drop items here
+                                <div className="flex h-28 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-border/60 p-3 text-center text-xs text-muted-foreground/60 select-none">
+                                    <span>{personFilter === 'me' ? 'No tasks assigned to you in this stage' : 'No tasks in this stage'}</span>
+                                    <span className="text-[10px] text-muted-foreground/40">Drop items here</span>
                                 </div>
                             )}
                         </div>

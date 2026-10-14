@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import axios from 'axios';
 import {
     Activity,
@@ -15,7 +16,7 @@ import {
     Zap,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
-import { KanbanBoard, Task, User } from '../types';
+import { isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
 interface ChartViewProps {
     board: KanbanBoard;
@@ -34,6 +35,8 @@ export default function ChartView({
     users = [],
     onSelectTask,
 }: ChartViewProps) {
+    const { auth } = usePage<any>().props;
+    const currentUserId = auth?.user?.id;
     const [remoteMetrics, setRemoteMetrics] = useState<any | null>(null);
     const [isLoadingMetrics, setIsLoadingMetrics] = useState(false);
 
@@ -71,11 +74,11 @@ export default function ChartView({
                     const term = searchTerm.toLowerCase();
                     if (!task.title.toLowerCase().includes(term)) return false;
                 }
-                if (personFilter !== 'all' && String(task.assigned_to) !== personFilter) return false;
+                if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter, currentUserId)) return false;
                 if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
                 return true;
             });
-    }, [board.groups, searchTerm, personFilter, priorityFilter]);
+    }, [board.groups, searchTerm, personFilter, priorityFilter, currentUserId]);
 
     // 1. Status Aggregation
     const statusStats = useMemo(() => {

@@ -1,6 +1,7 @@
 import { formatDate, formatTime } from '@/lib/utils';
+import { usePage } from '@inertiajs/react';
 import { Clock } from 'lucide-react';
-import { KanbanBoard, Task } from '../types';
+import { isUserAssignedToTask, KanbanBoard, Task } from '../types';
 
 interface TimelineGanttViewProps {
     board: KanbanBoard;
@@ -11,6 +12,8 @@ interface TimelineGanttViewProps {
 }
 
 export default function TimelineGanttView({ board, searchTerm, personFilter, priorityFilter, onSelectTask }: TimelineGanttViewProps) {
+    const { auth } = usePage<any>().props;
+    const currentUserId = auth?.user?.id;
     const tasks = (board.groups || [])
         .flatMap((g) => g.tasks || [])
         .filter((task) => {
@@ -18,7 +21,7 @@ export default function TimelineGanttView({ board, searchTerm, personFilter, pri
                 const term = searchTerm.toLowerCase();
                 if (!task.title.toLowerCase().includes(term)) return false;
             }
-            if (personFilter !== 'all' && String(task.assigned_to) !== personFilter) return false;
+            if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter, currentUserId)) return false;
             if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
             return true;
         });

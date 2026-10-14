@@ -17,6 +17,7 @@ import {
     TrendingUp,
     Users,
 } from 'lucide-react';
+import { usePage } from '@inertiajs/react';
 import React, { useMemo, useState } from 'react';
 import { getTaskAssignedUserIds, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
@@ -37,6 +38,8 @@ export default function WorkloadView({
     users = [],
     onSelectTask,
 }: WorkloadViewProps) {
+    const { auth } = usePage<any>().props;
+    const currentUserId = auth?.user?.id;
     const [timeframe, setTimeframe] = useState<'weekly' | 'daily'>('weekly');
     const [effortSplitMode, setEffortSplitMode] = useState<'equal' | 'full'>('equal');
 
@@ -55,11 +58,11 @@ export default function WorkloadView({
                     const term = searchTerm.toLowerCase();
                     if (!task.title.toLowerCase().includes(term)) return false;
                 }
-                if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter)) return false;
+                if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter, currentUserId)) return false;
                 if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
                 return true;
             });
-    }, [board.groups, searchTerm, personFilter, priorityFilter]);
+    }, [board.groups, searchTerm, personFilter, priorityFilter, currentUserId]);
 
     // Calculate workload per user
     const workloadAnalytics = useMemo(() => {

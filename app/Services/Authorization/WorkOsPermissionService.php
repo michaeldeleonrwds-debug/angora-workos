@@ -23,6 +23,7 @@ class WorkOsPermissionService
                 'canEditTask' => true,
                 'canEditProgress' => true,
                 'canChangeStatus' => true,
+                'canMoveAssignedTask' => true,
                 'canAssignUsers' => true,
                 'canChangeDeadlines' => true,
                 'canChangePriority' => true,
@@ -51,7 +52,8 @@ class WorkOsPermissionService
                 'canCreateTask' => false,
                 'canEditTask' => false, // Designers cannot edit arbitrary task metadata
                 'canEditProgress' => true, // Allowed only on tasks assigned to them
-                'canChangeStatus' => false,
+                'canChangeStatus' => false, // Blanket status changes are disallowed
+                'canMoveAssignedTask' => true, // Allowed to move and reorder assigned tasks
                 'canAssignUsers' => false,
                 'canChangeDeadlines' => false,
                 'canChangePriority' => false,
@@ -77,6 +79,7 @@ class WorkOsPermissionService
                 'canEditTask' => true,
                 'canEditProgress' => true,
                 'canChangeStatus' => true,
+                'canMoveAssignedTask' => true,
                 'canAssignUsers' => true,
                 'canChangeDeadlines' => true,
                 'canChangePriority' => true,
@@ -101,6 +104,7 @@ class WorkOsPermissionService
                 'canEditTask' => true,
                 'canEditProgress' => true,
                 'canChangeStatus' => true,
+                'canMoveAssignedTask' => true,
                 'canAssignUsers' => true,
                 'canChangeDeadlines' => true,
                 'canChangePriority' => true,
@@ -124,6 +128,7 @@ class WorkOsPermissionService
             'canEditTask' => false,
             'canEditProgress' => false,
             'canChangeStatus' => false,
+            'canMoveAssignedTask' => false,
             'canAssignUsers' => false,
             'canChangeDeadlines' => false,
             'canChangePriority' => false,

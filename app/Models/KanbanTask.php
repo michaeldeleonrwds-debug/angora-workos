@@ -456,7 +456,11 @@ class KanbanTask extends Model
         }
 
         if (is_array($this->custom_values)) {
-            foreach ($this->custom_values as $val) {
+            foreach ($this->custom_values as $key => $val) {
+                // Do not treat Account Manager or client columns as designer assignment
+                if (in_array(strtolower((string) $key), ['account_manager', 'am', 'client', 'client_id'], true)) {
+                    continue;
+                }
                 if (is_array($val)) {
                     if (in_array($userId, array_map('intval', $val), true)) {
                         return true;
@@ -470,6 +474,14 @@ class KanbanTask extends Model
         if ($this->parent_id && $this->parent) {
             if ($this->parent->isAssignedTo($userId) || (int) $this->created_by === $userId) {
                 return true;
+            }
+        }
+
+        if ($this->relationLoaded('subitems') && $this->subitems) {
+            foreach ($this->subitems as $subitem) {
+                if ($subitem->isAssignedTo($userId)) {
+                    return true;
+                }
             }
         }
 

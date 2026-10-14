@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Models\KanbanBoard;
+use App\Models\KanbanColumn;
 use App\Models\KanbanTask;
 use App\Models\User;
 
@@ -135,13 +136,105 @@ class TaskPolicy
     /**
      * Determine whether the user can change workflow status / column (e.g. Kanban drag).
      */
-    public function changeStatus(User $user, KanbanTask $task): bool
+    public function changeStatus(User $user, KanbanTask $task, ?KanbanColumn $targetColumn = null): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if ($user->status === 'inactive' || $user->status === 'suspended') {
             return false;
         }
 
-        return $this->update($user, $task);
+        if ($user->isSuperAdmin() || in_array($user->role, ['admin', 'admin_manager', 'project_manager'], true)) {
+            return true;
+        }
+
+        if ($user->role === 'account_manager') {
+            return $this->update($user, $task);
+        }
+
+        if (in_array($user->role, ['client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        if ($user->role === 'designer') {
+            return $this->canMoveAssignedTask($user, $task, $targetColumn);
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine whether an employee/designer can move their assigned task to a target workflow column.
+     */
+    public function canMoveAssignedTask(User $user, KanbanTask $task, ?KanbanColumn $targetColumn = null): bool
+    {
+        if ($user->status === 'inactive' || $user->status === 'suspended') {
+            return false;
+        }
+
+        // Must be assigned to this user
+        if (!$task->isAssignedTo($user)) {
+            return false;
+        }
+
+        // Board access check
+        $board = $task->board;
+        if (!$board || !$user->can('view', $board)) {
+            return false;
+        }
+
+        // If target column is specified, validate destination constraints
+        if ($targetColumn) {
+            // Must belong to the exact same board
+            if ((int) $targetColumn->board_id !== (int) $task->board_id) {
+                return false;
+            }
+
+            if ($targetColumn->is_archived) {
+                return false;
+            }
+
+            $destCat = $targetColumn->semantic_category 
+                ?: ($targetColumn->category ?? KanbanColumn::categoryForLegacyLabel($targetColumn->title));
+
+            // Blocked tasks cannot advance forward past dependency restrictions
+            if ($task->is_blocked && in_array($destCat, ['in_progress', 'in_review', 'completed'], true)) {
+                return false;
+            }
+
+            // Designers cannot mark tasks completed or cancel tasks directly
+            if ($destCat === 'completed' || $destCat === 'cancelled') {
+                return false;
+            }
+
+            // Valid production transitions:
+            // not_started -> in_progress, in_review, blocked
+            // in_progress -> in_review, not_started, blocked
+            // in_review -> in_progress (rework)
+            // blocked -> in_progress, not_started
+            // same column (reorder)
+            return in_array($destCat, ['not_started', 'in_progress', 'in_review', 'blocked'], true);
+        }
+
+        return true;
+    }
+
+    /**
+     * Determine whether the user can reorder this task.
+     */
+    public function reorder(User $user, KanbanTask $task): bool
+    {
+        if ($user->status === 'inactive' || $user->status === 'suspended') {
+            return false;
+        }
+
+        if ($user->isSuperAdmin() || in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true)) {
+            return true;
+        }
+
+        if ($user->role === 'designer') {
+            return $task->isAssignedTo($user);
+        }
+
+        return false;
     }
 
     /**

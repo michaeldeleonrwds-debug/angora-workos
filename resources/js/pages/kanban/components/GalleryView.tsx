@@ -1,7 +1,8 @@
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { usePage } from '@inertiajs/react';
 import { LayoutGrid, MessageCircle, Paperclip } from 'lucide-react';
 import { useMemo } from 'react';
-import { KanbanBoard, Task, User } from '../types';
+import { isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
 interface GalleryViewProps {
     board: KanbanBoard;
@@ -13,6 +14,8 @@ interface GalleryViewProps {
 }
 
 export default function GalleryView({ board, searchTerm, personFilter, priorityFilter, users = [], onSelectTask }: GalleryViewProps) {
+    const { auth } = usePage<any>().props;
+    const currentUserId = auth?.user?.id;
     const tasks = useMemo(() => {
         return (board.groups || [])
             .flatMap((g) => g.tasks || [])
@@ -21,11 +24,11 @@ export default function GalleryView({ board, searchTerm, personFilter, priorityF
                     const term = searchTerm.toLowerCase();
                     if (!task.title.toLowerCase().includes(term)) return false;
                 }
-                if (personFilter !== 'all' && String(task.assigned_to) !== personFilter) return false;
+                if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter, currentUserId)) return false;
                 if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
                 return true;
             });
-    }, [board.groups, searchTerm, personFilter, priorityFilter]);
+    }, [board.groups, searchTerm, personFilter, priorityFilter, currentUserId]);
 
     return (
         <div className="space-y-4">

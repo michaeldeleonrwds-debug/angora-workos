@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
-import { Head, router } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import React, { useEffect, useState } from 'react';
 import AddColumnModal from './components/AddColumnModal';
 import AutomationCenterModal from './components/AutomationCenterModal';
@@ -73,12 +73,55 @@ export default function KanbanPage({
             groups: [],
         };
 
+    const { auth } = usePage<any>().props;
+    const currentUser = auth?.user;
+
     // View & Filter states: detect default view from board or fallback
     const defaultViewType = board.views?.find((v) => v.is_default)?.type || 'table';
     const [activeTab, setActiveTab] = useState<string>(defaultViewType);
     const [searchTerm, setSearchTerm] = useState('');
-    const [personFilter, setPersonFilter] = useState('all');
+
+    // Default My Tasks Filter for Employees (Section 5)
+    // Priority: URL query param (?person=...) -> localStorage -> 'me'
+    const getInitialPersonFilter = (boardId?: number) => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            const personParam = urlParams.get('person');
+            if (personParam) return personParam;
+
+            if (boardId) {
+                const stored = localStorage.getItem(`angora_board_${boardId}_person_filter`);
+                if (stored) return stored;
+            }
+        }
+        return 'me';
+    };
+
+    const [personFilter, setPersonFilter] = useState<string>(() => getInitialPersonFilter(board.id));
     const [priorityFilter, setPriorityFilter] = useState('all');
+
+    const handlePersonFilterChange = (val: string) => {
+        setPersonFilter(val);
+        if (typeof window !== 'undefined') {
+            if (board.id) {
+                localStorage.setItem(`angora_board_${board.id}_person_filter`, val);
+            }
+            const url = new URL(window.location.href);
+            url.searchParams.set('person', val);
+            window.history.replaceState({}, '', url.toString());
+        }
+    };
+
+    // Keep URL parameter synchronized on initial mount without clobbering existing parameters like ?item=
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            if (!url.searchParams.has('person')) {
+                url.searchParams.set('person', personFilter);
+                window.history.replaceState({}, '', url.toString());
+            }
+        }
+    }, [board.id, personFilter]);
 
     // Deep-linking: Initialize drawer if selectedTask was passed or from URL
     const [selectedTaskForDrawer, setSelectedTaskForDrawer] = useState<Task | null>(selectedTask);
@@ -296,7 +339,7 @@ export default function KanbanPage({
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
                     personFilter={personFilter}
-                    onPersonFilterChange={setPersonFilter}
+                    onPersonFilterChange={handlePersonFilterChange}
                     priorityFilter={priorityFilter}
                     onPriorityFilterChange={setPriorityFilter}
                     permissions={userPermissions}
@@ -316,6 +359,7 @@ export default function KanbanPage({
                         personFilter={personFilter}
                         priorityFilter={priorityFilter}
                         users={users}
+                        currentUser={currentUser}
                         mirroredValues={mirroredValues}
                         permissions={userPermissions}
                         onSelectTask={handleOpenTask}
@@ -331,6 +375,7 @@ export default function KanbanPage({
                             personFilter={personFilter}
                             priorityFilter={priorityFilter}
                             users={users}
+                            currentUser={currentUser}
                             permissions={userPermissions}
                             onSelectTask={handleOpenTask}
                             onQuickAddTask={handleQuickAddKanban}

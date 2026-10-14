@@ -3,7 +3,7 @@ import { formatDate, formatTime } from '@/lib/utils';
 import { router, usePage } from '@inertiajs/react';
 import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, Repeat, ShieldAlert, Star, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
-import { BoardColumn, BoardGroup, BoardPermissions, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../types';
+import { BoardColumn, BoardGroup, BoardPermissions, DEFAULT_TASK_TYPES, isUserAssignedToTask, KanbanColumn, Task, User } from '../types';
 import ConnectBoardsModal from './ConnectBoardsModal';
 import DatePickerCell from './DatePickerCell';
 import EditableDropdownCell from './EditableDropdownCell';
@@ -43,15 +43,12 @@ export default function TableRow({
     const { auth } = usePage().props as any;
     const currentUserId = auth?.user?.id;
     const isAssigned = Boolean(
-        currentUserId && (
-            task.assigned_to === currentUserId ||
-            (Array.isArray(task.custom_values?.designer_ids) && task.custom_values.designer_ids.map(Number).includes(currentUserId)) ||
-            (Array.isArray(task.custom_values?.person) && task.custom_values.person.map(Number).includes(currentUserId))
-        )
+        currentUserId && isUserAssignedToTask(task, currentUserId, currentUserId)
     );
 
     const canEditTask = permissions?.canEditTask ?? true;
-    const canChangeStatus = permissions?.canChangeStatus ?? true;
+    const canMoveAssignedTask = permissions?.canMoveAssignedTask ?? true;
+    const canChangeStatus = (permissions?.canChangeStatus ?? true) || (canMoveAssignedTask && isAssigned);
     const canChangePriority = permissions?.canChangePriority ?? true;
     const canAssignUsers = permissions?.canAssignUsers ?? true;
     const canChangeDeadlines = permissions?.canChangeDeadlines ?? true;
@@ -345,7 +342,9 @@ export default function TableRow({
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="center" className="w-44 space-y-1 rounded-xl p-1.5">
                                         {statusColumns.map((sc) => {
-                                             const meta = getStatusStyle(sc.title);
+                                            const isRestrictedTarget = !permissions?.canChangeStatus && ['completed', 'done', 'cancelled', 'archive', 'closed'].includes(sc.category || sc.title.toLowerCase());
+                                            if (isRestrictedTarget) return null;
+                                            const meta = getStatusStyle(sc.title);
                                             return (
                                                 <button
                                                     key={sc.id}

@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, Layers, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
@@ -17,6 +17,7 @@ interface TableViewProps {
     personFilter: string;
     priorityFilter: string;
     users: User[];
+    currentUser?: User;
     mirroredValues?: Record<number, Record<string, any>>;
     permissions?: BoardPermissions;
     onSelectTask: (task: Task) => void;
@@ -29,11 +30,14 @@ export default function TableView({
     personFilter,
     priorityFilter,
     users = [],
+    currentUser,
     mirroredValues = {},
     permissions,
     onSelectTask,
     onOpenNewColumn,
 }: TableViewProps) {
+    const { auth } = usePage<any>().props;
+    const effectiveCurrentUser = currentUser || auth?.user;
     const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
     const [quickAddTitles, setQuickAddTitles] = useState<Record<number, string>>({});
     const [editingGroupTitle, setEditingGroupTitle] = useState<number | null>(null);
@@ -178,7 +182,7 @@ export default function TableView({
             const matchesDesc = (task.description || '').toLowerCase().includes(term);
             if (!matchesTitle && !matchesDesc) return false;
         }
-        if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter)) {
+        if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter, effectiveCurrentUser?.id)) {
             return false;
         }
         if (priorityFilter !== 'all' && task.priority !== priorityFilter) {
@@ -498,7 +502,11 @@ export default function TableView({
                                         />
                                     ))}
 
-                                    {/* Inline Add Item Row */}
+                                    {groupTasks.length === 0 && (
+                                        <div className="border-border/40 bg-card/40 flex items-center justify-center p-4 text-xs text-muted-foreground/60 border-b select-none">
+                                            {personFilter === 'me' ? 'No tasks assigned to you in this group' : 'No tasks in this group'}
+                                        </div>
+                                    )}
                                     {permissions?.canCreateTask !== false && (
                                         <div
                                             className="border-border/40 bg-card hover:bg-muted/10 grid w-full items-stretch border-b transition-colors"

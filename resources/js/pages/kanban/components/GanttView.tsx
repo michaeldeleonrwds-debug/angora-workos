@@ -2,10 +2,10 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatTime } from '@/lib/utils';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { ChevronDown, ChevronRight, CornerDownRight, Link2 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
-import { KanbanBoard, Task, User } from '../types';
+import { isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
 interface GanttViewProps {
     board: KanbanBoard;
@@ -17,6 +17,8 @@ interface GanttViewProps {
 }
 
 export default function GanttView({ board, searchTerm, personFilter, priorityFilter, users = [], onSelectTask }: GanttViewProps) {
+    const { auth } = usePage<any>().props;
+    const currentUserId = auth?.user?.id;
     const [zoomLevel, setZoomLevel] = useState<'days' | 'weeks' | 'months'>('weeks');
     const [expandedTasks, setExpandedTasks] = useState<Record<number, boolean>>({});
 
@@ -36,11 +38,11 @@ export default function GanttView({ board, searchTerm, personFilter, priorityFil
                     const term = searchTerm.toLowerCase();
                     if (!task.title.toLowerCase().includes(term)) return false;
                 }
-                if (personFilter !== 'all' && String(task.assigned_to) !== personFilter) return false;
+                if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter, currentUserId)) return false;
                 if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
                 return true;
             });
-    }, [board.groups, searchTerm, personFilter, priorityFilter]);
+    }, [board.groups, searchTerm, personFilter, priorityFilter, currentUserId]);
 
     // Calculate overall time range for Gantt header
     const { minDate, maxDate, totalDays } = useMemo(() => {

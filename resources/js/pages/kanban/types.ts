@@ -116,6 +116,7 @@ export interface KanbanColumn {
     title: string;
     color: string;
     position: number;
+    category?: string | null;
     tasks?: Task[];
 }
 
@@ -380,6 +381,7 @@ export interface BoardPermissions {
     canEditTask: boolean;
     canEditProgress: boolean;
     canChangeStatus: boolean;
+    canMoveAssignedTask?: boolean;
     canAssignUsers: boolean;
     canChangeDeadlines: boolean;
     canChangePriority: boolean;
@@ -469,16 +471,22 @@ export const getTableGridTemplate = (visibleColumns: BoardColumn[]): string => {
  * Check whether a specific user is assigned to a task either via the legacy
  * assigned_to column or via custom dynamic columns (e.g. Designer, AM) or subtasks.
  */
-export const isUserAssignedToTask = (task: Task, userId: string | number): boolean => {
-    const targetId = Number(userId);
+export const isUserAssignedToTask = (task: Task, userId: string | number, currentUserId?: number): boolean => {
+    let targetId = Number(userId);
+    if ((userId === 'me' || isNaN(targetId)) && currentUserId) {
+        targetId = currentUserId;
+    }
     if (!targetId || isNaN(targetId)) return false;
 
     // 1. Direct legacy assigned_to
     if (Number(task.assigned_to) === targetId) return true;
 
-    // 2. Custom values (e.g. people columns like Designer, AM, etc.)
+    // 2. Custom values (e.g. people columns like Designer, Person, etc.)
     if (task.custom_values && typeof task.custom_values === 'object') {
-        for (const val of Object.values(task.custom_values)) {
+        for (const [key, val] of Object.entries(task.custom_values)) {
+            if (['account_manager', 'am', 'client', 'client_id'].includes(key.toLowerCase())) {
+                continue;
+            }
             if (Array.isArray(val)) {
                 if (val.some((id) => Number(id) === targetId)) return true;
             } else if (typeof val === 'number' || (typeof val === 'string' && val.trim() !== '')) {
@@ -492,7 +500,10 @@ export const isUserAssignedToTask = (task: Task, userId: string | number): boole
         for (const sub of task.subitems) {
             if (Number(sub.assigned_to) === targetId) return true;
             if (sub.custom_values && typeof sub.custom_values === 'object') {
-                for (const val of Object.values(sub.custom_values)) {
+                for (const [key, val] of Object.entries(sub.custom_values)) {
+                    if (['account_manager', 'am', 'client', 'client_id'].includes(key.toLowerCase())) {
+                        continue;
+                    }
                     if (Array.isArray(val)) {
                         if (val.some((id) => Number(id) === targetId)) return true;
                     } else if (typeof val === 'number' || (typeof val === 'string' && val.trim() !== '')) {

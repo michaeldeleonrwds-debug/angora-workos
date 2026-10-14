@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { BoardPermissions, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
+import { BoardPermissions, isUserAssignedToTask, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
@@ -63,15 +63,12 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     const isReviewerRole = isSuperAdminOrAdmin || currentUser?.role === 'project_manager' || currentUser?.role === 'account_manager';
 
     const isAssigned = Boolean(
-        currentUser?.id && (
-            task.assigned_to === currentUser.id ||
-            (Array.isArray(task.custom_values?.designer_ids) && task.custom_values.designer_ids.map(Number).includes(currentUser.id)) ||
-            (Array.isArray(task.custom_values?.person) && task.custom_values.person.map(Number).includes(currentUser.id))
-        )
+        currentUser?.id && isUserAssignedToTask(task, currentUser.id, currentUser.id)
     );
 
     const canEditTask = permissions?.canEditTask ?? true;
-    const canChangeStatus = permissions?.canChangeStatus ?? true;
+    const canMoveAssignedTask = permissions?.canMoveAssignedTask ?? true;
+    const canChangeStatus = (permissions?.canChangeStatus ?? true) || (canMoveAssignedTask && isAssigned);
     const canChangePriority = permissions?.canChangePriority ?? true;
     const canAssignUsers = permissions?.canAssignUsers ?? true;
     const canChangeDeadlines = permissions?.canChangeDeadlines ?? true;
@@ -469,6 +466,10 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
 
     // Field updates
     const handleUpdateField = (field: string, val: any) => {
+        if (field === 'column_id') {
+            router.patch(`/kanban/tasks/${task.id}/column`, { column_id: val }, { preserveScroll: true });
+            return;
+        }
         router.patch(`/kanban/tasks/${task.id}`, { [field]: val }, { preserveScroll: true });
     };
 
@@ -727,17 +728,21 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent className="w-40 space-y-1 rounded-xl p-1.5">
-                                            {statusColumns.map((sc) => (
-                                                <button
-                                                    key={sc.id}
-                                                    type="button"
-                                                    onClick={() => handleUpdateField('column_id', sc.id)}
-                                                    className="block w-full rounded py-1.5 text-center text-xs font-bold text-white hover:opacity-90"
-                                                    style={{ backgroundColor: sc.color }}
-                                                >
-                                                    {sc.title}
-                                                </button>
-                                            ))}
+                                            {statusColumns.map((sc) => {
+                                                const isRestrictedTarget = !permissions?.canChangeStatus && ['completed', 'done', 'cancelled', 'archive', 'closed'].includes(sc.category || sc.title.toLowerCase());
+                                                if (isRestrictedTarget) return null;
+                                                return (
+                                                    <button
+                                                        key={sc.id}
+                                                        type="button"
+                                                        onClick={() => handleUpdateField('column_id', sc.id)}
+                                                        className="block w-full rounded py-1.5 text-center text-xs font-bold text-white hover:opacity-90"
+                                                        style={{ backgroundColor: sc.color }}
+                                                    >
+                                                        {sc.title}
+                                                    </button>
+                                                );
+                                            })}
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </div>

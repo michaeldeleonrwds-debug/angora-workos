@@ -1,8 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { formatTime } from '@/lib/utils';
+import { usePage } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Clock, Plus, Star, User as UserIcon } from 'lucide-react';
 import React, { useState } from 'react';
-import { KanbanBoard, Task, User } from '../types';
+import { isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
 interface CalendarViewProps {
     board: KanbanBoard;
@@ -25,6 +26,8 @@ export default function CalendarView({
     onQuickAddTask,
     onRescheduleTask,
 }: CalendarViewProps) {
+    const { auth } = usePage<any>().props;
+    const currentUserId = auth?.user?.id;
     const [currentDate, setCurrentDate] = useState(() => new Date());
     const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
 
@@ -36,7 +39,7 @@ export default function CalendarView({
                 const term = searchTerm.toLowerCase();
                 if (!task.title.toLowerCase().includes(term)) return false;
             }
-            if (personFilter !== 'all' && String(task.assigned_to) !== personFilter) return false;
+            if (personFilter !== 'all' && !isUserAssignedToTask(task, personFilter, currentUserId)) return false;
             if (priorityFilter !== 'all' && task.priority !== priorityFilter) return false;
             return true;
         });

@@ -191,14 +191,14 @@ class WorkOsRbacSecurityAuditTest extends TestCase
     }
 
     /**
-     * 4. Designer cannot reorder tasks -> 403 Forbidden
+     * 4. Designer cannot reorder unassigned or other employees' tasks -> 403 Forbidden
      */
     public function test_designer_cannot_reorder_tasks(): void
     {
         $response = $this->actingAs($this->designerUser)
             ->post('/kanban/tasks/reorder', [
                 'tasks' => [
-                    ['id' => $this->assignedTask->id, 'order' => 1, 'column_id' => $this->todoCol->id],
+                    ['id' => $this->unassignedTask->id, 'order' => 1, 'column_id' => $this->todoCol->id],
                 ],
             ]);
 
