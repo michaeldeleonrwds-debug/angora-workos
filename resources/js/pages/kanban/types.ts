@@ -4,6 +4,8 @@ export interface User {
     email?: string;
     role: string;
     department?: string;
+    avatar?: string | null;
+    avatar_url?: string | null;
     weekly_capacity_hours?: number;
     daily_capacity_hours?: number;
 }
@@ -117,6 +119,7 @@ export interface KanbanColumn {
     color: string;
     position: number;
     category?: string | null;
+    semantic_category?: string | null;
     tasks?: Task[];
 }
 

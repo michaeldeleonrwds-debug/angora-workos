@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDate, getExactTimeRemaining } from '@/lib/utils';
+import { formatDate, formatDateTime, getExactTimeRemaining } from '@/lib/utils';
 import { router, usePage } from '@inertiajs/react';
 import {
     Activity,
@@ -44,6 +44,7 @@ import { BoardPermissions, isUserAssignedToTask, KanbanBoard, MediaAsset, Task, 
 import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
+import EmployeeTaskPanel from './EmployeeTaskPanel';
 
 interface ItemDetailDrawerProps {
     task: Task | null;
@@ -77,6 +78,14 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     const canApproveReview = permissions?.canApproveReview ?? true;
     const canManageSubtasks = canEditTask || isAssigned;
     const canSubmitReview = canEditTask || isAssigned;
+
+    const isPrivilegedManager = Boolean(
+        isSuperAdminOrAdmin ||
+        currentUser?.role === 'project_manager' ||
+        (currentUser?.role === 'account_manager' && canEditTask) ||
+        (canEditTask && canAssignUsers && canChangeDeadlines)
+    );
+    const isEmployeeView = !isPrivilegedManager;
 
     const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity' | 'reviews' | 'dependencies'>('updates');
     const [reviewCycles, setReviewCycles] = useState<TaskReviewCycle[]>(task.review_cycles || []);
@@ -660,25 +669,25 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
         >
             <div
                 onClick={(e) => e.stopPropagation()}
-                className="bg-card border-border flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border shadow-2xl"
+                className="bg-card border-border flex h-[90vh] max-h-[900px] w-full max-w-[1080px] flex-col overflow-hidden rounded-3xl border shadow-2xl"
             >
                 {/* Header Top Bar */}
                 <div className="border-border bg-muted/20 flex items-center justify-between border-b px-6 py-3.5">
-                    <div className="text-muted-foreground flex items-center gap-2 text-xs font-semibold">
-                        <span>{board.title}</span>
+                    <div className="text-muted-foreground flex items-center gap-2 text-xs font-semibold truncate pr-4">
+                        <span className="truncate">{board.title}</span>
                         <span>›</span>
-                        <span className="text-foreground">{task.group?.title || 'General Tasks'}</span>
+                        <span className="text-foreground truncate">{task.group?.title || 'General Tasks'}</span>
                         {task.parent && (
                             <>
                                 <span>›</span>
-                                <button onClick={() => onSelectTask?.(task.parent!)} className="text-primary font-bold hover:underline">
+                                <button onClick={() => onSelectTask?.(task.parent!)} className="text-primary font-bold hover:underline truncate">
                                     {task.parent.title}
                                 </button>
                             </>
                         )}
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         <button
                             onClick={onClose}
                             className="hover:bg-muted text-muted-foreground hover:text-foreground flex h-9 w-9 items-center justify-center rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"
@@ -690,13 +699,38 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                 </div>
 
                 {/* Two-Column Grid Body */}
-                <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-12">
-                    {/* LEFT PANEL: TASK INFORMATION (5 Columns) */}
-                    <div className="border-border bg-card space-y-5 overflow-y-auto border-b p-6 lg:col-span-5 lg:border-r lg:border-b-0">
-                        {/* Task Title */}
-                        <div>
-                            <input
-                                type="text"
+                <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-12 min-h-0">
+                    {/* LEFT PANEL: TASK INFORMATION (5 Columns / 41.7%) */}
+                    <div className="border-border bg-card overflow-y-auto border-b p-6 lg:col-span-5 lg:border-r lg:border-b-0 min-h-0">
+                        {isEmployeeView ? (
+                            <EmployeeTaskPanel
+                                task={task}
+                                board={board}
+                                users={users}
+                                permissions={permissions}
+                                isAssigned={isAssigned}
+                                canChangeStatus={canChangeStatus}
+                                canManageSubtasks={canManageSubtasks}
+                                exactRemaining={exactRemaining}
+                                dependencySummary={dependencySummary}
+                                onUpdateField={handleUpdateField}
+                                onToggleSubtask={handleToggleSubtask}
+                                onAddSubtask={(title) => {
+                                    router.post(
+                                        `/kanban/tasks/${task.id}/subitems`,
+                                        { title },
+                                        { preserveScroll: true }
+                                    );
+                                }}
+                                onSelectTask={onSelectTask}
+                                onJumpToTab={(tab) => setActiveCollabTab(tab)}
+                            />
+                        ) : (
+                            <div className="space-y-5">
+                                {/* Task Title */}
+                                <div>
+                                    <input
+                                        type="text"
                                 value={titleInput}
                                 readOnly={!canEditTask}
                                 onChange={(e) => canEditTask && setTitleInput(e.target.value)}
@@ -1340,9 +1374,11 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                             )}
                         </div>
                     </div>
+                )}
+            </div>
 
-                    {/* RIGHT PANEL: COLLABORATION (7 Columns) */}
-                    <div className="bg-background flex flex-col overflow-hidden lg:col-span-7">
+            {/* RIGHT PANEL: COLLABORATION (7 Columns / 58.3%) */}
+            <div className="bg-background flex flex-col overflow-hidden lg:col-span-7 min-h-0">
                         {/* Tabs Bar */}
                         <div className="border-border flex items-center gap-6 border-b px-6 pt-4 text-xs font-bold">
                             <button
@@ -1481,28 +1517,45 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                             const replies = comment.replies || [];
 
                                             return (
-                                                <div key={comment.id} className="border-border/70 bg-card space-y-3 rounded-2xl border p-4 shadow-xs">
-                                                    {/* Author & Timestamp */}
+                                                <div key={comment.id} className="border-border/70 bg-card space-y-3 rounded-2xl border p-4 shadow-2xs">
+                                                    {/* Author, Role & Timestamp */}
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2.5">
-                                                            <div className="bg-primary/20 text-primary flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold">
-                                                                {comment.user?.name.charAt(0) || 'U'}
-                                                            </div>
+                                                            {comment.user?.avatar || comment.user?.avatar_url ? (
+                                                                <img
+                                                                    src={(comment.user.avatar || comment.user.avatar_url) || undefined}
+                                                                    alt={comment.user.name}
+                                                                    className="h-7 w-7 rounded-full object-cover border border-border/80 shrink-0"
+                                                                />
+                                                            ) : (
+                                                                <div className="bg-primary/20 text-primary flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold shrink-0 border border-primary/30">
+                                                                    {comment.user?.name.charAt(0).toUpperCase() || 'U'}
+                                                                </div>
+                                                            )}
                                                             <div>
-                                                                <h5 className="text-foreground text-xs font-bold">{comment.user?.name || 'User'}</h5>
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <h5 className="text-foreground text-xs font-bold">{comment.user?.name || 'User'}</h5>
+                                                                    {comment.user?.role && (
+                                                                        <span className="rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/50">
+                                                                            {comment.user.role.replace('_', ' ')}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 <span className="text-muted-foreground text-[10px]">
-                                                                    {formatDate(comment.created_at)}
+                                                                    {formatDateTime(comment.created_at)}
                                                                 </span>
                                                             </div>
                                                         </div>
 
-                                                        <button
-                                                            onClick={() => handleDeleteComment(comment.id)}
-                                                            className="text-muted-foreground rounded p-1 transition-colors hover:bg-red-500/10 hover:text-red-500"
-                                                            title="Delete update"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </button>
+                                                        {(isSuperAdminOrAdmin || comment.user_id === currentUser?.id) && (
+                                                            <button
+                                                                onClick={() => handleDeleteComment(comment.id)}
+                                                                className="text-muted-foreground rounded p-1 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                                                                title="Delete update"
+                                                            >
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        )}
                                                     </div>
 
                                                     {/* Message */}
@@ -1552,13 +1605,31 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                                                     key={rep.id}
                                                                     className="bg-muted/30 border-border/50 rounded-xl border p-2.5 text-xs"
                                                                 >
-                                                                    <div className="mb-1 flex items-center justify-between">
-                                                                        <span className="text-[11px] font-bold">{rep.user?.name || 'User'}</span>
+                                                                    <div className="mb-1.5 flex items-center justify-between">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            {rep.user?.avatar || rep.user?.avatar_url ? (
+                                                                                <img
+                                                                                    src={(rep.user.avatar || rep.user.avatar_url) || undefined}
+                                                                                    alt={rep.user.name}
+                                                                                    className="h-4.5 w-4.5 rounded-full object-cover border border-border/60 shrink-0"
+                                                                                />
+                                                                            ) : (
+                                                                                <div className="bg-primary/20 text-primary flex h-4.5 w-4.5 items-center justify-center rounded-full text-[9px] font-bold shrink-0">
+                                                                                    {rep.user?.name.charAt(0).toUpperCase() || 'U'}
+                                                                                </div>
+                                                                            )}
+                                                                            <span className="text-[11px] font-bold text-foreground">{rep.user?.name || 'User'}</span>
+                                                                            {rep.user?.role && (
+                                                                                <span className="rounded px-1 py-0.1 text-[8px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
+                                                                                    {rep.user.role.replace('_', ' ')}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
                                                                         <span className="text-muted-foreground text-[10px]">
-                                                                            {formatDate(rep.created_at)}
+                                                                            {formatDateTime(rep.created_at)}
                                                                         </span>
                                                                     </div>
-                                                                    <div className="text-foreground/90 whitespace-pre-wrap">
+                                                                    <div className="text-foreground/90 whitespace-pre-wrap pl-6">
                                                                         {renderCommentContent(rep.message)}
                                                                     </div>
                                                                 </div>
