@@ -4,6 +4,8 @@ export interface User {
     email?: string;
     role: string;
     department?: string;
+    weekly_capacity_hours?: number;
+    daily_capacity_hours?: number;
 }
 
 export interface WorkspaceMember {

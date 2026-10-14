@@ -28,6 +28,8 @@ class User extends Authenticatable
         'avatar',
         'status',
         'timezone',
+        'weekly_capacity_hours',
+        'daily_capacity_hours',
     ];
 
     /**
@@ -50,6 +52,8 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'weekly_capacity_hours' => 'float',
+            'daily_capacity_hours' => 'float',
         ];
     }
 
