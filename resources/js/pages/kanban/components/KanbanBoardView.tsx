@@ -224,7 +224,7 @@ export default function KanbanBoardView({
     };
 
     return (
-        <div className="scrollbar-thin flex items-start gap-4 overflow-x-auto pb-4">
+        <div className="scrollbar-thin flex items-stretch gap-4 overflow-x-auto pb-2 h-full min-h-0">
             {columns.map((col) => {
                 const colTasks = (col.tasks || []).filter(filterTask);
                 const isOver = dragOverColumnId === col.id;
@@ -235,12 +235,12 @@ export default function KanbanBoardView({
                         onDragOver={(e) => handleDragOver(e, col.id)}
                         onDragLeave={(e) => handleDragLeave(e, col.id)}
                         onDrop={(e) => handleDrop(e, col.id)}
-                        className={`bg-card flex w-72 flex-shrink-0 flex-col rounded-2xl border transition-all sm:w-80 ${
+                        className={`bg-card flex w-72 flex-shrink-0 flex-col rounded-2xl border transition-all sm:w-80 h-full max-h-full min-h-0 ${
                             isOver ? 'border-primary ring-primary/20 bg-primary/5 ring-2' : 'border-border shadow-xs'
                         }`}
                     >
                         {/* Column Header */}
-                        <div className="border-border/50 flex items-center justify-between border-b p-3 select-none">
+                        <div className="border-border/50 flex shrink-0 items-center justify-between border-b p-3 select-none">
                             <div className="flex items-center gap-2">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -297,7 +297,7 @@ export default function KanbanBoardView({
                         </div>
 
                         {/* Cards List */}
-                        <div className="max-h-[calc(100vh-280px)] min-h-[320px] space-y-2.5 overflow-y-auto p-2.5">
+                        <div className="flex-1 min-h-0 space-y-2.5 overflow-y-auto p-2.5 scrollbar-thin">
                             {colTasks.map((task) => {
                                 const subitems = task.subitems || [];
                                 const completedSubitems = subitems.filter((s) => s.completed_at || s.progress === 100).length;
@@ -580,7 +580,7 @@ export default function KanbanBoardView({
                         </div>
 
                         {/* Add Task Button at bottom of column */}
-                        <div className="border-border/50 border-t p-2">
+                        <div className="border-border/50 shrink-0 border-t p-2">
                             <button
                                 onClick={() => onQuickAddTask(col.id)}
                                 className="border-border hover:border-primary/50 hover:bg-muted/40 text-muted-foreground hover:text-foreground flex w-full items-center justify-center gap-1 rounded-xl border border-dashed py-1.5 text-xs font-semibold transition-all"

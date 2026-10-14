@@ -145,7 +145,7 @@ export default function BoardHeader({
     };
 
     const viewTypeOptions = [
-        { type: 'table', label: 'Main Table', desc: 'Custom columns, inline cell editing, expandable subitems' },
+        { type: 'table', label: 'Main Table', desc: 'Custom columns, inline cell editing, expandable subtasks' },
         { type: 'kanban', label: 'Kanban Board', desc: 'Cards across customizable workflow stages' },
         { type: 'calendar', label: 'Calendar View', desc: 'Month and week view with drag-and-drop reschedule' },
         { type: 'gantt', label: 'Gantt & Dependencies', desc: 'Task sequencing, timeline dependencies, milestones' },

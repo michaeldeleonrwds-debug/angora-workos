@@ -237,27 +237,31 @@ export default function KanbanPage({
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`${board.title || 'Work OS'} — Angora Work OS`} />
 
-            <div className="max-w-full space-y-4 overflow-hidden p-4 md:p-6">
+            <div className={`max-w-full space-y-4 p-4 md:p-6 ${activeTab === 'kanban' ? 'h-[calc(100vh-64px)] flex flex-col min-h-0 overflow-hidden' : 'overflow-hidden'}`}>
                 {/* 1. Workspace & Board Navigator */}
-                <WorkspaceBoardNav workspaces={workspaces} activeWorkspace={activeWorkspace} boards={boards} activeBoard={board} users={users} />
+                <div className="shrink-0">
+                    <WorkspaceBoardNav workspaces={workspaces} activeWorkspace={activeWorkspace} boards={boards} activeBoard={board} users={users} />
+                </div>
 
                 {/* 2. Board Header Toolbar */}
-                <BoardHeader
-                    board={board}
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
-                    searchTerm={searchTerm}
-                    onSearchChange={setSearchTerm}
-                    personFilter={personFilter}
-                    onPersonFilterChange={setPersonFilter}
-                    priorityFilter={priorityFilter}
-                    onPriorityFilterChange={setPriorityFilter}
-                    users={users}
-                    onOpenNewTask={() => setIsNewTaskModalOpen(true)}
-                    onOpenNewGroup={() => setIsNewGroupModalOpen(true)}
-                    onOpenNewColumn={() => setIsNewColumnModalOpen(true)}
-                    onOpenAutomate={() => setIsAutomationModalOpen(true)}
-                />
+                <div className="shrink-0">
+                    <BoardHeader
+                        board={board}
+                        activeTab={activeTab}
+                        onTabChange={setActiveTab}
+                        searchTerm={searchTerm}
+                        onSearchChange={setSearchTerm}
+                        personFilter={personFilter}
+                        onPersonFilterChange={setPersonFilter}
+                        priorityFilter={priorityFilter}
+                        onPriorityFilterChange={setPriorityFilter}
+                        users={users}
+                        onOpenNewTask={() => setIsNewTaskModalOpen(true)}
+                        onOpenNewGroup={() => setIsNewGroupModalOpen(true)}
+                        onOpenNewColumn={() => setIsNewColumnModalOpen(true)}
+                        onOpenAutomate={() => setIsAutomationModalOpen(true)}
+                    />
+                </div>
 
                 {/* 3. Main Views */}
                 {activeTab === 'table' && (
@@ -274,15 +278,17 @@ export default function KanbanPage({
                 )}
 
                 {activeTab === 'kanban' && (
-                    <KanbanBoardView
-                        board={board}
-                        searchTerm={searchTerm}
-                        personFilter={personFilter}
-                        priorityFilter={priorityFilter}
-                        users={users}
-                        onSelectTask={handleOpenTask}
-                        onQuickAddTask={handleQuickAddKanban}
-                    />
+                    <div className="flex-1 min-h-0 overflow-hidden">
+                        <KanbanBoardView
+                            board={board}
+                            searchTerm={searchTerm}
+                            personFilter={personFilter}
+                            priorityFilter={priorityFilter}
+                            users={users}
+                            onSelectTask={handleOpenTask}
+                            onQuickAddTask={handleQuickAddKanban}
+                        />
+                    </div>
                 )}
 
                 {activeTab === 'calendar' && (

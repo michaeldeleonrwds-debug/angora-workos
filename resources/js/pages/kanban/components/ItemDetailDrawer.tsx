@@ -1351,7 +1351,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                             )}
 
                                             <div className="bg-muted/20 border-border/50 text-muted-foreground rounded-xl border p-3 text-xs">
-                                                All task mutations, status moves, people assignments, deadlines, subitems, and comments are recorded in real time.
+                                                All task mutations, status moves, people assignments, deadlines, subtasks, and comments are recorded in real time.
                                             </div>
                                         </div>
                                     )}

@@ -14,6 +14,7 @@ export interface DatePickerCellProps {
     isDueToday?: boolean;
     disabled?: boolean;
     align?: 'start' | 'center' | 'end';
+    dateOnly?: boolean;
 }
 
 /**
@@ -120,6 +121,7 @@ export default function DatePickerCell({
     isDueToday = false,
     disabled = false,
     align = 'center',
+    dateOnly = false,
 }: DatePickerCellProps) {
     const [open, setOpen] = useState(false);
 
@@ -248,12 +250,12 @@ export default function DatePickerCell({
         setViewDate(new Date(currentYear, currentMonth + 1, 1));
     };
 
-    // Selecting a date preserves existing time (if time mode is enabled)
+    // Selecting a date preserves existing time (if time mode is enabled or in dateOnly mode)
     const handleSelectDay = (dateStr: string, e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
         setSelectedDate(dateStr);
-        const timeToKeep = isTimeMode ? (selectedTime || '09:00') : null;
+        const timeToKeep = dateOnly ? (propTime || activeTime) : (isTimeMode ? (selectedTime || '09:00') : null);
         onChange(dateStr, timeToKeep);
     };
 
@@ -265,7 +267,7 @@ export default function DatePickerCell({
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         setSelectedDate(todayStr);
         setViewDate(new Date(today.getFullYear(), today.getMonth(), 1));
-        const timeToKeep = isTimeMode ? (selectedTime || '09:00') : null;
+        const timeToKeep = dateOnly ? (propTime || activeTime) : (isTimeMode ? (selectedTime || '09:00') : null);
         onChange(todayStr, timeToKeep);
     };
 
@@ -334,16 +336,16 @@ export default function DatePickerCell({
         onChange(selectedDate, null);
     };
 
-    // Cell display text in table
+    // Cell display text in table (Main Table in dateOnly mode never shows time values)
     const cellDisplayText = useMemo(() => {
         if (!activeDate) return null;
         const formattedDate = formatDate(activeDate);
-        if (activeTime) {
+        if (!dateOnly && activeTime) {
             const formattedTime = formatTime(activeTime);
             return `${formattedDate}, ${formattedTime}`;
         }
         return formattedDate;
-    }, [activeDate, activeTime]);
+    }, [activeDate, activeTime, dateOnly]);
 
     return (
         <DropdownMenu open={open} onOpenChange={handleOpenChange}>
@@ -385,18 +387,20 @@ export default function DatePickerCell({
                         Today
                     </button>
 
-                    <button
-                        type="button"
-                        onClick={handleToggleTimeMode}
-                        className={`p-1.5 rounded-lg border transition-all ${
-                            isTimeMode
-                                ? 'bg-primary/10 border-primary/30 text-primary shadow-xs'
-                                : 'border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground'
-                        }`}
-                        title={isTimeMode ? 'Disable time mode' : 'Enable time mode'}
-                    >
-                        <Clock className="h-3.5 w-3.5" />
-                    </button>
+                    {!dateOnly && (
+                        <button
+                            type="button"
+                            onClick={handleToggleTimeMode}
+                            className={`p-1.5 rounded-lg border transition-all ${
+                                isTimeMode
+                                    ? 'bg-primary/10 border-primary/30 text-primary shadow-xs'
+                                    : 'border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground'
+                            }`}
+                            title={isTimeMode ? 'Disable time mode' : 'Enable time mode'}
+                        >
+                            <Clock className="h-3.5 w-3.5" />
+                        </button>
+                    )}
                 </div>
 
                 {/* 2. Combined Input Bar: [ MM/DD/YYYY | hh:mmAM ] */}
@@ -407,23 +411,26 @@ export default function DatePickerCell({
                         )}
                     </span>
 
-                    <div className="mx-2 h-3.5 w-px bg-border/80 shrink-0" />
-
-                    <div className="flex items-center shrink-0">
-                        {isTimeMode ? (
-                            <span className="text-xs font-semibold text-primary">
-                                {formatCompactTime(selectedTime || '09:00')}
-                            </span>
-                        ) : (
-                            <button
-                                type="button"
-                                onClick={handleToggleTimeMode}
-                                className="text-[11px] font-medium text-muted-foreground/70 hover:text-primary transition-colors"
-                            >
-                                + Add time
-                            </button>
-                        )}
-                    </div>
+                    {!dateOnly && (
+                        <>
+                            <div className="mx-2 h-3.5 w-px bg-border/80 shrink-0" />
+                            <div className="flex items-center shrink-0">
+                                {isTimeMode ? (
+                                    <span className="text-xs font-semibold text-primary">
+                                        {formatCompactTime(selectedTime || '09:00')}
+                                    </span>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={handleToggleTimeMode}
+                                        className="text-[11px] font-medium text-muted-foreground/70 hover:text-primary transition-colors"
+                                    >
+                                        + Add time
+                                    </button>
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
 
                 {/* 3. Month & Year Selectors with Navigation Arrows */}
@@ -510,8 +517,8 @@ export default function DatePickerCell({
                     })}
                 </div>
 
-                {/* 6. Time Selector Section (Visible when Time Mode is ON) */}
-                {isTimeMode && (
+                {/* 6. Time Selector Section (Visible when Time Mode is ON and !dateOnly) */}
+                {!dateOnly && isTimeMode && (
                     <div className="mt-3 pt-2.5 border-t border-border/40 space-y-2">
                         <div className="flex items-center justify-between text-[11px] font-semibold text-muted-foreground">
                             <span>Select Time</span>

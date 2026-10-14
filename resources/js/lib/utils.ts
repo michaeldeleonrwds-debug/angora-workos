@@ -22,16 +22,14 @@ export function formatDate(dateVal: string | Date | null | undefined, fallback: 
             const day = parseInt(match[3], 10);
             const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
             if (!isNaN(year) && month >= 0 && month <= 11 && !isNaN(day)) {
-                return `${months[month]} ${day}, ${year}`;
+                return `${day} ${months[month]} ${year}`;
             }
         }
         const d = new Date(str);
         if (isNaN(d.getTime())) return str;
-        return d.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-        });
+        const day = d.getDate();
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${day} ${months[d.getMonth()]} ${d.getFullYear()}`;
     } catch {
         return String(dateVal);
     }

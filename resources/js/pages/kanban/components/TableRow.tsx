@@ -172,7 +172,7 @@ export default function TableRow({
                         className={`hover:bg-muted text-muted-foreground rounded p-0.5 transition-transform ${
                             subitems.length > 0 ? 'visible' : 'invisible group-hover:visible'
                         }`}
-                        title="Subitems"
+                        title="Subtasks"
                     >
                         {isSubitemsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                     </button>
@@ -433,6 +433,7 @@ export default function TableRow({
                                             isOverdue={isOverdue}
                                             isDueToday={isDueToday}
                                             placeholder="Set date"
+                                            dateOnly={true}
                                         />
                                     </div>
                                     {isMainDueDateCol && task.is_milestone && (
@@ -723,7 +724,7 @@ export default function TableRow({
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setIsSubitemsOpen(true)}>
                                 <Plus className="mr-2 h-3.5 w-3.5" />
-                                <span>Add Subitem</span>
+                                <span>Add Subtask</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <div className="text-muted-foreground px-2 py-1 text-[10px] font-semibold uppercase">Move to Group</div>
