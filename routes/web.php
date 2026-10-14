@@ -207,6 +207,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/kanban/boards/{board}/workload-analytics', [\App\Http\Controllers\WorkloadCapacityController::class, 'getBoardWorkload'])->name('kanban.boards.workload-analytics');
     Route::get('/kanban/boards/{board}/delivery-metrics', [\App\Http\Controllers\ProductionAnalyticsController::class, 'getDeliveryMetrics'])->name('kanban.boards.delivery-metrics');
     Route::patch('/users/{user}/capacity', [\App\Http\Controllers\WorkloadCapacityController::class, 'updateUserCapacity'])->name('users.capacity.update');
+    Route::get('/kanban/boards/{board}/export', [\App\Http\Controllers\BoardDataExportController::class, 'exportBoardTasks'])->name('kanban.boards.export');
+    Route::get('/kanban/boards/{board}/workload-analytics/export', [\App\Http\Controllers\BoardDataExportController::class, 'exportWorkload'])->name('kanban.boards.workload-analytics.export');
+    Route::get('/kanban/boards/{board}/delivery-metrics/export', [\App\Http\Controllers\BoardDataExportController::class, 'exportDeliveryMetrics'])->name('kanban.boards.delivery-metrics.export');
 
     // Dashboards & Reporting
     Route::get('/dashboards', [\App\Http\Controllers\CustomDashboardController::class, 'index'])->name('dashboards.index');

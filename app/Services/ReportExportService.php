@@ -27,12 +27,41 @@ class ReportExportService
             'overdue_tasks' => $this->getOverdueTasksReportData($boardIds, $config),
             'team_workload' => $this->getTeamWorkloadReportData($boardIds, $config),
             'deliverables' => $this->getDeliverablesReportData($config),
+            'production_delivery' => $this->getProductionDeliveryReportData($boardIds, $config),
+            'workload_capacity' => $this->getWorkloadCapacityReportData($boardIds, $config),
             default => $this->getTaskCompletionReportData($boardIds, $config),
         };
     }
 
     /**
-     * Generate CSV content for the report
+     * Mitigate CSV formula injection (OWASP / CWE-1236).
+     * If a cell begins with '=', '+', '-', '@', tab, or carriage return,
+     * prefix with a single quote to force spreadsheet programs to render as raw text.
+     */
+    public static function sanitizeCsvCell(mixed $value): string
+    {
+        if ($value === null) {
+            return '';
+        }
+        $str = (string) $value;
+        if ($str === '') {
+            return '';
+        }
+
+        $trimmed = ltrim($str);
+        if ($trimmed !== '' && in_array($trimmed[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'" . $str;
+        }
+
+        if (in_array($str[0], ['=', '+', '-', '@', "\t", "\r"], true)) {
+            return "'" . $str;
+        }
+
+        return $str;
+    }
+
+    /**
+     * Generate CSV content for the report with formula injection sanitization
      */
     public function generateCsv(AnalyticsReport $report, User $user): string
     {
@@ -41,10 +70,11 @@ class ReportExportService
         $rows = $data['rows'] ?? [];
 
         $output = fopen('php://temp', 'r+');
-        fputcsv($output, $headers);
+        fputcsv($output, array_map([self::class, 'sanitizeCsvCell'], $headers));
 
         foreach ($rows as $row) {
-            fputcsv($output, array_values($row));
+            $sanitizedRow = array_map([self::class, 'sanitizeCsvCell'], array_values($row));
+            fputcsv($output, $sanitizedRow);
         }
 
         rewind($output);
@@ -317,6 +347,90 @@ HTML;
             'rows' => $rows,
             'summary' => [
                 'total_deliverables' => count($rows),
+            ],
+        ];
+    }
+
+    private function getProductionDeliveryReportData(array $boardIds, array $config): array
+    {
+        $headers = ['Board', 'On-Time Rate (%)', 'Avg Lead Time (Days)', 'Avg Cycle Time (Days)', 'Review Turnaround (Hours)', 'Completed Throughput', 'Health Score'];
+        $rows = [];
+        $totalCompleted = 0;
+
+        $boardsQuery = KanbanBoard::query();
+        if (!empty($boardIds)) {
+            $boardsQuery->whereIn('id', $boardIds);
+        }
+        $boards = $boardsQuery->get();
+
+        $analyticsService = app(ProductionAnalyticsService::class);
+
+        foreach ($boards as $board) {
+            $metrics = $analyticsService->calculateDeliveryMetrics($board);
+            $throughput = $metrics['throughput']['total_recent'] ?? 0;
+            $totalCompleted += $throughput;
+
+            $rows[] = [
+                'board' => $board->title,
+                'on_time_rate' => ($metrics['on_time_delivery']['rate_percentage'] ?? 0) . '%',
+                'lead_time' => $metrics['lead_time']['avg_days'] ?? 0,
+                'cycle_time' => $metrics['cycle_time']['avg_days'] ?? 0,
+                'review_turnaround' => $metrics['review_turnaround']['avg_hours'] ?? 0,
+                'completed_throughput' => $throughput,
+                'health_score' => ($metrics['summary']['health_score'] ?? 0) . '/100',
+            ];
+        }
+
+        return [
+            'headers' => $headers,
+            'rows' => $rows,
+            'summary' => [
+                'total_boards' => count($rows),
+                'total_completed_throughput' => $totalCompleted,
+            ],
+        ];
+    }
+
+    private function getWorkloadCapacityReportData(array $boardIds, array $config): array
+    {
+        $headers = ['Board', 'Member', 'Role', 'Capacity (Hours)', 'Allocated Hours', 'Utilization (%)', 'Active Tasks', 'Status'];
+        $rows = [];
+        $overallocatedCount = 0;
+
+        $boardsQuery = KanbanBoard::query();
+        if (!empty($boardIds)) {
+            $boardsQuery->whereIn('id', $boardIds);
+        }
+        $boards = $boardsQuery->get();
+
+        $capacityService = app(WorkloadCapacityService::class);
+
+        foreach ($boards as $board) {
+            $workload = $capacityService->calculateBoardWorkload($board);
+            foreach ($workload['members'] ?? [] as $m) {
+                if (($m['status'] ?? '') === 'overallocated') {
+                    $overallocatedCount++;
+                }
+                $userObj = $m['user'] ?? [];
+                $rows[] = [
+                    'board' => $board->title,
+                    'member' => $userObj['name'] ?? ($m['name'] ?? ''),
+                    'role' => ucfirst(str_replace('_', ' ', $userObj['role'] ?? ($m['role'] ?? 'member'))),
+                    'capacity' => $m['capacity_hours'] ?? 0,
+                    'allocated' => $m['allocated_hours'] ?? 0,
+                    'utilization' => ($m['utilization_rate'] ?? $m['utilization_percentage'] ?? 0) . '%',
+                    'active_tasks' => $m['active_tasks_count'] ?? ($m['task_count'] ?? 0),
+                    'status' => ucfirst($m['status'] ?? 'optimal'),
+                ];
+            }
+        }
+
+        return [
+            'headers' => $headers,
+            'rows' => $rows,
+            'summary' => [
+                'total_allocations' => count($rows),
+                'overallocated_members' => $overallocatedCount,
             ],
         ];
     }

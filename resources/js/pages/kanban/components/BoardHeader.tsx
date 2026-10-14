@@ -10,6 +10,9 @@ import {
     ChevronDown,
     Clock,
     Columns3,
+    Download,
+    FileCode,
+    FileSpreadsheet,
     Filter,
     GanttChartSquare,
     Layers,
@@ -226,6 +229,75 @@ export default function BoardHeader({
                             Blueprints
                         </Button>
                     )}
+
+                    {/* Data Export Dropdown */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="outline"
+                                className="border-border bg-card hover:bg-muted/60 text-slate-700 dark:text-slate-200 h-9 rounded-xl px-3 text-xs font-semibold shadow-2xs gap-1.5"
+                            >
+                                <Download className="h-3.5 w-3.5 text-slate-500" />
+                                <span>Export</span>
+                                <ChevronDown className="h-3 w-3 text-slate-400" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56 rounded-xl text-xs p-1.5 space-y-1">
+                            <DropdownMenuItem asChild>
+                                <a
+                                    href={`/kanban/boards/${board.id}/export?format=csv`}
+                                    download
+                                    className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-muted/50"
+                                >
+                                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                                    <div>
+                                        <div className="font-semibold text-slate-800 dark:text-slate-100">Export Tasks (CSV)</div>
+                                        <div className="text-[10px] text-muted-foreground">Sanitized table spreadsheet</div>
+                                    </div>
+                                </a>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <a
+                                    href={`/kanban/boards/${board.id}/export?format=json`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-muted/50"
+                                >
+                                    <FileCode className="h-4 w-4 text-blue-600 shrink-0" />
+                                    <div>
+                                        <div className="font-semibold text-slate-800 dark:text-slate-100">Export Tasks (JSON)</div>
+                                        <div className="text-[10px] text-muted-foreground">Full schema & metadata</div>
+                                    </div>
+                                </a>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <a
+                                    href={`/kanban/boards/${board.id}/workload-analytics/export?format=csv`}
+                                    download
+                                    className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-muted/50"
+                                >
+                                    <Users className="h-4 w-4 text-amber-600 shrink-0" />
+                                    <div>
+                                        <div className="font-semibold text-slate-800 dark:text-slate-100">Workload Report (CSV)</div>
+                                        <div className="text-[10px] text-muted-foreground">Capacities & allocations</div>
+                                    </div>
+                                </a>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                                <a
+                                    href={`/kanban/boards/${board.id}/delivery-metrics/export?format=csv`}
+                                    download
+                                    className="flex items-center gap-2.5 p-2 rounded-lg cursor-pointer hover:bg-muted/50"
+                                >
+                                    <BarChart3 className="h-4 w-4 text-purple-600 shrink-0" />
+                                    <div>
+                                        <div className="font-semibold text-slate-800 dark:text-slate-100">Delivery Metrics (CSV)</div>
+                                        <div className="text-[10px] text-muted-foreground">Cycle time, lead time & SLA</div>
+                                    </div>
+                                </a>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
