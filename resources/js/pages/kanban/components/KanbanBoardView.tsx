@@ -26,7 +26,7 @@ import {
     User as UserIcon,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
+import { BoardPermissions, isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
 
 interface KanbanBoardViewProps {
     board: KanbanBoard;
@@ -34,6 +34,7 @@ interface KanbanBoardViewProps {
     personFilter: string;
     priorityFilter: string;
     users: User[];
+    permissions?: BoardPermissions;
     onSelectTask: (task: Task) => void;
     onQuickAddTask: (columnId: number) => void;
 }
@@ -44,6 +45,7 @@ export default function KanbanBoardView({
     personFilter,
     priorityFilter,
     users = [],
+    permissions,
     onSelectTask,
     onQuickAddTask,
 }: KanbanBoardViewProps) {
@@ -165,12 +167,17 @@ export default function KanbanBoardView({
 
     // Drag and Drop
     const handleDragStart = (e: React.DragEvent, taskId: number) => {
+        if (permissions?.canChangeStatus === false) {
+            e.preventDefault();
+            return;
+        }
         setDraggingTaskId(taskId);
         e.dataTransfer.setData('text/plain', String(taskId));
         e.dataTransfer.effectAllowed = 'move';
     };
 
     const handleDragOver = (e: React.DragEvent, columnId: number) => {
+        if (permissions?.canChangeStatus === false) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
         if (dragOverColumnId !== columnId) {
@@ -188,6 +195,7 @@ export default function KanbanBoardView({
     const handleDrop = (e: React.DragEvent, targetColumnId: number) => {
         e.preventDefault();
         setDragOverColumnId(null);
+        if (permissions?.canChangeStatus === false) return;
         const taskIdStr = e.dataTransfer.getData('text/plain');
         const taskId = taskIdStr ? parseInt(taskIdStr, 10) : draggingTaskId;
 
@@ -285,29 +293,31 @@ export default function KanbanBoardView({
                                     {colTasks.length}
                                 </span>
 
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <button className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
-                                            <MoreHorizontal className="h-3.5 w-3.5" />
-                                        </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-44 rounded-xl text-xs">
-                                        <DropdownMenuItem
-                                            onClick={() => {
-                                                setEditingStage(col);
-                                                setEditStageTitle(col.title);
-                                            }}
-                                        >
-                                            <Edit3 className="mr-2 h-3.5 w-3.5" />
-                                            <span>Rename Stage</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => handleDeleteStage(col.id)} className="text-rose-500 focus:text-rose-500">
-                                            <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                            <span>Delete Stage</span>
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                {permissions?.canManageColumns !== false && (
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <button className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground">
+                                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-44 rounded-xl text-xs">
+                                            <DropdownMenuItem
+                                                onClick={() => {
+                                                    setEditingStage(col);
+                                                    setEditStageTitle(col.title);
+                                                }}
+                                            >
+                                                <Edit3 className="mr-2 h-3.5 w-3.5" />
+                                                <span>Rename Stage</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={() => handleDeleteStage(col.id)} className="text-rose-500 focus:text-rose-500">
+                                                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                                <span>Delete Stage</span>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                )}
                             </div>
                         </div>
 
@@ -348,7 +358,7 @@ export default function KanbanBoardView({
                                 return (
                                     <div
                                         key={task.id}
-                                        draggable
+                                        draggable={permissions?.canChangeStatus !== false}
                                         onDragStart={(e) => handleDragStart(e, task.id)}
                                         onClick={() => onSelectTask(task)}
                                         className={`group relative cursor-pointer rounded-xl border border-border/80 bg-card p-3 text-card-foreground shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md ${
@@ -665,29 +675,33 @@ export default function KanbanBoardView({
                         </div>
 
                         {/* Add Task Button (Fixed Bottom) */}
-                        <div className="shrink-0 border-t border-border/50 bg-card/60 p-2">
-                            <button
-                                onClick={() => onQuickAddTask(col.id)}
-                                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/80 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/50 hover:bg-muted/40 hover:text-foreground"
-                            >
-                                <Plus className="h-3.5 w-3.5" />
-                                <span>Add Task</span>
-                            </button>
-                        </div>
+                        {permissions?.canCreateTask !== false && (
+                            <div className="shrink-0 border-t border-border/50 bg-card/60 p-2">
+                                <button
+                                    onClick={() => onQuickAddTask(col.id)}
+                                    className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-border/80 py-1.5 text-xs font-semibold text-muted-foreground transition-all hover:border-primary/50 hover:bg-muted/40 hover:text-foreground"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    <span>Add Task</span>
+                                </button>
+                            </div>
+                        )}
                     </div>
                 );
             })}
 
             {/* + Add Workflow Stage Button */}
-            <div className="w-72 shrink-0">
-                <button
-                    onClick={() => setIsAddStageOpen(true)}
-                    className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/80 text-xs font-bold text-muted-foreground transition-all hover:border-primary/60 hover:bg-card hover:text-foreground"
-                >
-                    <Plus className="h-4 w-4" />
-                    <span>Add Workflow Stage</span>
-                </button>
-            </div>
+            {permissions?.canManageColumns !== false && (
+                <div className="w-72 shrink-0">
+                    <button
+                        onClick={() => setIsAddStageOpen(true)}
+                        className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/80 text-xs font-bold text-muted-foreground transition-all hover:border-primary/60 hover:bg-card hover:text-foreground"
+                    >
+                        <Plus className="h-4 w-4" />
+                        <span>Add Workflow Stage</span>
+                    </button>
+                </div>
+            )}
 
             {/* Add Workflow Stage Modal */}
             <Dialog open={isAddStageOpen} onOpenChange={setIsAddStageOpen}>

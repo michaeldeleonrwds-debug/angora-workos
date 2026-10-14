@@ -7,6 +7,7 @@ interface EditableDropdownCellProps {
     options: string[];
     onSelect: (val: string) => void;
     placeholder?: string;
+    disabled?: boolean;
 }
 
 export default function EditableDropdownCell({
@@ -14,6 +15,7 @@ export default function EditableDropdownCell({
     options = [],
     onSelect,
     placeholder = 'Select',
+    disabled = false,
 }: EditableDropdownCellProps) {
     const [search, setSearch] = useState('');
     const [isOpen, setIsOpen] = useState(false);
@@ -33,10 +35,13 @@ export default function EditableDropdownCell({
 
     return (
         <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild disabled={disabled}>
                 <button
                     type="button"
-                    className="bg-muted/40 hover:bg-muted/70 text-foreground flex w-full items-center justify-between gap-1 truncate rounded px-2 py-1 text-center text-xs font-semibold transition-colors"
+                    disabled={disabled}
+                    className={`bg-muted/40 text-foreground flex w-full items-center justify-between gap-1 truncate rounded px-2 py-1 text-center text-xs font-semibold transition-colors ${
+                        disabled ? 'cursor-default opacity-80' : 'hover:bg-muted/70'
+                    }`}
                 >
                     <span className={`truncate ${!isSelected ? 'text-muted-foreground/60 font-normal' : ''}`}>
                         {displayVal}

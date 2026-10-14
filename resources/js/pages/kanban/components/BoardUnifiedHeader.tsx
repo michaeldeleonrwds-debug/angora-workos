@@ -45,7 +45,7 @@ import {
     Zap,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
-import { BoardView, KanbanBoard, User, Workspace } from '../types';
+import { BoardPermissions, BoardView, KanbanBoard, User, Workspace } from '../types';
 
 interface BoardUnifiedHeaderProps {
     workspaces: Workspace[];
@@ -61,6 +61,7 @@ interface BoardUnifiedHeaderProps {
     onPersonFilterChange: (val: string) => void;
     priorityFilter: string;
     onPriorityFilterChange: (val: string) => void;
+    permissions?: BoardPermissions;
     onOpenNewTask: () => void;
     onOpenNewGroup: () => void;
     onOpenNewColumn: () => void;
@@ -82,6 +83,7 @@ export default function BoardUnifiedHeader({
     onPersonFilterChange,
     priorityFilter,
     onPriorityFilterChange,
+    permissions,
     onOpenNewTask,
     onOpenNewGroup,
     onOpenNewColumn,
@@ -514,14 +516,18 @@ export default function BoardUnifiedHeader({
                                     </div>
                                 ))}
                             </div>
-                            <DropdownMenuSeparator className="my-1" />
-                            <DropdownMenuItem
-                                onClick={() => setIsCreateBoardOpen(true)}
-                                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-primary"
-                            >
-                                <Plus className="h-3.5 w-3.5" />
-                                <span>Create New Board</span>
-                            </DropdownMenuItem>
+                            {permissions?.canManageBoard !== false && (
+                                <>
+                                    <DropdownMenuSeparator className="my-1" />
+                                    <DropdownMenuItem
+                                        onClick={() => setIsCreateBoardOpen(true)}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-semibold text-primary"
+                                    >
+                                        <Plus className="h-3.5 w-3.5" />
+                                        <span>Create New Board</span>
+                                    </DropdownMenuItem>
+                                </>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
 
@@ -710,16 +716,18 @@ export default function BoardUnifiedHeader({
                     </DropdownMenu>
 
                     {/* "+ New Item" Primary Button */}
-                    <Button
-                        onClick={onOpenNewTask}
-                        className="h-8 rounded-full bg-[#0073ea] px-3.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0060c0]"
-                    >
-                        <Plus className="mr-1 h-3.5 w-3.5 text-white" />
-                        <span>New Item</span>
-                    </Button>
+                    {permissions?.canCreateTask !== false && (
+                        <Button
+                            onClick={onOpenNewTask}
+                            className="h-8 rounded-full bg-[#0073ea] px-3.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0060c0]"
+                        >
+                            <Plus className="mr-1 h-3.5 w-3.5 text-white" />
+                            <span>New Item</span>
+                        </Button>
+                    )}
 
                     {/* Automations Chip */}
-                    {onOpenAutomate && (
+                    {permissions?.canManageAutomations !== false && onOpenAutomate && (
                         <button
                             onClick={onOpenAutomate}
                             title="Workflow Automations"
@@ -808,9 +816,11 @@ export default function BoardUnifiedHeader({
                 <div className="flex items-center gap-2">
                     {/* Member Avatars Stack */}
                     <div
-                        onClick={() => setIsMembersModalOpen(true)}
-                        className="hidden sm:flex cursor-pointer items-center -space-x-1.5 rounded-lg p-1 hover:bg-muted/50 transition-colors"
-                        title="Manage Workspace & Board Members"
+                        onClick={() => permissions?.canManageBoard !== false && setIsMembersModalOpen(true)}
+                        className={`hidden sm:flex items-center -space-x-1.5 rounded-lg p-1 transition-colors ${
+                            permissions?.canManageBoard !== false ? 'cursor-pointer hover:bg-muted/50' : 'cursor-default'
+                        }`}
+                        title={permissions?.canManageBoard !== false ? 'Manage Workspace & Board Members' : 'Board Members'}
                     >
                         {boardMembers.slice(0, 4).map((m) => (
                             <div
@@ -826,33 +836,39 @@ export default function BoardUnifiedHeader({
                                 +{boardMembers.length - 4}
                             </div>
                         )}
-                        <UserPlus className="ml-2 h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                        {permissions?.canManageBoard !== false && (
+                            <UserPlus className="ml-2 h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                        )}
                     </div>
 
                     {/* Add Group */}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={onOpenNewGroup}
-                        className="hidden sm:flex h-8 rounded-lg border-border bg-card px-2.5 text-xs font-medium hover:bg-muted/60"
-                    >
-                        <Plus className="mr-1 h-3.5 w-3.5" />
-                        <span>Add Group</span>
-                    </Button>
+                    {permissions?.canManageGroups !== false && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onOpenNewGroup}
+                            className="hidden sm:flex h-8 rounded-lg border-border bg-card px-2.5 text-xs font-medium hover:bg-muted/60"
+                        >
+                            <Plus className="mr-1 h-3.5 w-3.5" />
+                            <span>Add Group</span>
+                        </Button>
+                    )}
 
                     {/* Add Column */}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={onOpenNewColumn}
-                        className="hidden md:flex h-8 rounded-lg border-border bg-card px-2.5 text-xs font-medium hover:bg-muted/60"
-                    >
-                        <SlidersHorizontal className="mr-1 h-3.5 w-3.5" />
-                        <span>Add Column</span>
-                    </Button>
+                    {permissions?.canManageColumns !== false && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onOpenNewColumn}
+                            className="hidden md:flex h-8 rounded-lg border-border bg-card px-2.5 text-xs font-medium hover:bg-muted/60"
+                        >
+                            <SlidersHorizontal className="mr-1 h-3.5 w-3.5" />
+                            <span>Add Column</span>
+                        </Button>
+                    )}
 
                     {/* Blueprints */}
-                    {onOpenBlueprints && (
+                    {permissions?.canManageBlueprints !== false && onOpenBlueprints && (
                         <Button
                             variant="outline"
                             size="sm"
@@ -865,74 +881,76 @@ export default function BoardUnifiedHeader({
                     )}
 
                     {/* Export Dropdown */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 gap-1 rounded-lg border-border bg-card px-2.5 text-xs font-semibold text-foreground hover:bg-muted/60"
-                            >
-                                <Download className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="hidden sm:inline">Export</span>
-                                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5 text-xs shadow-xl space-y-1">
-                            <DropdownMenuItem asChild>
-                                <a
-                                    href={`/kanban/boards/${activeBoard.id}/export?format=csv`}
-                                    download
-                                    className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-muted/60"
+                    {permissions?.canExport !== false && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 gap-1 rounded-lg border-border bg-card px-2.5 text-xs font-semibold text-foreground hover:bg-muted/60"
                                 >
-                                    <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
-                                    <div>
-                                        <div className="font-semibold text-foreground">Export Tasks (CSV)</div>
-                                        <div className="text-[10px] text-muted-foreground">Sanitized table spreadsheet</div>
-                                    </div>
-                                </a>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <a
-                                    href={`/kanban/boards/${activeBoard.id}/export?format=json`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-muted/60"
-                                >
-                                    <FileCode className="h-4 w-4 text-blue-600 shrink-0" />
-                                    <div>
-                                        <div className="font-semibold text-foreground">Export Tasks (JSON)</div>
-                                        <div className="text-[10px] text-muted-foreground">Full schema & metadata</div>
-                                    </div>
-                                </a>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <a
-                                    href={`/kanban/boards/${activeBoard.id}/workload-analytics/export?format=csv`}
-                                    download
-                                    className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-muted/60"
-                                >
-                                    <Users className="h-4 w-4 text-amber-600 shrink-0" />
-                                    <div>
-                                        <div className="font-semibold text-foreground">Workload Report (CSV)</div>
-                                        <div className="text-[10px] text-muted-foreground">Capacities & allocations</div>
-                                    </div>
-                                </a>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <a
-                                    href={`/kanban/boards/${activeBoard.id}/delivery-metrics/export?format=csv`}
-                                    download
-                                    className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-muted/60"
-                                >
-                                    <BarChart3 className="h-4 w-4 text-purple-600 shrink-0" />
-                                    <div>
-                                        <div className="font-semibold text-foreground">Delivery Metrics (CSV)</div>
-                                        <div className="text-[10px] text-muted-foreground">Cycle time & SLA</div>
-                                    </div>
-                                </a>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                                    <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="hidden sm:inline">Export</span>
+                                    <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56 rounded-xl p-1.5 text-xs shadow-xl space-y-1">
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href={`/kanban/boards/${activeBoard.id}/export?format=csv`}
+                                        download
+                                        className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-muted/60"
+                                    >
+                                        <FileSpreadsheet className="h-4 w-4 text-emerald-600 shrink-0" />
+                                        <div>
+                                            <div className="font-semibold text-foreground">Export Tasks (CSV)</div>
+                                            <div className="text-[10px] text-muted-foreground">Sanitized table spreadsheet</div>
+                                        </div>
+                                    </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href={`/kanban/boards/${activeBoard.id}/export?format=json`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-muted/60"
+                                    >
+                                        <FileCode className="h-4 w-4 text-blue-600 shrink-0" />
+                                        <div>
+                                            <div className="font-semibold text-foreground">Export Tasks (JSON)</div>
+                                            <div className="text-[10px] text-muted-foreground">Full schema & metadata</div>
+                                        </div>
+                                    </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href={`/kanban/boards/${activeBoard.id}/workload-analytics/export?format=csv`}
+                                        download
+                                        className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-muted/60"
+                                    >
+                                        <Users className="h-4 w-4 text-amber-600 shrink-0" />
+                                        <div>
+                                            <div className="font-semibold text-foreground">Workload Report (CSV)</div>
+                                            <div className="text-[10px] text-muted-foreground">Capacities & allocations</div>
+                                        </div>
+                                    </a>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <a
+                                        href={`/kanban/boards/${activeBoard.id}/delivery-metrics/export?format=csv`}
+                                        download
+                                        className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-muted/60"
+                                    >
+                                        <BarChart3 className="h-4 w-4 text-purple-600 shrink-0" />
+                                        <div>
+                                            <div className="font-semibold text-foreground">Delivery Metrics (CSV)</div>
+                                            <div className="text-[10px] text-muted-foreground">Cycle time & SLA</div>
+                                        </div>
+                                    </a>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
 
                     {/* Board Context Menu ("...") */}
                     <DropdownMenu>
@@ -942,29 +960,35 @@ export default function BoardUnifiedHeader({
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 text-xs shadow-lg">
-                            <DropdownMenuItem onClick={onOpenNewGroup} className="sm:hidden">
-                                <Plus className="mr-2 h-3.5 w-3.5" />
-                                <span>Add Group</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={onOpenNewColumn} className="md:hidden">
-                                <SlidersHorizontal className="mr-2 h-3.5 w-3.5" />
-                                <span>Add Column</span>
-                            </DropdownMenuItem>
-                            {onOpenBlueprints && (
+                            {permissions?.canManageGroups !== false && (
+                                <DropdownMenuItem onClick={onOpenNewGroup} className="sm:hidden">
+                                    <Plus className="mr-2 h-3.5 w-3.5" />
+                                    <span>Add Group</span>
+                                </DropdownMenuItem>
+                            )}
+                            {permissions?.canManageColumns !== false && (
+                                <DropdownMenuItem onClick={onOpenNewColumn} className="md:hidden">
+                                    <SlidersHorizontal className="mr-2 h-3.5 w-3.5" />
+                                    <span>Add Column</span>
+                                </DropdownMenuItem>
+                            )}
+                            {permissions?.canManageBlueprints !== false && onOpenBlueprints && (
                                 <DropdownMenuItem onClick={onOpenBlueprints} className="lg:hidden">
                                     <Layers className="mr-2 h-3.5 w-3.5 text-indigo-500" />
                                     <span>Blueprints</span>
                                 </DropdownMenuItem>
                             )}
-                            <DropdownMenuItem onClick={() => handleDuplicateBoard(activeBoard.id, {} as any)}>
-                                <Copy className="mr-2 h-3.5 w-3.5" />
-                                <span>Duplicate Board</span>
-                            </DropdownMenuItem>
+                            {permissions?.canManageBoard !== false && (
+                                <DropdownMenuItem onClick={() => handleDuplicateBoard(activeBoard.id, {} as any)}>
+                                    <Copy className="mr-2 h-3.5 w-3.5" />
+                                    <span>Duplicate Board</span>
+                                </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => handleToggleBoardFavorite(activeBoard.id)}>
                                 <Star className="mr-2 h-3.5 w-3.5 text-amber-500" />
                                 <span>{activeBoard.is_favorite ? 'Remove Favorite' : 'Mark Favorite'}</span>
                             </DropdownMenuItem>
-                            {boards.length > 1 && (
+                            {permissions?.canManageBoard !== false && boards.length > 1 && (
                                 <>
                                     <DropdownMenuSeparator className="my-1" />
                                     <DropdownMenuItem

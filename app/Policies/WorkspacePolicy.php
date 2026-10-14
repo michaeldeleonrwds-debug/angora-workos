@@ -56,6 +56,10 @@ class WorkspacePolicy
      */
     public function update(User $user, Workspace $workspace): bool
     {
+        if ($user->role === 'designer') {
+            return false;
+        }
+
         if ($workspace->owner_id === $user->id) {
             return true;
         }
@@ -69,6 +73,10 @@ class WorkspacePolicy
      */
     public function delete(User $user, Workspace $workspace): bool
     {
+        if ($user->role === 'designer') {
+            return false;
+        }
+
         return $workspace->owner_id === $user->id;
     }
 
@@ -77,6 +85,10 @@ class WorkspacePolicy
      */
     public function manageMembers(User $user, Workspace $workspace): bool
     {
+        if ($user->role === 'designer') {
+            return false;
+        }
+
         if ($workspace->owner_id === $user->id) {
             return true;
         }

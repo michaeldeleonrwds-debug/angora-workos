@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\KanbanBoard;
 use App\Models\KanbanTask;
 use App\Models\User;
 
@@ -39,7 +40,7 @@ class TaskPolicy
 
         // Clients must be assigned or have explicit access to client-visible tasks
         if ($user->role === 'client') {
-            return $task->assigned_to === $user->id || $task->created_by === $user->id;
+            return $task->isAssignedTo($user) || $task->created_by === $user->id;
         }
 
         return true;
@@ -48,23 +49,29 @@ class TaskPolicy
     /**
      * Determine whether the user can create tasks on a board.
      */
-    public function create(User $user, KanbanTask $task): bool
+    public function create(User $user, $boardOrTask = null): bool
     {
-        $board = $task->board;
-        if (!$board) {
+        // Production contributors and external roles cannot create arbitrary tasks
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
             return false;
         }
 
-        if (in_array($user->role, ['client', 'guest'], true)) {
-            return false;
+        $board = $boardOrTask instanceof KanbanBoard
+            ? $boardOrTask
+            : ($boardOrTask instanceof KanbanTask ? $boardOrTask->board : null);
+
+        if ($board) {
+            $boardMember = $board->members()->where('user_id', $user->id)->first();
+            if ($boardMember && $boardMember->role === 'viewer') {
+                return false;
+            }
+
+            if (!$user->can('view', $board)) {
+                return false;
+            }
         }
 
-        $boardMember = $board->members()->where('user_id', $user->id)->first();
-        if ($boardMember && $boardMember->role === 'viewer') {
-            return false;
-        }
-
-        return $user->can('view', $board);
+        return in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true);
     }
 
     /**
@@ -73,22 +80,30 @@ class TaskPolicy
     public function update(User $user, KanbanTask $task): bool
     {
         $board = $task->board;
-        if (!$board) {
+        if (!$board || !$user->can('view', $board)) {
             return false;
         }
 
-        // Clients/Guests cannot update arbitrary tasks unless assigned or permitted
-        if (in_array($user->role, ['client', 'guest'], true)) {
-            return $task->assigned_to === $user->id || $task->created_by === $user->id;
+        // Clients/Guests cannot update arbitrary tasks unless assigned
+        if (in_array($user->role, ['client', 'guest', 'external_user'], true)) {
+            return $task->isAssignedTo($user) || $task->created_by === $user->id;
+        }
+
+        // Designers can ONLY update tasks they are assigned to
+        if ($user->role === 'designer') {
+            return $task->isAssignedTo($user);
         }
 
         // Board viewers cannot edit tasks unless assigned
         $boardMember = $board->members()->where('user_id', $user->id)->first();
         if ($boardMember && $boardMember->role === 'viewer') {
-            return $task->assigned_to === $user->id;
+            return $task->isAssignedTo($user);
         }
 
-        return $user->can('view', $board);
+        // Admin, PM, AM or authorized board members can update
+        return in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true)
+            || ($boardMember && in_array($boardMember->role, ['owner', 'admin', 'editor'], true))
+            || $board->created_by === $user->id;
     }
 
     /**
@@ -96,20 +111,91 @@ class TaskPolicy
      */
     public function delete(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['client', 'guest'], true)) {
+        // Designers and external users can never delete tasks
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
             return false;
-        }
-
-        if ($task->created_by === $user->id) {
-            return true;
         }
 
         $board = $task->board;
-        if (!$board) {
+        if (!$board || !$user->can('view', $board)) {
             return false;
         }
 
+        if (in_array($user->role, ['admin', 'admin_manager', 'project_manager'], true)) {
+            return true;
+        }
+
+        if ($user->role === 'account_manager' && ($task->created_by === $user->id || $board->created_by === $user->id)) {
+            return true;
+        }
+
         return $user->can('update', $board);
+    }
+
+    /**
+     * Determine whether the user can change workflow status / column (e.g. Kanban drag).
+     */
+    public function changeStatus(User $user, KanbanTask $task): bool
+    {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        return $this->update($user, $task);
+    }
+
+    /**
+     * Determine whether the user can move task groups.
+     */
+    public function changeGroup(User $user, KanbanTask $task): bool
+    {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        return $this->update($user, $task);
+    }
+
+    /**
+     * Determine whether the user can manage dependencies for this task.
+     */
+    public function manageDependencies(User $user, KanbanTask $task): bool
+    {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        return in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true)
+            && $this->update($user, $task);
+    }
+
+    /**
+     * Determine whether the user can manage recurrence schedules for this task.
+     */
+    public function manageRecurrence(User $user, KanbanTask $task): bool
+    {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        return in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true)
+            && $this->update($user, $task);
+    }
+
+    /**
+     * Determine whether the user can create/manage subtasks under this task.
+     */
+    public function manageSubtasks(User $user, KanbanTask $task): bool
+    {
+        if (in_array($user->role, ['client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        if ($user->role === 'designer') {
+            return $task->isAssignedTo($user);
+        }
+
+        return $this->update($user, $task);
     }
 
     /**
@@ -117,11 +203,11 @@ class TaskPolicy
      */
     public function submitReview(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['client', 'guest'], true)) {
+        if (in_array($user->role, ['client', 'guest', 'external_user'], true)) {
             return false;
         }
 
-        if ($task->assigned_to === $user->id || $task->created_by === $user->id) {
+        if ($task->isAssignedTo($user) || $task->created_by === $user->id) {
             return true;
         }
 
@@ -137,8 +223,18 @@ class TaskPolicy
             return true;
         }
 
-        // Roles permitted to review: admin, project_manager, account_manager, board owner
-        if (in_array($user->role, ['admin', 'project_manager', 'account_manager'], true)) {
+        // Designers can NEVER approve/review tasks (strict self-review prevention)
+        if ($user->role === 'designer') {
+            return false;
+        }
+
+        // PM and Admin can review internal stages
+        if (in_array($user->role, ['admin', 'admin_manager', 'project_manager'], true)) {
+            return true;
+        }
+
+        // Account Manager can review client liaison and account stages
+        if ($user->role === 'account_manager') {
             return true;
         }
 

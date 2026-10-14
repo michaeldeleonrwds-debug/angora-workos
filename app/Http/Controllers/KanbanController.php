@@ -35,19 +35,22 @@ class KanbanController extends Controller
     protected \App\Services\NotificationService $notificationService;
     protected \App\Services\TaskDependencyService $dependencyService;
     protected \App\Services\TaskRecurrenceService $recurrenceService;
+    protected \App\Services\Authorization\WorkOsPermissionService $permissionService;
 
     public function __construct(
         AutomationEngineService $automationEngine,
         CrossBoardService $crossBoardService,
         \App\Services\NotificationService $notificationService,
         \App\Services\TaskDependencyService $dependencyService,
-        \App\Services\TaskRecurrenceService $recurrenceService
+        \App\Services\TaskRecurrenceService $recurrenceService,
+        \App\Services\Authorization\WorkOsPermissionService $permissionService
     ) {
         $this->automationEngine = $automationEngine;
         $this->crossBoardService = $crossBoardService;
         $this->notificationService = $notificationService;
         $this->dependencyService = $dependencyService;
         $this->recurrenceService = $recurrenceService;
+        $this->permissionService = $permissionService;
     }
     public function index(Request $request)
     {
@@ -214,6 +217,27 @@ class KanbanController extends Controller
 
         $users = User::select('id', 'name', 'role', 'department', 'email')->get();
 
+        $permissions = $activeBoard ? $this->permissionService->getBoardPermissions($user, $activeBoard) : [
+            'canView' => false,
+            'canCreateTask' => false,
+            'canEditTask' => false,
+            'canEditProgress' => false,
+            'canChangeStatus' => false,
+            'canAssignUsers' => false,
+            'canChangeDeadlines' => false,
+            'canChangePriority' => false,
+            'canDeleteTask' => false,
+            'canManageBoard' => false,
+            'canManageColumns' => false,
+            'canManageGroups' => false,
+            'canManageAutomations' => false,
+            'canManageBlueprints' => false,
+            'canManageDependencies' => false,
+            'canManageRecurrence' => false,
+            'canApproveReview' => false,
+            'canExport' => false,
+        ];
+
         return Inertia::render('kanban/index', [
             'workspaces' => $workspaces,
             'activeWorkspace' => $activeWorkspace,
@@ -222,6 +246,7 @@ class KanbanController extends Controller
             'users' => $users,
             'selectedTask' => $selectedTask,
             'mirroredValues' => $mirroredValues,
+            'permissions' => $permissions,
         ]);
     }
 
@@ -636,7 +661,7 @@ class KanbanController extends Controller
     // --- Groups Management ---
     public function storeGroup(Request $request, KanbanBoard $board)
     {
-        Gate::authorize('update', $board);
+        Gate::authorize('manageGroups', $board);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -657,7 +682,7 @@ class KanbanController extends Controller
     {
         $board = $group->board;
         if ($board) {
-            Gate::authorize('update', $board);
+            Gate::authorize('manageGroups', $board);
         }
 
         $validated = $request->validate([
@@ -674,7 +699,7 @@ class KanbanController extends Controller
     {
         $board = $group->board;
         if ($board) {
-            Gate::authorize('update', $board);
+            Gate::authorize('manageGroups', $board);
         }
 
         $boardId = $group->board_id;
@@ -690,7 +715,7 @@ class KanbanController extends Controller
     // --- Dynamic Columns Management ---
     public function storeBoardColumn(Request $request, KanbanBoard $board)
     {
-        Gate::authorize('update', $board);
+        Gate::authorize('manageColumns', $board);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -723,7 +748,7 @@ class KanbanController extends Controller
     {
         $board = $column->board;
         if ($board) {
-            Gate::authorize('update', $board);
+            Gate::authorize('manageColumns', $board);
         }
 
         $validated = $request->validate([
@@ -742,7 +767,7 @@ class KanbanController extends Controller
     {
         $board = $column->board;
         if ($board) {
-            Gate::authorize('update', $board);
+            Gate::authorize('manageColumns', $board);
         }
 
         $newKey = 'col_' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', $column->title)) . '_copy_' . uniqid();
@@ -776,7 +801,7 @@ class KanbanController extends Controller
     {
         $board = $column->board;
         if ($board) {
-            Gate::authorize('update', $board);
+            Gate::authorize('manageColumns', $board);
         }
 
         $column->delete();
@@ -785,7 +810,7 @@ class KanbanController extends Controller
 
     public function reorderBoardColumns(Request $request, KanbanBoard $board)
     {
-        Gate::authorize('update', $board);
+        Gate::authorize('manageColumns', $board);
 
         $validated = $request->validate([
             'column_ids' => 'required|array',
@@ -839,7 +864,7 @@ class KanbanController extends Controller
         }
 
         $board = KanbanBoard::findOrFail($validated['board_id']);
-        Gate::authorize('view', $board);
+        Gate::authorize('create', [KanbanTask::class, $board]);
 
         $columnId = $validated['column_id'] ?? null;
         if (!$columnId) {
@@ -918,6 +943,21 @@ class KanbanController extends Controller
     public function updateTask(Request $request, KanbanTask $task)
     {
         Gate::authorize('update', $task);
+
+        // Field-level authorization: Designers can only update progress and actual_hours on assigned tasks
+        if ($request->user()->role === 'designer') {
+            $disallowedFields = [
+                'title', 'description', 'priority', 'due_date', 'due_time',
+                'start_date', 'start_time', 'is_milestone', 'reminder_lead_minutes',
+                'assigned_to', 'column_id', 'group_id', 'labels', 'custom_values',
+                'estimated_hours'
+            ];
+            foreach ($disallowedFields as $field) {
+                if ($request->has($field)) {
+                    abort(403, "Designers are not authorized to modify {$field}.");
+                }
+            }
+        }
 
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
@@ -1146,7 +1186,7 @@ class KanbanController extends Controller
 
     public function updateTaskColumn(Request $request, KanbanTask $task)
     {
-        Gate::authorize('update', $task);
+        Gate::authorize('changeStatus', $task);
 
         $validated = $request->validate([
             'column_id' => 'required|exists:kanban_columns,id',
@@ -1220,6 +1260,10 @@ class KanbanController extends Controller
 
     public function reorderTasks(Request $request)
     {
+        if ($request->user()->role === 'designer') {
+            abort(403, 'Designers are not authorized to reorder tasks.');
+        }
+
         $validated = $request->validate([
             'task_ids' => 'required|array',
             'task_ids.*' => 'exists:kanban_tasks,id',
@@ -1242,7 +1286,7 @@ class KanbanController extends Controller
 
     public function updateTaskGroup(Request $request, KanbanTask $task)
     {
-        Gate::authorize('update', $task);
+        Gate::authorize('changeGroup', $task);
 
         $validated = $request->validate([
             'group_id' => 'required|exists:board_groups,id',
@@ -1273,7 +1317,7 @@ class KanbanController extends Controller
 
     public function storeSubitem(Request $request, KanbanTask $task)
     {
-        Gate::authorize('update', $task);
+        Gate::authorize('manageSubtasks', $task);
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
@@ -1557,7 +1601,7 @@ class KanbanController extends Controller
     // --- Views Management (Table, Kanban, Calendar, Timeline, Gantt, Workload, Chart, Files, Gallery) ---
     public function storeView(Request $request, KanbanBoard $board)
     {
-        Gate::authorize('view', $board);
+        Gate::authorize('update', $board);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -1581,7 +1625,7 @@ class KanbanController extends Controller
     {
         $board = $view->board;
         if ($board) {
-            Gate::authorize('view', $board);
+            Gate::authorize('update', $board);
         }
 
         $validated = $request->validate([
@@ -1630,7 +1674,7 @@ class KanbanController extends Controller
 
     public function reorderViews(Request $request, KanbanBoard $board)
     {
-        Gate::authorize('view', $board);
+        Gate::authorize('update', $board);
 
         $validated = $request->validate([
             'view_ids' => 'required|array',
@@ -1675,7 +1719,7 @@ class KanbanController extends Controller
 
     public function storeDependency(Request $request, KanbanTask $task)
     {
-        Gate::authorize('update', $task);
+        Gate::authorize('manageDependencies', $task);
 
         $validated = $request->validate([
             'depends_on_task_id' => 'required|integer|exists:kanban_tasks,id|different:task_id',
@@ -1713,6 +1757,10 @@ class KanbanController extends Controller
 
     public function deleteDependency(Request $request, TaskDependency $dependency)
     {
+        $task = $dependency->task;
+        abort_unless($task, 404);
+        Gate::authorize('manageDependencies', $task);
+
         $this->dependencyService->removeDependency($dependency, $request->user());
 
         if ($request->wantsJson()) {
@@ -1739,7 +1787,7 @@ class KanbanController extends Controller
 
     public function storeTaskRecurrence(Request $request, KanbanTask $task)
     {
-        Gate::authorize('update', $task);
+        Gate::authorize('manageRecurrence', $task);
 
         $validated = $request->validate([
             'frequency' => 'required|string|in:daily,weekly,monthly,custom,on_completion',
@@ -1770,7 +1818,7 @@ class KanbanController extends Controller
 
     public function toggleTaskRecurrence(Request $request, KanbanTask $task)
     {
-        Gate::authorize('update', $task);
+        Gate::authorize('manageRecurrence', $task);
 
         $rule = $task->recurrenceRule;
         if (!$rule && $task->recurrence_rule_id) {
@@ -1795,7 +1843,7 @@ class KanbanController extends Controller
 
     public function deleteTaskRecurrence(Request $request, KanbanTask $task)
     {
-        Gate::authorize('update', $task);
+        Gate::authorize('manageRecurrence', $task);
 
         $rule = $task->recurrenceRule;
         if (!$rule && $task->recurrence_rule_id) {
@@ -1815,7 +1863,7 @@ class KanbanController extends Controller
 
     public function runTaskRecurrenceNow(Request $request, KanbanTask $task)
     {
-        Gate::authorize('update', $task);
+        Gate::authorize('manageRecurrence', $task);
 
         $rule = $task->recurrenceRule;
         if (!$rule && $task->recurrence_rule_id) {
@@ -1842,6 +1890,10 @@ class KanbanController extends Controller
     public function updateTaskSchedule(Request $request, KanbanTask $task)
     {
         Gate::authorize('update', $task);
+
+        if ($request->user()->role === 'designer') {
+            abort(403, 'Designers are not authorized to update task schedules.');
+        }
 
         $validated = $request->validate([
             'start_date' => 'nullable|date',
@@ -1892,7 +1944,7 @@ class KanbanController extends Controller
     // --- Automation Engine Endpoints ---
     public function storeAutomation(Request $request, KanbanBoard $board)
     {
-        Gate::authorize('update', $board);
+        Gate::authorize('manageAutomations', $board);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -1930,9 +1982,8 @@ class KanbanController extends Controller
     public function updateAutomation(Request $request, BoardAutomation $automation)
     {
         $board = $automation->board;
-        if ($board) {
-            Gate::authorize('update', $board);
-        }
+        abort_unless($board, 404);
+        Gate::authorize('manageAutomations', $board);
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -1952,9 +2003,8 @@ class KanbanController extends Controller
     public function toggleAutomation(BoardAutomation $automation)
     {
         $board = $automation->board;
-        if ($board) {
-            Gate::authorize('update', $board);
-        }
+        abort_unless($board, 404);
+        Gate::authorize('manageAutomations', $board);
 
         $automation->update(['is_active' => !$automation->is_active]);
         $statusStr = $automation->is_active ? 'enabled' : 'disabled';
@@ -1964,9 +2014,8 @@ class KanbanController extends Controller
     public function duplicateAutomation(BoardAutomation $automation)
     {
         $board = $automation->board;
-        if ($board) {
-            Gate::authorize('update', $board);
-        }
+        abort_unless($board, 404);
+        Gate::authorize('manageAutomations', $board);
 
         $clone = $automation->replicate();
         $clone->name = "{$automation->name} (Copy)";
@@ -1981,9 +2030,8 @@ class KanbanController extends Controller
     public function deleteAutomation(BoardAutomation $automation)
     {
         $board = $automation->board;
-        if ($board) {
-            Gate::authorize('update', $board);
-        }
+        abort_unless($board, 404);
+        Gate::authorize('manageAutomations', $board);
 
         $automation->delete();
         return back()->with('success', 'Automation rule deleted');

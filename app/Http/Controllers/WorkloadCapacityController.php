@@ -44,8 +44,8 @@ class WorkloadCapacityController extends Controller
     {
         $currentUser = $request->user();
 
-        // Only super_admin, workspace owner/admin, or self can update capacity
-        if ($currentUser->role !== 'super_admin' && $currentUser->id !== $user->id) {
+        // Only super_admin, admin, project_manager, or self can update capacity
+        if (!in_array($currentUser->role, ['super_admin', 'admin', 'admin_manager', 'project_manager'], true) && $currentUser->id !== $user->id) {
             abort(403, 'Unauthorized to modify member capacity.');
         }
 

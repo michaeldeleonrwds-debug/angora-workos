@@ -21,7 +21,7 @@ class BoardDataExportController extends Controller
      */
     public function exportBoardTasks(Request $request, KanbanBoard $board): Response
     {
-        Gate::authorize('view', $board);
+        Gate::authorize('export', $board);
 
         $query = $board->tasks()
             ->with(['column', 'group', 'assignee', 'subitems'])
@@ -152,7 +152,7 @@ class BoardDataExportController extends Controller
      */
     public function exportWorkload(Request $request, KanbanBoard $board, WorkloadCapacityService $service): Response
     {
-        Gate::authorize('view', $board);
+        Gate::authorize('export', $board);
 
         $analytics = $service->calculateBoardWorkload($board, $request->all());
 
@@ -215,7 +215,7 @@ class BoardDataExportController extends Controller
      */
     public function exportDeliveryMetrics(Request $request, KanbanBoard $board, ProductionAnalyticsService $service): Response
     {
-        Gate::authorize('view', $board);
+        Gate::authorize('export', $board);
 
         $metrics = $service->calculateDeliveryMetrics($board, $request->all());
 

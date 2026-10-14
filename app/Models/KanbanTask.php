@@ -392,4 +392,43 @@ class KanbanTask extends Model
             ? ($this->completed_at ?? now())
             : null;
     }
+
+    /**
+     * Check if a specific user is assigned to this task (directly or via people custom values).
+     */
+    public function isAssignedTo($user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        $userId = $user instanceof User ? $user->id : (int) $user;
+        if ($userId <= 0) {
+            return false;
+        }
+
+        if ((int) $this->assigned_to === $userId) {
+            return true;
+        }
+
+        if (is_array($this->custom_values)) {
+            foreach ($this->custom_values as $val) {
+                if (is_array($val)) {
+                    if (in_array($userId, array_map('intval', $val), true)) {
+                        return true;
+                    }
+                } elseif (is_numeric($val) && (int) $val === $userId) {
+                    return true;
+                }
+            }
+        }
+
+        if ($this->parent_id && $this->parent) {
+            if ($this->parent->isAssignedTo($userId) || (int) $this->created_by === $userId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

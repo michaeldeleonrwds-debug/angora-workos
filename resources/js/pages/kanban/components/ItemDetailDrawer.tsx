@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
+import { BoardPermissions, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
@@ -48,17 +48,37 @@ interface ItemDetailDrawerProps {
     task: Task | null;
     board: KanbanBoard;
     users: User[];
+    permissions?: BoardPermissions;
     onClose: () => void;
     onSelectTask?: (task: Task) => void;
 }
 
-export default function ItemDetailDrawer({ task, board, users = [], onClose, onSelectTask }: ItemDetailDrawerProps) {
+export default function ItemDetailDrawer({ task, board, users = [], permissions, onClose, onSelectTask }: ItemDetailDrawerProps) {
     if (!task) return null;
 
     const { auth } = usePage().props as any;
     const currentUser = auth?.user;
     const isSuperAdminOrAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
     const isReviewerRole = isSuperAdminOrAdmin || currentUser?.role === 'project_manager' || currentUser?.role === 'account_manager';
+
+    const isAssigned = Boolean(
+        currentUser?.id && (
+            task.assigned_to === currentUser.id ||
+            (Array.isArray(task.custom_values?.designer_ids) && task.custom_values.designer_ids.map(Number).includes(currentUser.id)) ||
+            (Array.isArray(task.custom_values?.person) && task.custom_values.person.map(Number).includes(currentUser.id))
+        )
+    );
+
+    const canEditTask = permissions?.canEditTask ?? true;
+    const canChangeStatus = permissions?.canChangeStatus ?? true;
+    const canChangePriority = permissions?.canChangePriority ?? true;
+    const canAssignUsers = permissions?.canAssignUsers ?? true;
+    const canChangeDeadlines = permissions?.canChangeDeadlines ?? true;
+    const canManageRecurrence = permissions?.canManageRecurrence ?? true;
+    const canManageDependencies = permissions?.canManageDependencies ?? true;
+    const canApproveReview = permissions?.canApproveReview ?? true;
+    const canManageSubtasks = canEditTask || isAssigned;
+    const canSubmitReview = canEditTask || isAssigned;
 
     const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity' | 'reviews' | 'dependencies'>('updates');
     const [reviewCycles, setReviewCycles] = useState<TaskReviewCycle[]>(task.review_cycles || []);
@@ -325,7 +345,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
         (activeStage.required_role === 'client' && (currentUser?.role === 'client' || currentUser?.role === 'external_user')) ||
         (activeStage.required_role === 'project_manager' && ['project_manager', 'admin_manager', 'admin', 'super_admin'].includes(currentUser?.role || '')) ||
         (activeStage.required_role === currentUser?.role);
-    const canDecideReview = isPendingReview && (isReviewerRole && (!isSubmitter || isSuperAdminOrAdmin) && isStageRoleAuthorized);
+    const canDecideReview = isPendingReview && canApproveReview && (isReviewerRole && (!isSubmitter || isSuperAdminOrAdmin) && isStageRoleAuthorized);
 
     const handleSubmitReview = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -674,10 +694,13 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                             <input
                                 type="text"
                                 value={titleInput}
-                                onChange={(e) => setTitleInput(e.target.value)}
-                                onBlur={handleTitleBlur}
-                                onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
-                                className="text-foreground focus:ring-primary w-full rounded border-none bg-transparent p-1 text-xl font-black focus:ring-1 focus:outline-none"
+                                readOnly={!canEditTask}
+                                onChange={(e) => canEditTask && setTitleInput(e.target.value)}
+                                onBlur={canEditTask ? handleTitleBlur : undefined}
+                                onKeyDown={(e) => canEditTask && e.key === 'Enter' && handleTitleBlur()}
+                                className={`text-foreground focus:ring-primary w-full rounded border-none bg-transparent p-1 text-xl font-black ${
+                                    !canEditTask ? 'cursor-default' : 'focus:ring-1 focus:outline-none'
+                                }`}
                                 placeholder="Task Title"
                             />
                         </div>
@@ -689,9 +712,12 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 <Label className="text-muted-foreground font-medium">Status</Label>
                                 <div className="col-span-2">
                                     <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
+                                        <DropdownMenuTrigger asChild disabled={!canChangeStatus}>
                                             <button
-                                                className="rounded-lg px-3 py-1.5 text-center text-xs font-bold text-white shadow-2xs transition-all hover:brightness-105"
+                                                disabled={!canChangeStatus}
+                                                className={`rounded-lg px-3 py-1.5 text-center text-xs font-bold text-white shadow-2xs transition-all ${
+                                                    canChangeStatus ? 'hover:brightness-105 cursor-pointer' : 'cursor-default opacity-90'
+                                                }`}
                                                 style={{ backgroundColor: task.column?.color || '#64748b' }}
                                             >
                                                 {task.column?.title || 'Not Started'}
@@ -724,6 +750,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         onChange={handlePrimaryAssigneeChange}
                                         placeholder="Unassigned"
                                         align="start"
+                                        disabled={!canAssignUsers}
                                     />
                                 </div>
                             </div>
@@ -734,8 +761,11 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 <div className="col-span-2">
                                     <select
                                         defaultValue={task.priority}
+                                        disabled={!canChangePriority}
                                         onChange={(e) => handleUpdateField('priority', e.target.value)}
-                                        className="border-border bg-background h-8 rounded-xl border px-2.5 text-xs font-bold"
+                                        className={`border-border bg-background h-8 rounded-xl border px-2.5 text-xs font-bold ${
+                                            !canChangePriority ? 'cursor-default opacity-80' : ''
+                                        }`}
                                     >
                                         <option value="Urgent">Urgent</option>
                                         <option value="High">High</option>
@@ -792,6 +822,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         type="date"
                                         key={`start-date-${task.id}-${task.start_date || ''}`}
                                         defaultValue={task.start_date || ''}
+                                        disabled={!canChangeDeadlines}
                                         onChange={(e) => handleUpdateField('start_date', e.target.value || null)}
                                         className="h-8 flex-1 min-w-0 px-2 text-xs"
                                     />
@@ -799,6 +830,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         type="time"
                                         key={`start-time-${task.id}-${task.start_time || ''}`}
                                         defaultValue={task.start_time ? task.start_time.slice(0, 5) : ''}
+                                        disabled={!canChangeDeadlines}
                                         onChange={(e) => handleUpdateField('start_time', e.target.value || null)}
                                         className="h-8 w-[118px] shrink-0 px-2 text-xs"
                                     />
@@ -813,6 +845,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         type="date"
                                         key={`due-date-${task.id}-${task.due_date || ''}`}
                                         defaultValue={task.due_date || ''}
+                                        disabled={!canChangeDeadlines}
                                         onChange={(e) => handleUpdateField('due_date', e.target.value || null)}
                                         className="h-8 flex-1 min-w-0 px-2 text-xs"
                                     />
@@ -820,6 +853,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         type="time"
                                         key={`due-time-${task.id}-${task.due_time || ''}`}
                                         defaultValue={task.due_time ? task.due_time.slice(0, 5) : ''}
+                                        disabled={!canChangeDeadlines}
                                         onChange={(e) => handleUpdateField('due_time', e.target.value || null)}
                                         className="h-8 w-[118px] shrink-0 px-2 text-xs"
                                     />
@@ -830,9 +864,10 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                             <div className="grid grid-cols-3 items-center">
                                 <Label className="text-muted-foreground font-medium">Milestone & Alert</Label>
                                 <div className="col-span-2 flex items-center justify-between gap-3">
-                                    <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                                    <label className={`flex items-center gap-2 text-xs font-medium ${canChangeDeadlines ? 'cursor-pointer' : 'cursor-default opacity-80'}`}>
                                         <input
                                             type="checkbox"
+                                            disabled={!canChangeDeadlines}
                                             defaultChecked={Boolean(task.is_milestone)}
                                             onChange={(e) => handleUpdateField('is_milestone', e.target.checked)}
                                             className="rounded border-border text-primary focus:ring-primary"
@@ -842,8 +877,11 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
 
                                     <select
                                         defaultValue={task.reminder_lead_minutes !== null && task.reminder_lead_minutes !== undefined ? String(task.reminder_lead_minutes) : ''}
+                                        disabled={!canChangeDeadlines}
                                         onChange={(e) => handleUpdateField('reminder_lead_minutes', e.target.value === '' ? null : Number(e.target.value))}
-                                        className="border-border bg-background h-8 rounded-xl border px-2 text-xs"
+                                        className={`border-border bg-background h-8 rounded-xl border px-2 text-xs ${
+                                            !canChangeDeadlines ? 'cursor-default opacity-80' : ''
+                                        }`}
                                     >
                                         <option value="">No Reminder</option>
                                         <option value="0">At deadline</option>
@@ -886,44 +924,46 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         <span className="text-xs text-muted-foreground italic">None configured</span>
                                     )}
 
-                                    <div className="flex items-center gap-1 shrink-0">
-                                        {recurrenceRule && (
-                                            <>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleToggleRecurrence}
-                                                    disabled={isTogglingRecurrence}
-                                                    title={recurrenceRule.is_active ? 'Pause recurrence' : 'Resume recurrence'}
-                                                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                                >
-                                                    {recurrenceRule.is_active ? (
-                                                        <Pause className="h-3.5 w-3.5 text-amber-600" />
-                                                    ) : (
-                                                        <Play className="h-3.5 w-3.5 text-emerald-600" />
-                                                    )}
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleRunRecurrenceNow}
-                                                    disabled={isRunningRecurrenceNow}
-                                                    title="Spawn task instance now"
-                                                    className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
-                                                >
-                                                    <Repeat className={`h-3.5 w-3.5 ${isRunningRecurrenceNow ? 'animate-spin text-primary' : ''}`} />
-                                                </button>
-                                            </>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                initRecurrenceForm(recurrenceRule);
-                                                setIsRecurrenceModalOpen(true);
-                                            }}
-                                            className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-colors"
-                                        >
-                                            {recurrenceRule ? 'Edit' : 'Set Up'}
-                                        </button>
-                                    </div>
+                                    {canManageRecurrence && (
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            {recurrenceRule && (
+                                                <>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleToggleRecurrence}
+                                                        disabled={isTogglingRecurrence}
+                                                        title={recurrenceRule.is_active ? 'Pause recurrence' : 'Resume recurrence'}
+                                                        className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                                                    >
+                                                        {recurrenceRule.is_active ? (
+                                                            <Pause className="h-3.5 w-3.5 text-amber-600" />
+                                                        ) : (
+                                                            <Play className="h-3.5 w-3.5 text-emerald-600" />
+                                                        )}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleRunRecurrenceNow}
+                                                        disabled={isRunningRecurrenceNow}
+                                                        title="Spawn task instance now"
+                                                        className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                                                    >
+                                                        <Repeat className={`h-3.5 w-3.5 ${isRunningRecurrenceNow ? 'animate-spin text-primary' : ''}`} />
+                                                    </button>
+                                                </>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    initRecurrenceForm(recurrenceRule);
+                                                    setIsRecurrenceModalOpen(true);
+                                                }}
+                                                className="px-2 py-1 text-[11px] font-semibold rounded-lg border border-border bg-background hover:bg-muted text-foreground transition-colors"
+                                            >
+                                                {recurrenceRule ? 'Edit' : 'Set Up'}
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -944,9 +984,12 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 <textarea
                                     rows={3}
                                     defaultValue={task.description || ''}
-                                    onBlur={(e) => handleUpdateField('description', e.target.value)}
-                                    placeholder="Add notes or task background..."
-                                    className="border-border bg-background focus:ring-primary w-full rounded-xl border p-2.5 text-xs focus:ring-1 focus:outline-none"
+                                    readOnly={!canEditTask}
+                                    onBlur={(e) => canEditTask && handleUpdateField('description', e.target.value)}
+                                    placeholder={canEditTask ? 'Add notes or task background...' : '-'}
+                                    className={`border-border bg-background focus:ring-primary w-full rounded-xl border p-2.5 text-xs ${
+                                        !canEditTask ? 'cursor-default' : 'focus:ring-1 focus:outline-none'
+                                    }`}
                                 />
                             </div>
 
@@ -974,6 +1017,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                                       : []
                                                             }
                                                             users={users}
+                                                            disabled={!canAssignUsers}
                                                             onChange={(newIds) =>
                                                                 handleUpdateField('custom_values', {
                                                                     ...(task.custom_values || {}),
@@ -987,18 +1031,22 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                         <textarea
                                                             rows={2}
                                                             defaultValue={customVal}
+                                                            readOnly={!canEditTask}
                                                             onBlur={(e) =>
-                                                                handleUpdateField('custom_values', {
+                                                                canEditTask && handleUpdateField('custom_values', {
                                                                     ...(task.custom_values || {}),
                                                                     [col.key]: e.target.value,
                                                                 })
                                                             }
-                                                            placeholder={`Enter ${col.title.toLowerCase()}...`}
-                                                            className="border-border bg-background focus:ring-primary w-full rounded-xl border p-2 text-xs focus:ring-1 focus:outline-none"
+                                                            placeholder={canEditTask ? `Enter ${col.title.toLowerCase()}...` : '-'}
+                                                            className={`border-border bg-background focus:ring-primary w-full rounded-xl border p-2 text-xs ${
+                                                                !canEditTask ? 'cursor-default' : 'focus:ring-1 focus:outline-none'
+                                                            }`}
                                                         />
                                                     ) : col.type === 'checkbox' ? (
                                                         <input
                                                             type="checkbox"
+                                                            disabled={!canEditTask}
                                                             defaultChecked={Boolean(customVal)}
                                                             onChange={(e) =>
                                                                 handleUpdateField('custom_values', {
@@ -1011,13 +1059,16 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                     ) : col.type === 'dropdown' && col.config?.options ? (
                                                         <select
                                                             defaultValue={customVal}
+                                                            disabled={!canEditTask}
                                                             onChange={(e) =>
                                                                 handleUpdateField('custom_values', {
                                                                     ...(task.custom_values || {}),
                                                                     [col.key]: e.target.value,
                                                                 })
                                                             }
-                                                            className="border-border bg-background h-8 w-full rounded-xl border px-2.5 text-xs"
+                                                            className={`border-border bg-background h-8 w-full rounded-xl border px-2.5 text-xs ${
+                                                                !canEditTask ? 'cursor-default opacity-80' : ''
+                                                            }`}
                                                         >
                                                             <option value="">Select option</option>
                                                             {col.config.options.map((opt: string) => (
@@ -1030,13 +1081,14 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                         <Input
                                                             type="number"
                                                             defaultValue={customVal}
+                                                            readOnly={!canEditTask}
                                                             onBlur={(e) =>
-                                                                handleUpdateField('custom_values', {
+                                                                canEditTask && handleUpdateField('custom_values', {
                                                                     ...(task.custom_values || {}),
                                                                     [col.key]: e.target.value ? Number(e.target.value) : null,
                                                                 })
                                                             }
-                                                            className="h-8 text-xs"
+                                                            className={`h-8 text-xs ${!canEditTask ? 'cursor-default' : ''}`}
                                                         />
                                                     ) : col.type === 'date' ? (
                                                         (() => {
@@ -1081,6 +1133,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                                         type="date"
                                                                         key={`custom-date-${task.id}-${col.key}-${curDate}`}
                                                                         defaultValue={curDate}
+                                                                        disabled={!canChangeDeadlines}
                                                                         onChange={(e) => handleCustomDateChange(e.target.value)}
                                                                         className="h-8 flex-1 min-w-0 px-2 text-xs"
                                                                     />
@@ -1089,6 +1142,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                                             type="time"
                                                                             key={`custom-time-${task.id}-${col.key}-${curTime}`}
                                                                             defaultValue={curTime}
+                                                                            disabled={!canChangeDeadlines}
                                                                             onChange={(e) => handleCustomTimeChange(e.target.value)}
                                                                             className="h-8 w-[118px] shrink-0 px-2 text-xs"
                                                                         />
@@ -1104,14 +1158,15 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                         <Input
                                                             type="text"
                                                             defaultValue={customVal}
+                                                            readOnly={!canEditTask}
                                                             onBlur={(e) =>
-                                                                handleUpdateField('custom_values', {
+                                                                canEditTask && handleUpdateField('custom_values', {
                                                                     ...(task.custom_values || {}),
                                                                     [col.key]: e.target.value,
                                                                 })
                                                             }
-                                                            placeholder={`Enter ${col.title.toLowerCase()}...`}
-                                                            className="h-8 text-xs"
+                                                            placeholder={canEditTask ? `Enter ${col.title.toLowerCase()}...` : '-'}
+                                                            className={`h-8 text-xs ${!canEditTask ? 'cursor-default' : ''}`}
                                                         />
                                                     )}
                                                 </div>
@@ -1144,8 +1199,11 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                         <div className="flex flex-1 items-center gap-2 truncate">
                                             <button
                                                 type="button"
-                                                onClick={(e) => handleToggleSubtask(sub, e)}
+                                                disabled={!canManageSubtasks}
+                                                onClick={(e) => canManageSubtasks && handleToggleSubtask(sub, e)}
                                                 className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
+                                                    !canManageSubtasks ? 'cursor-default opacity-80' : ''
+                                                } ${
                                                     sub.completed_at || sub.progress === 100
                                                         ? 'border-emerald-500 bg-emerald-500 text-white'
                                                         : 'border-border bg-card'
@@ -1171,17 +1229,19 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                 ))}
 
                                 {/* Add Subtask Input */}
-                                <form onSubmit={handleAddSubtask} className="flex items-center gap-1.5 pt-1">
-                                    <Input
-                                        placeholder="Add a new subtask..."
-                                        value={newSubtaskTitle}
-                                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                        className="h-8 flex-1 text-xs"
-                                    />
-                                    <Button type="submit" size="sm" className="h-8 text-xs font-bold">
-                                        Add
-                                    </Button>
-                                </form>
+                                {canManageSubtasks && (
+                                    <form onSubmit={handleAddSubtask} className="flex items-center gap-1.5 pt-1">
+                                        <Input
+                                            placeholder="Add a new subtask..."
+                                            value={newSubtaskTitle}
+                                            onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                                            className="h-8 flex-1 text-xs"
+                                        />
+                                        <Button type="submit" size="sm" className="h-8 text-xs font-bold">
+                                            Add
+                                        </Button>
+                                    </form>
+                                )}
                             </div>
                         </div>
 
@@ -1954,7 +2014,7 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                 </p>
                                             )}
                                         </div>
-                                    ) : (
+                                    ) : canSubmitReview ? (
                                         /* Submission Block for Next Round */
                                         <form onSubmit={handleSubmitReview} className="rounded-2xl border border-border bg-card p-4 space-y-3 shadow-2xs">
                                             <div className="flex items-center justify-between">
@@ -2036,6 +2096,10 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                 </Button>
                                             </div>
                                         </form>
+                                    ) : (
+                                        <div className="rounded-2xl border border-dashed border-border/70 p-4 text-center text-xs text-muted-foreground">
+                                            Only assigned contributors or project managers can submit deliverables for review.
+                                        </div>
                                     )}
 
                                     {/* Review History Rounds Timeline */}
@@ -2163,105 +2227,107 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                     </div>
 
                                     {/* Add New Dependency Form */}
-                                    <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-sm">
-                                        <div className="flex items-center justify-between border-b border-border/60 pb-3">
-                                            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                                                <Link2 className="h-3.5 w-3.5 text-primary" />
-                                                Add Dependency Link
-                                            </h4>
-                                        </div>
-
-                                        {depErrorMessage && (
-                                            <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-2.5 text-xs text-rose-700 dark:bg-rose-950/30 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                                                <AlertCircle className="h-4 w-4 shrink-0" />
-                                                <span>{depErrorMessage}</span>
-                                            </div>
-                                        )}
-
-                                        <form onSubmit={handleAddDependency} className="space-y-3">
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                                <div>
-                                                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                                                        Relationship
-                                                    </label>
-                                                    <select
-                                                        value={depRelType}
-                                                        onChange={(e) => setDepRelType(e.target.value as any)}
-                                                        className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                                    >
-                                                        <option value="blocked_by">Blocked By (Needs target first)</option>
-                                                        <option value="blocks">Blocks (Target needs this first)</option>
-                                                        <option value="related_to">Related To (Reference link)</option>
-                                                    </select>
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                                                        Lag Days (Buffer)
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        min="0"
-                                                        value={depLagDays}
-                                                        onChange={(e) => setDepLagDays(Math.max(0, parseInt(e.target.value) || 0))}
-                                                        className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                                                        placeholder="0"
-                                                    />
-                                                </div>
+                                    {canManageDependencies && (
+                                        <div className="rounded-xl border border-border bg-card p-4 space-y-4 shadow-sm">
+                                            <div className="flex items-center justify-between border-b border-border/60 pb-3">
+                                                <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                    <Link2 className="h-3.5 w-3.5 text-primary" />
+                                                    Add Dependency Link
+                                                </h4>
                                             </div>
 
-                                            <div>
-                                                <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
-                                                    Select Task in Workspace
-                                                </label>
-                                                <div className="relative">
-                                                    <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                                                    <input
-                                                        type="text"
-                                                        value={depSearchQuery}
-                                                        onChange={(e) => searchLinkable(e.target.value)}
-                                                        placeholder="Type to search tasks..."
-                                                        className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
-                                                    />
+                                            {depErrorMessage && (
+                                                <div className="flex items-center gap-2 rounded-lg bg-rose-50 p-2.5 text-xs text-rose-700 dark:bg-rose-950/30 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                                                    <AlertCircle className="h-4 w-4 shrink-0" />
+                                                    <span>{depErrorMessage}</span>
                                                 </div>
+                                            )}
 
-                                                {linkableTasks.length > 0 && (
-                                                    <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover shadow-md divide-y divide-border/40 text-xs">
-                                                        {linkableTasks.map((t) => (
-                                                            <button
-                                                                key={t.id}
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setSelectedLinkTaskId(t.id);
-                                                                    setDepSearchQuery(`${t.title} (${t.board?.title || 'Board'})`);
-                                                                    setLinkableTasks([]);
-                                                                }}
-                                                                className={`w-full text-left p-2 hover:bg-muted/60 flex items-center justify-between transition-colors ${
-                                                                    selectedLinkTaskId === t.id ? 'bg-primary/10 text-primary font-semibold' : ''
-                                                                }`}
-                                                            >
-                                                                <span className="truncate pr-2">{t.title}</span>
-                                                                <span className="shrink-0 text-[10px] text-muted-foreground">
-                                                                    {t.board?.title || 'Board'}
-                                                                </span>
-                                                            </button>
-                                                        ))}
+                                            <form onSubmit={handleAddDependency} className="space-y-3">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    <div>
+                                                        <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                                                            Relationship
+                                                        </label>
+                                                        <select
+                                                            value={depRelType}
+                                                            onChange={(e) => setDepRelType(e.target.value as any)}
+                                                            className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                                        >
+                                                            <option value="blocked_by">Blocked By (Needs target first)</option>
+                                                            <option value="blocks">Blocks (Target needs this first)</option>
+                                                            <option value="related_to">Related To (Reference link)</option>
+                                                        </select>
                                                     </div>
-                                                )}
-                                            </div>
 
-                                            <div className="flex justify-end pt-1">
-                                                <Button
-                                                    type="submit"
-                                                    size="sm"
-                                                    disabled={isSavingDep || !selectedLinkTaskId}
-                                                    className="h-8 text-xs font-semibold"
-                                                >
-                                                    {isSavingDep ? 'Linking...' : 'Establish Dependency'}
-                                                </Button>
-                                            </div>
-                                        </form>
-                                    </div>
+                                                    <div>
+                                                        <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                                                            Lag Days (Buffer)
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            value={depLagDays}
+                                                            onChange={(e) => setDepLagDays(Math.max(0, parseInt(e.target.value) || 0))}
+                                                            className="w-full h-8 text-xs rounded-lg border border-input bg-background px-2.5 text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                                                            placeholder="0"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-[11px] font-semibold text-muted-foreground mb-1">
+                                                        Select Task in Workspace
+                                                    </label>
+                                                    <div className="relative">
+                                                        <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+                                                        <input
+                                                            type="text"
+                                                            value={depSearchQuery}
+                                                            onChange={(e) => searchLinkable(e.target.value)}
+                                                            placeholder="Type to search tasks..."
+                                                            className="w-full h-8 pl-8 pr-3 text-xs rounded-lg border border-input bg-background text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary"
+                                                        />
+                                                    </div>
+
+                                                    {linkableTasks.length > 0 && (
+                                                        <div className="mt-1.5 max-h-40 overflow-y-auto rounded-lg border border-border bg-popover shadow-md divide-y divide-border/40 text-xs">
+                                                            {linkableTasks.map((t) => (
+                                                                <button
+                                                                    key={t.id}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setSelectedLinkTaskId(t.id);
+                                                                        setDepSearchQuery(`${t.title} (${t.board?.title || 'Board'})`);
+                                                                        setLinkableTasks([]);
+                                                                    }}
+                                                                    className={`w-full text-left p-2 hover:bg-muted/60 flex items-center justify-between transition-colors ${
+                                                                        selectedLinkTaskId === t.id ? 'bg-primary/10 text-primary font-semibold' : ''
+                                                                    }`}
+                                                                >
+                                                                    <span className="truncate pr-2">{t.title}</span>
+                                                                    <span className="shrink-0 text-[10px] text-muted-foreground">
+                                                                        {t.board?.title || 'Board'}
+                                                                    </span>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex justify-end pt-1">
+                                                    <Button
+                                                        type="submit"
+                                                        size="sm"
+                                                        disabled={isSavingDep || !selectedLinkTaskId}
+                                                        className="h-8 text-xs font-semibold"
+                                                    >
+                                                        {isSavingDep ? 'Linking...' : 'Establish Dependency'}
+                                                    </Button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    )}
 
                                     {/* Dependencies Lists */}
                                     <div className="space-y-4">
@@ -2324,14 +2390,16 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveDependency(dep.id)}
-                                                                    className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                                                                    title="Remove dependency"
-                                                                >
-                                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                                </button>
+                                                                {canManageDependencies && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveDependency(dep.id)}
+                                                                        className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                                                        title="Remove dependency"
+                                                                    >
+                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         );
                                                     })}
@@ -2388,14 +2456,16 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveDependency(dep.id)}
-                                                                    className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                                                                    title="Remove dependency"
-                                                                >
-                                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                                </button>
+                                                                {canManageDependencies && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveDependency(dep.id)}
+                                                                        className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                                                        title="Remove dependency"
+                                                                    >
+                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         );
                                                     })}
@@ -2446,14 +2516,16 @@ export default function ItemDetailDrawer({ task, board, users = [], onClose, onS
                                                                         </div>
                                                                     </div>
                                                                 </div>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveDependency(dep.id)}
-                                                                    className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                                                                    title="Remove link"
-                                                                >
-                                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                                </button>
+                                                                {canManageDependencies && (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveDependency(dep.id)}
+                                                                        className="p-1 rounded text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                                                                        title="Remove link"
+                                                                    >
+                                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         );
                                                     })}

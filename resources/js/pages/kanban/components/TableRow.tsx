@@ -1,9 +1,9 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { formatDate, formatTime } from '@/lib/utils';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, Repeat, ShieldAlert, Star, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
-import { BoardColumn, BoardGroup, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../types';
+import { BoardColumn, BoardGroup, BoardPermissions, DEFAULT_TASK_TYPES, KanbanColumn, Task, User } from '../types';
 import ConnectBoardsModal from './ConnectBoardsModal';
 import DatePickerCell from './DatePickerCell';
 import EditableDropdownCell from './EditableDropdownCell';
@@ -21,6 +21,7 @@ interface TableRowProps {
     users: User[];
     mirroredValues?: Record<string, any>;
     gridTemplateColumns?: string;
+    permissions?: BoardPermissions;
     onSelectTask: (task: Task) => void;
     onAddSubtaskColumn?: () => void;
 }
@@ -35,9 +36,29 @@ export default function TableRow({
     users = [],
     mirroredValues = {},
     gridTemplateColumns,
+    permissions,
     onSelectTask,
     onAddSubtaskColumn,
 }: TableRowProps) {
+    const { auth } = usePage().props as any;
+    const currentUserId = auth?.user?.id;
+    const isAssigned = Boolean(
+        currentUserId && (
+            task.assigned_to === currentUserId ||
+            (Array.isArray(task.custom_values?.designer_ids) && task.custom_values.designer_ids.map(Number).includes(currentUserId)) ||
+            (Array.isArray(task.custom_values?.person) && task.custom_values.person.map(Number).includes(currentUserId))
+        )
+    );
+
+    const canEditTask = permissions?.canEditTask ?? true;
+    const canChangeStatus = permissions?.canChangeStatus ?? true;
+    const canChangePriority = permissions?.canChangePriority ?? true;
+    const canAssignUsers = permissions?.canAssignUsers ?? true;
+    const canChangeDeadlines = permissions?.canChangeDeadlines ?? true;
+    const canDeleteTask = permissions?.canDeleteTask ?? true;
+    const canManageGroups = permissions?.canManageGroups ?? true;
+    const canManageSubtasks = canEditTask || isAssigned;
+
     const [isSubitemsOpen, setIsSubitemsOpen] = useState(false);
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [titleVal, setTitleVal] = useState(task.title);
@@ -225,17 +246,19 @@ export default function TableRow({
                     )}
 
                     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <button
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setIsEditingTitle(true);
-                            }}
-                            className="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-1"
-                            title="Rename Item"
-                        >
-                            <Edit2 className="h-3.5 w-3.5" />
-                        </button>
+                        {canEditTask && (
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setIsEditingTitle(true);
+                                }}
+                                className="text-muted-foreground hover:text-foreground hover:bg-muted rounded p-1"
+                                title="Rename Item"
+                            >
+                                <Edit2 className="h-3.5 w-3.5" />
+                            </button>
+                        )}
                         <button
                             onClick={() => onSelectTask(task)}
                             className="text-muted-foreground hover:text-primary hover:bg-primary/10 rounded p-1"
@@ -293,6 +316,7 @@ export default function TableRow({
                                     onChange={handlePeopleChange}
                                     placeholder="Assign..."
                                     align="center"
+                                    disabled={!canAssignUsers}
                                 />
                             </div>
                         );
@@ -308,9 +332,12 @@ export default function TableRow({
                                 className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
+                                    <DropdownMenuTrigger asChild disabled={!canChangeStatus}>
                                         <button
-                                            className="h-7 w-full truncate rounded px-2 text-center text-xs font-bold text-white shadow-2xs transition-all hover:brightness-105"
+                                            disabled={!canChangeStatus}
+                                            className={`h-7 w-full truncate rounded px-2 text-center text-xs font-bold text-white shadow-2xs transition-all ${
+                                                canChangeStatus ? 'hover:brightness-105 cursor-pointer' : 'cursor-default opacity-90'
+                                            }`}
                                             style={{ backgroundColor: statusMeta.bg }}
                                         >
                                             {statusMeta.label}
@@ -318,7 +345,7 @@ export default function TableRow({
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="center" className="w-44 space-y-1 rounded-xl p-1.5">
                                         {statusColumns.map((sc) => {
-                                            const meta = getStatusStyle(sc.title);
+                                             const meta = getStatusStyle(sc.title);
                                             return (
                                                 <button
                                                     key={sc.id}
@@ -363,9 +390,12 @@ export default function TableRow({
                                 className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
+                                    <DropdownMenuTrigger asChild disabled={!canChangePriority}>
                                         <button
-                                            className="h-7 w-full truncate rounded px-2 text-center text-xs font-bold text-white shadow-2xs transition-all hover:brightness-105"
+                                            disabled={!canChangePriority}
+                                            className={`h-7 w-full truncate rounded px-2 text-center text-xs font-bold text-white shadow-2xs transition-all ${
+                                                canChangePriority ? 'hover:brightness-105 cursor-pointer' : 'cursor-default opacity-90'
+                                            }`}
                                             style={{ backgroundColor: priorityMeta.bg }}
                                         >
                                             {priorityMeta.label}
@@ -454,6 +484,7 @@ export default function TableRow({
                                             isDueToday={isDueToday}
                                             placeholder="Set date"
                                             dateOnly={Boolean(col.config?.date_only)}
+                                            disabled={!canChangeDeadlines}
                                         />
                                     </div>
                                     {isMainDueDateCol && task.is_milestone && (
@@ -522,8 +553,11 @@ export default function TableRow({
                             >
                                 <button
                                     type="button"
-                                    onClick={() => handleUpdateCustomValue(col.key, !isChecked)}
+                                    disabled={!canEditTask}
+                                    onClick={() => canEditTask && handleUpdateCustomValue(col.key, !isChecked)}
                                     className={`flex h-4 w-4 items-center justify-center rounded border transition-all ${
+                                        !canEditTask ? 'cursor-default opacity-75' : ''
+                                    } ${
                                         isChecked ? 'bg-primary border-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted'
                                     }`}
                                 >
@@ -548,6 +582,7 @@ export default function TableRow({
                                     options={allOptions}
                                     onSelect={(opt) => handleUpdateCustomValue(col.key, opt)}
                                     placeholder="Select"
+                                    disabled={!canEditTask}
                                 />
                             </div>
                         );
@@ -563,8 +598,13 @@ export default function TableRow({
                                 className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
                             >
                                 <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <button className="bg-primary/10 text-primary hover:bg-primary/20 max-w-[120px] truncate rounded-full px-2 py-0.5 text-[10px] font-bold">
+                                    <DropdownMenuTrigger asChild disabled={!canEditTask}>
+                                        <button
+                                            disabled={!canEditTask}
+                                            className={`max-w-[120px] truncate rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                                                !canEditTask ? 'bg-muted text-muted-foreground cursor-default' : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                            }`}
+                                        >
                                             {currentTag || '+ Tag'}
                                         </button>
                                     </DropdownMenuTrigger>
@@ -592,8 +632,9 @@ export default function TableRow({
                                     <button
                                         key={star}
                                         type="button"
-                                        onClick={() => handleUpdateCustomValue(col.key, ratingVal === star ? 0 : star)}
-                                        className="text-muted-foreground transition-transform hover:scale-110"
+                                        disabled={!canEditTask}
+                                        onClick={() => canEditTask && handleUpdateCustomValue(col.key, ratingVal === star ? 0 : star)}
+                                        className={`transition-transform ${!canEditTask ? 'cursor-default' : 'text-muted-foreground hover:scale-110'}`}
                                     >
                                         <Star
                                             className={`h-3.5 w-3.5 ${
@@ -617,9 +658,12 @@ export default function TableRow({
                                 <input
                                     type="number"
                                     defaultValue={numVal}
-                                    onBlur={(e) => handleUpdateCustomValue(col.key, e.target.value)}
+                                    readOnly={!canEditTask}
+                                    onBlur={(e) => canEditTask && handleUpdateCustomValue(col.key, e.target.value)}
                                     placeholder="0"
-                                    className="focus:bg-muted/40 w-full rounded border-none bg-transparent px-1 py-0.5 text-center focus:outline-none"
+                                    className={`w-full rounded border-none bg-transparent px-1 py-0.5 text-center text-xs focus:outline-none ${
+                                        !canEditTask ? 'cursor-default' : 'focus:bg-muted/40'
+                                    }`}
                                 />
                             </div>
                         );
@@ -649,14 +693,16 @@ export default function TableRow({
                                         ))
                                     )}
                                 </div>
-                                <button
-                                    type="button"
-                                    onClick={() => setActiveConnectColumn(col)}
-                                    className="text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 rounded p-1 transition"
-                                    title="Connect items"
-                                >
-                                    <Plus className="h-3.5 w-3.5" />
-                                </button>
+                                {canEditTask && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveConnectColumn(col)}
+                                        className="text-muted-foreground hover:text-primary hover:bg-primary/10 shrink-0 rounded p-1 transition"
+                                        title="Connect items"
+                                    >
+                                        <Plus className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
                             </div>
                         );
                     }
@@ -691,10 +737,13 @@ export default function TableRow({
                             >
                                 <textarea
                                     defaultValue={longVal}
-                                    onBlur={(e) => handleUpdateCustomValue(col.key, e.target.value)}
-                                    placeholder="Add notes..."
+                                    readOnly={!canEditTask}
+                                    onBlur={(e) => canEditTask && handleUpdateCustomValue(col.key, e.target.value)}
+                                    placeholder={canEditTask ? 'Add notes...' : '-'}
                                     rows={1}
-                                    className="focus:bg-muted/40 w-full resize-none rounded border-none bg-transparent px-1 py-0.5 text-xs focus:outline-none"
+                                    className={`w-full resize-none rounded border-none bg-transparent px-1 py-0.5 text-xs focus:outline-none ${
+                                        !canEditTask ? 'cursor-default' : 'focus:bg-muted/40'
+                                    }`}
                                 />
                             </div>
                         );
@@ -722,9 +771,12 @@ export default function TableRow({
                             <input
                                 type="text"
                                 defaultValue={textVal}
-                                onBlur={(e) => handleUpdateCustomValue(col.key, e.target.value)}
+                                readOnly={!canEditTask}
+                                onBlur={(e) => canEditTask && handleUpdateCustomValue(col.key, e.target.value)}
                                 placeholder="-"
-                                className="focus:bg-muted/40 w-full rounded border-none bg-transparent px-1 py-0.5 text-center text-xs focus:outline-none"
+                                className={`w-full rounded border-none bg-transparent px-1 py-0.5 text-center text-xs focus:outline-none ${
+                                    !canEditTask ? 'cursor-default' : 'focus:bg-muted/40'
+                                }`}
                             />
                         </div>
                     );
@@ -742,25 +794,35 @@ export default function TableRow({
                             <DropdownMenuItem onClick={() => onSelectTask(task)}>
                                 <span>Open Item Card</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setIsSubitemsOpen(true)}>
-                                <Plus className="mr-2 h-3.5 w-3.5" />
-                                <span>Add Subtask</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <div className="text-muted-foreground px-2 py-1 text-[10px] font-semibold uppercase">Move to Group</div>
-                            {groups
-                                .filter((g) => g.id !== group.id)
-                                .map((g) => (
-                                    <DropdownMenuItem key={g.id} onClick={() => handleMoveGroup(g.id)}>
-                                        <span className="mr-2 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
-                                        <span>{g.title}</span>
+                            {canManageSubtasks && (
+                                <DropdownMenuItem onClick={() => setIsSubitemsOpen(true)}>
+                                    <Plus className="mr-2 h-3.5 w-3.5" />
+                                    <span>Add Subtask</span>
+                                </DropdownMenuItem>
+                            )}
+                            {canManageGroups && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <div className="text-muted-foreground px-2 py-1 text-[10px] font-semibold uppercase">Move to Group</div>
+                                    {groups
+                                        .filter((g) => g.id !== group.id)
+                                        .map((g) => (
+                                            <DropdownMenuItem key={g.id} onClick={() => handleMoveGroup(g.id)}>
+                                                <span className="mr-2 h-2.5 w-2.5 rounded-full" style={{ backgroundColor: g.color }} />
+                                                <span>{g.title}</span>
+                                            </DropdownMenuItem>
+                                        ))}
+                                </>
+                            )}
+                            {canDeleteTask && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onClick={handleDelete} className="text-red-500">
+                                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                        <span>Delete Item</span>
                                     </DropdownMenuItem>
-                                ))}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={handleDelete} className="text-red-500">
-                                <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                <span>Delete Item</span>
-                            </DropdownMenuItem>
+                                </>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>

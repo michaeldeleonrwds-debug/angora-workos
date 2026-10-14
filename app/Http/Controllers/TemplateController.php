@@ -55,8 +55,8 @@ class TemplateController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
-            abort(403);
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            abort(403, 'Unauthorized. Designers cannot register templates.');
         }
 
         $validated = $request->validate([
@@ -84,8 +84,8 @@ class TemplateController extends Controller
     public function saveBoardAsTemplate(Request $request, KanbanBoard $board): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
-            abort(403);
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            abort(403, 'Unauthorized. Designers cannot save board blueprints.');
         }
 
         $validated = $request->validate([

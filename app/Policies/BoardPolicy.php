@@ -28,7 +28,6 @@ class BoardPolicy
      */
     public function view(User $user, KanbanBoard $board): bool
     {
-        // Board belongs to a workspace
         $workspace = $board->workspace;
         if (!$workspace) {
             return true;
@@ -59,7 +58,6 @@ class BoardPolicy
                 return true;
             }
 
-            // Check if explicitly invited via board settings['invited_user_ids'] or settings['members'] (backward compatibility)
             $invitedUserIds = $board->settings['invited_user_ids'] ?? $board->settings['member_ids'] ?? [];
             if (is_array($invitedUserIds) && in_array($user->id, $invitedUserIds, false)) {
                 return true;
@@ -77,7 +75,8 @@ class BoardPolicy
      */
     public function create(User $user, $workspace = null): bool
     {
-        if (in_array($user->role, ['client', 'guest'], true)) {
+        // Designers and external users can never create boards
+        if (in_array($user->role, ['client', 'guest', 'designer', 'external_user'], true)) {
             return false;
         }
 
@@ -89,7 +88,7 @@ class BoardPolicy
             return $membership && in_array($membership->role, ['owner', 'admin', 'member'], true);
         }
 
-        return true;
+        return in_array($user->role, ['super_admin', 'admin', 'admin_manager', 'project_manager', 'account_manager'], true);
     }
 
     /**
@@ -97,6 +96,11 @@ class BoardPolicy
      */
     public function update(User $user, KanbanBoard $board): bool
     {
+        // Designers can never administer or update boards
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
         if ($board->created_by === $user->id) {
             return true;
         }
@@ -118,10 +122,64 @@ class BoardPolicy
         return false;
     }
 
+    /**
+     * Determine whether the user can manage workflow statuses/stages on the board.
+     */
     public function manageStatuses(User $user, KanbanBoard $board): bool
     {
-        return in_array($user->role, ['admin', 'admin_manager', 'project_manager'], true)
-            && $this->update($user, $board);
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        return $this->update($user, $board);
+    }
+
+    /**
+     * Determine whether the user can manage dynamic columns on the board.
+     */
+    public function manageColumns(User $user, KanbanBoard $board): bool
+    {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        return $this->update($user, $board);
+    }
+
+    /**
+     * Determine whether the user can manage task groups on the board.
+     */
+    public function manageGroups(User $user, KanbanBoard $board): bool
+    {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        return $this->update($user, $board);
+    }
+
+    /**
+     * Determine whether the user can manage automations on the board.
+     */
+    public function manageAutomations(User $user, KanbanBoard $board): bool
+    {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        return $this->update($user, $board);
+    }
+
+    /**
+     * Determine whether the user can export board data, delivery metrics, or workload reports.
+     */
+    public function export(User $user, KanbanBoard $board): bool
+    {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
+        return $this->view($user, $board);
     }
 
     /**
@@ -129,6 +187,10 @@ class BoardPolicy
      */
     public function delete(User $user, KanbanBoard $board): bool
     {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
         if ($board->created_by === $user->id) {
             return true;
         }
@@ -158,6 +220,10 @@ class BoardPolicy
      */
     public function manageMembers(User $user, KanbanBoard $board): bool
     {
+        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+            return false;
+        }
+
         if ($board->created_by === $user->id) {
             return true;
         }

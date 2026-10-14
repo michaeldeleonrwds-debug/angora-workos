@@ -373,6 +373,27 @@ export interface KanbanBoard {
     members?: any[];
 }
 
+export interface BoardPermissions {
+    canView: boolean;
+    canCreateTask: boolean;
+    canEditTask: boolean;
+    canEditProgress: boolean;
+    canChangeStatus: boolean;
+    canAssignUsers: boolean;
+    canChangeDeadlines: boolean;
+    canChangePriority: boolean;
+    canDeleteTask: boolean;
+    canManageBoard: boolean;
+    canManageColumns: boolean;
+    canManageGroups: boolean;
+    canManageAutomations: boolean;
+    canManageBlueprints: boolean;
+    canManageDependencies: boolean;
+    canManageRecurrence: boolean;
+    canApproveReview: boolean;
+    canExport: boolean;
+}
+
 export interface KanbanPageProps {
     workspaces: Workspace[];
     activeWorkspace?: Workspace;
@@ -381,6 +402,7 @@ export interface KanbanPageProps {
     users: User[];
     selectedTask?: Task | null;
     mirroredValues?: Record<number, Record<string, any>>;
+    permissions?: BoardPermissions;
 }
 
 export const DEFAULT_TASK_TYPES = [

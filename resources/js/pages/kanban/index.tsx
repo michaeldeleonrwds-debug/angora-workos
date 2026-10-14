@@ -37,7 +37,29 @@ export default function KanbanPage({
     users = [],
     selectedTask = null,
     mirroredValues = {},
+    permissions,
 }: KanbanPageProps) {
+    const userPermissions = permissions || {
+        canView: true,
+        canCreateTask: true,
+        canEditTask: true,
+        canEditProgress: true,
+        canChangeStatus: true,
+        canAssignUsers: true,
+        canChangeDeadlines: true,
+        canChangePriority: true,
+        canDeleteTask: true,
+        canManageBoard: true,
+        canManageColumns: true,
+        canManageGroups: true,
+        canManageAutomations: true,
+        canManageBlueprints: true,
+        canManageDependencies: true,
+        canManageRecurrence: true,
+        canApproveReview: true,
+        canExport: true,
+    };
+
     const board: KanbanBoard = activeBoard ||
         boards[0] || {
             id: 0,
@@ -277,6 +299,7 @@ export default function KanbanPage({
                     onPersonFilterChange={setPersonFilter}
                     priorityFilter={priorityFilter}
                     onPriorityFilterChange={setPriorityFilter}
+                    permissions={userPermissions}
                     onOpenNewTask={() => setIsNewTaskModalOpen(true)}
                     onOpenNewGroup={() => setIsNewGroupModalOpen(true)}
                     onOpenNewColumn={() => setIsNewColumnModalOpen(true)}
@@ -294,6 +317,7 @@ export default function KanbanPage({
                         priorityFilter={priorityFilter}
                         users={users}
                         mirroredValues={mirroredValues}
+                        permissions={userPermissions}
                         onSelectTask={handleOpenTask}
                         onOpenNewColumn={() => setIsNewColumnModalOpen(true)}
                     />
@@ -307,6 +331,7 @@ export default function KanbanPage({
                             personFilter={personFilter}
                             priorityFilter={priorityFilter}
                             users={users}
+                            permissions={userPermissions}
                             onSelectTask={handleOpenTask}
                             onQuickAddTask={handleQuickAddKanban}
                         />
@@ -396,6 +421,7 @@ export default function KanbanPage({
                     task={selectedTaskForDrawer}
                     board={board}
                     users={users}
+                    permissions={userPermissions}
                     onClose={handleCloseDrawer}
                     onSelectTask={handleOpenTask}
                 />

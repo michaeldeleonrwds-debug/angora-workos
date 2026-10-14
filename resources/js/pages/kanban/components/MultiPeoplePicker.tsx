@@ -14,6 +14,7 @@ interface MultiPeoplePickerProps {
     badgeColor?: string;
     showNames?: boolean;
     compact?: boolean;
+    disabled?: boolean;
 }
 
 export default function MultiPeoplePicker({
@@ -27,6 +28,7 @@ export default function MultiPeoplePicker({
     badgeColor,
     showNames = true,
     compact = false,
+    disabled = false,
 }: MultiPeoplePickerProps) {
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -69,10 +71,13 @@ export default function MultiPeoplePicker({
 
     return (
         <DropdownMenu>
-            <DropdownMenuTrigger asChild>
+            <DropdownMenuTrigger asChild disabled={disabled}>
                 <button
                     type="button"
-                    className="hover:bg-muted/70 group flex max-w-full items-center justify-center gap-1.5 overflow-hidden rounded-lg p-1 transition-colors select-none focus:outline-none"
+                    disabled={disabled}
+                    className={`group flex max-w-full items-center justify-center gap-1.5 overflow-hidden rounded-lg p-1 transition-colors select-none focus:outline-none ${
+                        disabled ? 'cursor-default opacity-80' : 'hover:bg-muted/70'
+                    }`}
                     title={
                         assignedUsers.length > 0
                             ? `${badgeLabel ? `${badgeLabel}: ` : ''}${assignedUsers.map((u) => u.name).join(', ')}`

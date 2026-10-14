@@ -7,7 +7,7 @@ import { router } from '@inertiajs/react';
 import axios from 'axios';
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, Layers, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
-import { BoardColumn, getTableGridTemplate, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
+import { BoardColumn, BoardPermissions, getTableGridTemplate, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 import AddColumnModal from './AddColumnModal';
 import TableRow from './TableRow';
 
@@ -18,6 +18,7 @@ interface TableViewProps {
     priorityFilter: string;
     users: User[];
     mirroredValues?: Record<number, Record<string, any>>;
+    permissions?: BoardPermissions;
     onSelectTask: (task: Task) => void;
     onOpenNewColumn: () => void;
 }
@@ -29,6 +30,7 @@ export default function TableView({
     priorityFilter,
     users = [],
     mirroredValues = {},
+    permissions,
     onSelectTask,
     onOpenNewColumn,
 }: TableViewProps) {
@@ -313,35 +315,39 @@ export default function TableView({
                             </div>
 
                             {/* Group Options Menu */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button className="hover:bg-muted text-muted-foreground rounded p-1">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-44 rounded-xl">
-                                    <DropdownMenuItem onClick={() => setEditingGroupTitle(group.id)}>
-                                        <Edit3 className="mr-2 h-3.5 w-3.5" />
-                                        <span>Rename Group</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={() => {
-                                            setBlueprintGroup(group);
-                                            setBlueprintTitle(`${group.title} Blueprint`);
-                                            setBlueprintDesc(`Standard workflow for ${group.title}`);
-                                            setBlueprintCategory('production');
-                                        }}
-                                    >
-                                        <Layers className="mr-2 h-3.5 w-3.5 text-indigo-500" />
-                                        <span>Save as Blueprint</span>
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={() => handleDeleteGroup(group.id)} className="text-red-500">
-                                        <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                        <span>Delete Group</span>
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            {permissions?.canManageGroups !== false && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button className="hover:bg-muted text-muted-foreground rounded p-1">
+                                            <MoreHorizontal className="h-4 w-4" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-44 rounded-xl">
+                                        <DropdownMenuItem onClick={() => setEditingGroupTitle(group.id)}>
+                                            <Edit3 className="mr-2 h-3.5 w-3.5" />
+                                            <span>Rename Group</span>
+                                        </DropdownMenuItem>
+                                        {permissions?.canManageBlueprints !== false && (
+                                            <DropdownMenuItem
+                                                onClick={() => {
+                                                    setBlueprintGroup(group);
+                                                    setBlueprintTitle(`${group.title} Blueprint`);
+                                                    setBlueprintDesc(`Standard workflow for ${group.title}`);
+                                                    setBlueprintCategory('production');
+                                                }}
+                                            >
+                                                <Layers className="mr-2 h-3.5 w-3.5 text-indigo-500" />
+                                                <span>Save as Blueprint</span>
+                                            </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => handleDeleteGroup(group.id)} className="text-red-500">
+                                            <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                            <span>Delete Group</span>
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
                         </div>
 
                         {/* Collapsible Table Body */}
@@ -366,106 +372,110 @@ export default function TableView({
                                                 <span className="w-full truncate">{col.title}</span>
 
                                                 {/* Column Options Menu */}
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <button className="hover:bg-muted rounded p-0.5 opacity-0 transition-opacity group-hover/col:opacity-100">
-                                                            <MoreHorizontal className="h-3.5 w-3.5" />
-                                                        </button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                                                        <DropdownMenuItem
-                                                            onClick={() => {
-                                                                setRenameColumn(col);
-                                                                setRenameTitleInput(col.title);
-                                                            }}
-                                                            className="text-xs"
-                                                        >
-                                                            <Edit3 className="mr-2 h-3.5 w-3.5" />
-                                                            <span>Rename Column</span>
-                                                        </DropdownMenuItem>
+                                                {permissions?.canManageColumns !== false && (
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button className="hover:bg-muted rounded p-0.5 opacity-0 transition-opacity group-hover/col:opacity-100">
+                                                                <MoreHorizontal className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                                                            <DropdownMenuItem
+                                                                onClick={() => {
+                                                                    setRenameColumn(col);
+                                                                    setRenameTitleInput(col.title);
+                                                                }}
+                                                                className="text-xs"
+                                                            >
+                                                                <Edit3 className="mr-2 h-3.5 w-3.5" />
+                                                                <span>Rename Column</span>
+                                                            </DropdownMenuItem>
 
-                                                        <DropdownMenuItem
-                                                            onClick={() => {
-                                                                router.post(`/kanban/board-columns/${col.id}/duplicate`, {}, { preserveScroll: true });
-                                                            }}
-                                                            className="text-xs"
-                                                        >
-                                                            <Copy className="mr-2 h-3.5 w-3.5" />
-                                                            <span>Duplicate Column</span>
-                                                        </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() => {
+                                                                    router.post(`/kanban/board-columns/${col.id}/duplicate`, {}, { preserveScroll: true });
+                                                                }}
+                                                                className="text-xs"
+                                                            >
+                                                                <Copy className="mr-2 h-3.5 w-3.5" />
+                                                                <span>Duplicate Column</span>
+                                                            </DropdownMenuItem>
 
-                                                        <DropdownMenuSeparator />
+                                                            <DropdownMenuSeparator />
 
-                                                        {/* Width submenu */}
-                                                        <div className="text-muted-foreground px-2 py-1 text-[10px] font-bold uppercase">
-                                                            Column Width
-                                                        </div>
-                                                        <div className="flex items-center gap-1 px-2 py-1">
-                                                            {[110, 140, 180, 240].map((w) => (
-                                                                <button
-                                                                    key={w}
-                                                                    onClick={() => handleResizeColumn(col, w)}
-                                                                    className={`flex-1 rounded border py-1 text-[10px] font-bold ${
-                                                                        (col.width || 140) === w
-                                                                            ? 'bg-primary/10 border-primary text-primary'
-                                                                            : 'border-border hover:bg-muted'
-                                                                    }`}
-                                                                >
-                                                                    {w}px
-                                                                </button>
-                                                            ))}
-                                                        </div>
+                                                            {/* Width submenu */}
+                                                            <div className="text-muted-foreground px-2 py-1 text-[10px] font-bold uppercase">
+                                                                Column Width
+                                                            </div>
+                                                            <div className="flex items-center gap-1 px-2 py-1">
+                                                                {[110, 140, 180, 240].map((w) => (
+                                                                    <button
+                                                                        key={w}
+                                                                        onClick={() => handleResizeColumn(col, w)}
+                                                                        className={`flex-1 rounded border py-1 text-[10px] font-bold ${
+                                                                            (col.width || 140) === w
+                                                                                ? 'bg-primary/10 border-primary text-primary'
+                                                                                : 'border-border hover:bg-muted'
+                                                                        }`}
+                                                                    >
+                                                                        {w}px
+                                                                    </button>
+                                                                ))}
+                                                            </div>
 
-                                                        <DropdownMenuSeparator />
+                                                            <DropdownMenuSeparator />
 
-                                                        {/* Reorder */}
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleReorderColumn(colIdx, 'left')}
-                                                            disabled={colIdx === 0}
-                                                            className="text-xs"
-                                                        >
-                                                            <ArrowLeft className="mr-2 h-3.5 w-3.5" />
-                                                            <span>Move Left</span>
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleReorderColumn(colIdx, 'right')}
-                                                            disabled={colIdx === visibleColumns.length - 1}
-                                                            className="text-xs"
-                                                        >
-                                                            <ArrowRight className="mr-2 h-3.5 w-3.5" />
-                                                            <span>Move Right</span>
-                                                        </DropdownMenuItem>
+                                                            {/* Reorder */}
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleReorderColumn(colIdx, 'left')}
+                                                                disabled={colIdx === 0}
+                                                                className="text-xs"
+                                                            >
+                                                                <ArrowLeft className="mr-2 h-3.5 w-3.5" />
+                                                                <span>Move Left</span>
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleReorderColumn(colIdx, 'right')}
+                                                                disabled={colIdx === visibleColumns.length - 1}
+                                                                className="text-xs"
+                                                            >
+                                                                <ArrowRight className="mr-2 h-3.5 w-3.5" />
+                                                                <span>Move Right</span>
+                                                            </DropdownMenuItem>
 
-                                                        <DropdownMenuSeparator />
+                                                            <DropdownMenuSeparator />
 
-                                                        {/* Hide */}
-                                                        <DropdownMenuItem onClick={() => handleToggleColumnVisibility(col)} className="text-xs">
-                                                            <EyeOff className="mr-2 h-3.5 w-3.5" />
-                                                            <span>Hide Column</span>
-                                                        </DropdownMenuItem>
+                                                            {/* Hide */}
+                                                            <DropdownMenuItem onClick={() => handleToggleColumnVisibility(col)} className="text-xs">
+                                                                <EyeOff className="mr-2 h-3.5 w-3.5" />
+                                                                <span>Hide Column</span>
+                                                            </DropdownMenuItem>
 
-                                                        {/* Delete */}
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleDeleteColumn(col.id)}
-                                                            className="text-xs text-red-500"
-                                                        >
-                                                            <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                                            <span>Delete Column</span>
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
+                                                            {/* Delete */}
+                                                            <DropdownMenuItem
+                                                                onClick={() => handleDeleteColumn(col.id)}
+                                                                className="text-xs text-red-500"
+                                                            >
+                                                                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                                                <span>Delete Column</span>
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                )}
                                             </div>
                                         ))}
 
                                         {/* + Column Button on Header */}
                                         <div className="flex items-center justify-center h-full">
-                                            <button
-                                                onClick={onOpenNewColumn}
-                                                className="hover:bg-muted text-muted-foreground hover:text-foreground flex h-full w-full items-center justify-center transition-colors"
-                                                title="Add Dynamic Column"
-                                            >
-                                                <Plus className="h-3.5 w-3.5" />
-                                            </button>
+                                            {permissions?.canManageColumns !== false && (
+                                                <button
+                                                    onClick={onOpenNewColumn}
+                                                    className="hover:bg-muted text-muted-foreground hover:text-foreground flex h-full w-full items-center justify-center transition-colors"
+                                                    title="Add Dynamic Column"
+                                                >
+                                                    <Plus className="h-3.5 w-3.5" />
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
 
@@ -482,46 +492,49 @@ export default function TableView({
                                             users={users}
                                             mirroredValues={mirroredValues[task.id] || {}}
                                             gridTemplateColumns={gridTemplateColumns}
+                                            permissions={permissions}
                                             onSelectTask={onSelectTask}
                                             onAddSubtaskColumn={() => setIsAddSubtaskColumnOpen(true)}
                                         />
                                     ))}
 
                                     {/* Inline Add Item Row */}
-                                    <div
-                                        className="border-border/40 bg-card hover:bg-muted/10 grid w-full items-stretch border-b transition-colors"
-                                        style={{ gridTemplateColumns }}
-                                    >
-                                        <div className="h-full" style={{ backgroundColor: group.color }} />
-                                        <div className="border-border/40 border-r text-muted-foreground flex items-center justify-center h-full">
-                                            <Plus className="h-3.5 w-3.5" />
-                                        </div>
-                                        <div className="border-border/40 border-r px-2 py-1.5 flex items-center min-w-0 h-full">
-                                            <form onSubmit={(e) => handleQuickAdd(group.id, e)} className="w-full">
-                                                <input
-                                                    type="text"
-                                                    placeholder="+ Add item"
-                                                    value={quickAddTitles[group.id] || ''}
-                                                    onChange={(e) =>
-                                                        setQuickAddTitles((prev) => ({
-                                                            ...prev,
-                                                            [group.id]: e.target.value,
-                                                        }))
-                                                    }
-                                                    className="placeholder:text-muted-foreground/60 w-full border-none bg-transparent px-1 py-1 text-xs focus:outline-none"
-                                                />
-                                            </form>
-                                        </div>
+                                    {permissions?.canCreateTask !== false && (
+                                        <div
+                                            className="border-border/40 bg-card hover:bg-muted/10 grid w-full items-stretch border-b transition-colors"
+                                            style={{ gridTemplateColumns }}
+                                        >
+                                            <div className="h-full" style={{ backgroundColor: group.color }} />
+                                            <div className="border-border/40 border-r text-muted-foreground flex items-center justify-center h-full">
+                                                <Plus className="h-3.5 w-3.5" />
+                                            </div>
+                                            <div className="border-border/40 border-r px-2 py-1.5 flex items-center min-w-0 h-full">
+                                                <form onSubmit={(e) => handleQuickAdd(group.id, e)} className="w-full">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="+ Add item"
+                                                        value={quickAddTitles[group.id] || ''}
+                                                        onChange={(e) =>
+                                                            setQuickAddTitles((prev) => ({
+                                                                ...prev,
+                                                                [group.id]: e.target.value,
+                                                            }))
+                                                        }
+                                                        className="placeholder:text-muted-foreground/60 w-full border-none bg-transparent px-1 py-1 text-xs focus:outline-none"
+                                                    />
+                                                </form>
+                                            </div>
 
-                                        {/* Matching cells for dynamic columns */}
-                                        {visibleColumns.map((col) => (
-                                            <div
-                                                key={`add_spacer_${col.id}`}
-                                                className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full bg-muted/5"
-                                            />
-                                        ))}
-                                        <div className="h-full bg-muted/5" />
-                                    </div>
+                                            {/* Matching cells for dynamic columns */}
+                                            {visibleColumns.map((col) => (
+                                                <div
+                                                    key={`add_spacer_${col.id}`}
+                                                    className="border-border/40 border-r px-1.5 py-1 flex items-center justify-center min-w-0 h-full bg-muted/5"
+                                                />
+                                            ))}
+                                            <div className="h-full bg-muted/5" />
+                                        </div>
+                                    )}
 
                                     {/* Group Footer Summary */}
                                     <div
