@@ -285,7 +285,8 @@ class TaskReviewController extends Controller
                         ->where(function ($q) {
                             $q->where('title', 'like', '%Done%')
                               ->orWhere('title', 'like', '%Approved%')
-                              ->orWhere('title', 'like', '%Completed%');
+                              ->orWhere('title', 'like', '%Completed%')
+                              ->orWhere('title', 'like', '%Complete%');
                         })
                         ->first();
 
@@ -293,7 +294,7 @@ class TaskReviewController extends Controller
                         $oldStatus = $task->column?->title;
                         $task->column_id = $targetCol->id;
 
-                        if (in_array(strtolower($targetCol->title), ['done', 'completed', 'approved'])) {
+                        if (in_array(strtolower($targetCol->title), ['done', 'completed', 'approved', 'complete'])) {
                             $task->completed_at = now();
                             $task->progress = 100;
                         }

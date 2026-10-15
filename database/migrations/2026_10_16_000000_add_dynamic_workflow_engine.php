@@ -67,6 +67,12 @@ return new class extends Migration
             'For Revision' => ['for_revision', null],
             'Done' => ['complete', 'Complete'],
             'Complete' => ['complete', null],
+            // Stages this migration inserts on first run: re-adopted by title when a
+            // rollback kept them because tasks already lived on them.
+            'To Do' => ['to_do', null],
+            'Progress Report' => ['progress_report', null],
+            'Ready to Report' => ['ready_to_report', null],
+            'Client Under Review' => ['client_under_review', null],
         ];
 
         $template = collect(config('angora_workflows.templates.production.stages'))->keyBy('key');
@@ -85,6 +91,7 @@ return new class extends Migration
                 DB::table('kanban_columns')->where('id', $col->id)->update(array_filter([
                     'stage_key' => $map[0],
                     'title' => $map[1],
+                    'semantic_category' => $tpl['semantic'] ?? null,
                     'stage_role' => $tpl['role'] ?? 'workflow',
                     'exclude_from_metrics' => ! empty($tpl['exclude_from_metrics']),
                     'updated_at' => now(),
