@@ -24,6 +24,8 @@ interface TableRowProps {
     permissions?: BoardPermissions;
     onSelectTask: (task: Task) => void;
     onAddSubtaskColumn?: () => void;
+    onStageDragStart?: (e: React.DragEvent, task: Task) => void;
+    stageDragDisabled?: boolean;
 }
 
 export default function TableRow({
@@ -39,6 +41,8 @@ export default function TableRow({
     permissions,
     onSelectTask,
     onAddSubtaskColumn,
+    onStageDragStart,
+    stageDragDisabled = false,
 }: TableRowProps) {
     const { auth } = usePage().props as any;
     const currentUserId = auth?.user?.id;
@@ -179,6 +183,8 @@ export default function TableRow({
             <div
                 className="group border-border/40 hover:bg-muted/30 grid w-full items-stretch border-b text-xs transition-colors select-none"
                 style={{ gridTemplateColumns }}
+                draggable={Boolean(onStageDragStart) && !stageDragDisabled}
+                onDragStart={onStageDragStart ? (e) => onStageDragStart(e, task) : undefined}
             >
                 {/* Left group color indicator (Track 0) */}
                 <div className="h-full" style={{ backgroundColor: group.color || '#579bfc' }} />

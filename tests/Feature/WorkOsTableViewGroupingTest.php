@@ -231,14 +231,14 @@ class WorkOsTableViewGroupingTest extends TestCase
         $this->assertGreaterThanOrEqual(2, count($ids));
 
         $reversed = array_reverse($ids);
-        $this->post(route('kanban.stages.reorder', $this->board), ['column_ids' => $reversed])
+        $this->post(route('kanban.stages.reorder', $this->board), ['stage_ids' => $reversed])
             ->assertSessionHas('success');
 
         $freshIds = $this->activeWorkflowStages($this->board)->pluck('id')->all();
         $this->assertEqualsCanonicalizing($ids, $freshIds, 'Reorder must not add or remove stages');
 
         // Restore original order.
-        $this->post(route('kanban.stages.reorder', $this->board), ['column_ids' => $ids]);
+        $this->post(route('kanban.stages.reorder', $this->board), ['stage_ids' => $ids]);
     }
 
     public function test_different_table_views_persist_independent_group_by_settings(): void

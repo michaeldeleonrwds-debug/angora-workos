@@ -712,6 +712,8 @@ export default function TableView({
                                             permissions={permissions}
                                             onSelectTask={onSelectTask}
                                             onAddSubtaskColumn={() => setIsAddSubtaskColumnOpen(true)}
+                                            onStageDragStart={isStageGroup ? handleStageDragStart : undefined}
+                                            stageDragDisabled={!isStageGroup}
                                         />
                                     ))}
 
