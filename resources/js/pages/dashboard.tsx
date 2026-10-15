@@ -200,6 +200,18 @@ export default function Dashboard({
                                 Open Boards
                             </Link>
                         </Button>
+                        {auth?.capabilities?.canManageRbac === true && (
+                            <Button
+                                asChild
+                                variant="outline"
+                                className="flex h-10 items-center gap-1.5 rounded-xl border border-[#ECECF0] bg-white px-4 text-xs font-semibold text-[#191927] shadow-xs transition-colors hover:bg-slate-50 dark:border-[#28283E] dark:bg-[#1E1E2F] dark:text-white dark:hover:bg-[#252538]"
+                            >
+                                <Link href="/rbac">
+                                    <ShieldCheck className="h-4 w-4 text-[#e2445c]" />
+                                    Roles & Permissions
+                                </Link>
+                            </Button>
+                        )}
                     </div>
                 </div>
 

@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-15T14:45:39.871Z",
+  "generated_at": "2026-10-15T14:57:19.721Z",
   "stats": {
     "total_nodes": 572,
-    "total_edges": 1123,
+    "total_edges": 1126,
     "clusters": 7
   },
   "nodes": [
@@ -9836,6 +9836,12 @@
       "relationship": "imports"
     },
     {
+      "source": "component:user-menu-content",
+      "target": "route:CALL:/users",
+      "relationship": "calls_route",
+      "uri": "/users"
+    },
+    {
       "source": "test:AdvancedFormsWorkdocsAndTemplatesTest",
       "target": "service:FormProcessorService",
       "relationship": "tests"
@@ -9951,6 +9957,11 @@
     },
     {
       "source": "test:RbacSecurityTest",
+      "target": "controller:DashboardController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:RbacSecurityTest",
       "target": "controller:UserController",
       "relationship": "tests"
     },
@@ -9973,6 +9984,12 @@
       "source": "test:RbacSecurityTest",
       "target": "service:WorkOsPermissionService",
       "relationship": "tests"
+    },
+    {
+      "source": "test:RbacSecurityTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
     },
     {
       "source": "test:RbacSecurityTest",

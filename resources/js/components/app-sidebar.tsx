@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, useSidebar } fro
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Check, CheckSquare, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus, Users } from 'lucide-react';
+import { Check, CheckSquare, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus, ShieldCheck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface NavItem {
@@ -44,9 +44,9 @@ export function AppSidebar() {
     const isCollapsed = state === 'collapsed' && !isMobile;
 
     const canManageUsers = page.props.auth?.capabilities?.canManageUsers === true;
+    const canManageRbac = page.props.auth?.capabilities?.canManageRbac === true;
 
-    const navItems: NavItem[] = [
-        ...mainNavItems,
+    const adminNavItems: NavItem[] = [
         ...(canManageUsers
             ? [
                   {
@@ -54,6 +54,16 @@ export function AppSidebar() {
                       url: '/users',
                       icon: Users,
                       color: '#a25ddc',
+                  },
+              ]
+            : []),
+        ...(canManageRbac
+            ? [
+                  {
+                      title: 'Roles & Permissions',
+                      url: '/rbac',
+                      icon: ShieldCheck,
+                      color: '#fdab3d',
                   },
               ]
             : []),
@@ -166,7 +176,7 @@ export function AppSidebar() {
 
                 {/* Primary Navigation Items */}
                 <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
-                    {navItems.map((item) => {
+                    {mainNavItems.map((item) => {
                         const isActive = page.url === item.url || (item.url !== '/dashboard' && page.url.startsWith(item.url));
 
                         const linkContent = (
@@ -237,6 +247,56 @@ export function AppSidebar() {
                         <span className="truncate font-medium group-data-[collapsible=icon]:hidden">Active Workflow</span>
                     </Link>
                 </div>
+
+                {/* Administration Section */}
+                {adminNavItems.length > 0 && (
+                    <>
+                        <div className="mt-5 px-2.5 pt-2 pb-1.5 group-data-[collapsible=icon]:hidden">
+                            <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Administration</span>
+                        </div>
+                        <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
+                            {adminNavItems.map((item) => {
+                                const isActive = page.url === item.url || (item.url !== '/dashboard' && page.url.startsWith(item.url));
+
+                                const linkContent = (
+                                    <Link
+                                        key={item.title}
+                                        href={item.url}
+                                        className={`group/item flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs transition-all duration-150 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 ${
+                                            isActive
+                                                ? 'bg-[#0073ea] font-bold text-white shadow-sm'
+                                                : 'text-slate-300/90 hover:bg-white/[0.07] hover:text-white'
+                                        }`}
+                                    >
+                                        <item.icon
+                                            className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover/item:scale-105 ${
+                                                isActive ? 'text-white' : 'text-slate-400 group-hover/item:text-white'
+                                            }`}
+                                        />
+                                        <span className="truncate font-medium group-data-[collapsible=icon]:hidden">{item.title}</span>
+                                    </Link>
+                                );
+
+                                if (isCollapsed) {
+                                    return (
+                                        <Tooltip key={item.title}>
+                                            <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                                            <TooltipContent
+                                                side="right"
+                                                align="center"
+                                                className="z-50 rounded-lg border border-[#353550] bg-[#1E1E30] px-3 py-1.5 text-xs text-white shadow-xl"
+                                            >
+                                                <span className="font-semibold">{item.title}</span>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    );
+                                }
+
+                                return linkContent;
+                            })}
+                        </div>
+                    </>
+                )}
             </SidebarContent>
 
             <SidebarFooter className="border-t border-white/[0.08] bg-[#19192A]/50 p-2 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:border-t-0 group-data-[collapsible=icon]:p-1.5">

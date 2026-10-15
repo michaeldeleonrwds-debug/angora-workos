@@ -164,4 +164,35 @@ class RbacSecurityTest extends TestCase
         $this->assertTrue($superAdmin->fresh()->isSuperAdmin());
         $this->assertSame('active', $superAdmin->fresh()->status);
     }
+
+    public function test_rbac_and_user_management_capabilities_are_shared_only_with_authorized_roles(): void
+    {
+        $superAdmin = User::role('super_admin')->first();
+        $admin = User::factory()->create(['role' => 'admin', 'status' => 'active']);
+        $designer = User::factory()->create(['role' => 'designer', 'status' => 'active']);
+        $projectManager = User::factory()->create(['role' => 'project_manager', 'status' => 'active']);
+
+        $this->actingAs($superAdmin)->get('/dashboard')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('auth.capabilities.canManageRbac', true)
+            ->where('auth.capabilities.canManageUsers', true)
+        );
+
+        $this->actingAs($admin)->get('/dashboard')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('auth.capabilities.canManageRbac', true)
+            ->where('auth.capabilities.canManageUsers', true)
+        );
+
+        $this->actingAs($projectManager)->get('/dashboard')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('auth.capabilities.canManageRbac', false)
+            ->where('auth.capabilities.canManageUsers', false)
+        );
+
+        $this->actingAs($designer)->get('/dashboard')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('auth.capabilities.canManageRbac', false)
+            ->where('auth.capabilities.canManageUsers', false)
+        );
+
+        $this->actingAs($superAdmin)->get('/rbac')->assertOk();
+        $this->actingAs($superAdmin)->get('/users')->assertOk();
+    }
 }

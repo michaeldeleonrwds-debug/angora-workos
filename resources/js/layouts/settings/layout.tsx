@@ -2,8 +2,8 @@ import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { type NavItem } from '@/types';
-import { Link } from '@inertiajs/react';
+import { type NavItem, type SharedData } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
 
 const sidebarNavItems: NavItem[] = [
     {
@@ -25,6 +25,9 @@ const sidebarNavItems: NavItem[] = [
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
     const currentPath = window.location.pathname;
+    const { auth } = usePage<SharedData>().props;
+    const canManageUsers = auth?.capabilities?.canManageUsers === true;
+    const canManageRbac = auth?.capabilities?.canManageRbac === true;
 
     return (
         <div className="mx-auto w-full max-w-7xl px-4 py-6 text-[#191927] transition-colors dark:text-white">
@@ -52,6 +55,48 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
                                 </Link>
                             </Button>
                         ))}
+
+                        {(canManageUsers || canManageRbac) && (
+                            <div className="pt-4">
+                                <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-[#777785] dark:text-slate-400">
+                                    Administration
+                                </div>
+                                <div className="flex flex-col space-y-1">
+                                    {canManageUsers && (
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            asChild
+                                            className={cn(
+                                                'w-full justify-start rounded-xl font-medium text-[#777785] hover:bg-slate-100 hover:text-[#191927] dark:text-slate-400 dark:hover:bg-[#1E1E2F] dark:hover:text-white',
+                                                {
+                                                    'bg-[#D8F779] font-semibold text-[#191927] hover:bg-[#cbf066] hover:text-[#191927] dark:bg-[#D8F779] dark:text-[#191927]':
+                                                        currentPath === '/users',
+                                                },
+                                            )}
+                                        >
+                                            <Link href="/users">User Management</Link>
+                                        </Button>
+                                    )}
+                                    {canManageRbac && (
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            asChild
+                                            className={cn(
+                                                'w-full justify-start rounded-xl font-medium text-[#777785] hover:bg-slate-100 hover:text-[#191927] dark:text-slate-400 dark:hover:bg-[#1E1E2F] dark:hover:text-white',
+                                                {
+                                                    'bg-[#D8F779] font-semibold text-[#191927] hover:bg-[#cbf066] hover:text-[#191927] dark:bg-[#D8F779] dark:text-[#191927]':
+                                                        currentPath === '/rbac',
+                                                },
+                                            )}
+                                        >
+                                            <Link href="/rbac">Roles & Permissions</Link>
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </nav>
                 </aside>
 

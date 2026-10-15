@@ -1,9 +1,9 @@
 import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { UserInfo } from '@/components/user-info';
 import { useMobileNavigation } from '@/hooks/use-mobile-navigation';
-import { type User } from '@/types';
-import { Link } from '@inertiajs/react';
-import { LogOut, Settings } from 'lucide-react';
+import { type SharedData, type User } from '@/types';
+import { Link, usePage } from '@inertiajs/react';
+import { LogOut, Settings, ShieldCheck, Users } from 'lucide-react';
 
 interface UserMenuContentProps {
     user: User;
@@ -11,6 +11,9 @@ interface UserMenuContentProps {
 
 export function UserMenuContent({ user }: UserMenuContentProps) {
     const cleanup = useMobileNavigation();
+    const { auth } = usePage<SharedData>().props;
+    const canManageUsers = auth?.capabilities?.canManageUsers === true;
+    const canManageRbac = auth?.capabilities?.canManageRbac === true;
 
     return (
         <>
@@ -27,6 +30,22 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
                         Settings
                     </Link>
                 </DropdownMenuItem>
+                {canManageUsers && (
+                    <DropdownMenuItem asChild>
+                        <Link className="block w-full" href="/users" as="button" onClick={cleanup}>
+                            <Users className="mr-2" />
+                            User Management
+                        </Link>
+                    </DropdownMenuItem>
+                )}
+                {canManageRbac && (
+                    <DropdownMenuItem asChild>
+                        <Link className="block w-full" href="/rbac" as="button" onClick={cleanup}>
+                            <ShieldCheck className="mr-2" />
+                            Roles & Permissions
+                        </Link>
+                    </DropdownMenuItem>
+                )}
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
