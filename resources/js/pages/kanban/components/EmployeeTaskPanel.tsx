@@ -269,7 +269,7 @@ export default function EmployeeTaskPanel({
         }
 
         if (col.type === 'checkbox') {
-            return Boolean(val) ? (
+            return val ? (
                 <span className="inline-flex items-center gap-1 text-emerald-600 font-bold">
                     <Check className="h-3 w-3" /> Yes
                 </span>

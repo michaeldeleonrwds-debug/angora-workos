@@ -388,6 +388,7 @@ export default function KanbanPage({
                     <TableView
                         key={`view-${activeView?.id ?? 'table'}`}
                         board={board}
+                        viewId={activeView?.id ?? null}
                         viewSettings={activeView?.settings ?? null}
                         searchTerm={searchTerm}
                         personFilter={personFilter}

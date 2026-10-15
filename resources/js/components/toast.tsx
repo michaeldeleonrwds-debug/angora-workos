@@ -18,7 +18,7 @@ export interface ToastItem {
 }
 
 let toasts: ToastItem[] = [];
-let listeners = new Set<() => void>();
+const listeners = new Set<() => void>();
 let nextId = 1;
 let lastKey = '';
 let lastAt = 0;

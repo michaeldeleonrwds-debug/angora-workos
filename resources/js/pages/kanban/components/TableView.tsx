@@ -3,16 +3,57 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { showToast } from '@/components/toast';
 import { router, usePage } from '@inertiajs/react';
 import axios from 'axios';
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, Layers, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, ChevronDown, ChevronRight, Columns3, Copy, Edit3, Eye, EyeOff, Layers, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
-import { BoardColumn, BoardPermissions, getTableGridTemplate, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
+import { BoardColumn, BoardGroup, BoardPermissions, getTableGridTemplate, isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
 import AddColumnModal from './AddColumnModal';
 import TableRow from './TableRow';
 
+export type TableViewGroupBy = 'workflow_stage' | 'custom_group';
+
+export interface TableViewTableGroup {
+    key: string;
+    id: number;
+    title: string;
+    color: string;
+    tasks: Task[];
+    /** Present for Custom Group mode only. */
+    boardGroup?: BoardGroup;
+    /** Present for Workflow Stage mode only. */
+    stage?: KanbanColumn;
+}
+
+function isCompletionStage(stage: KanbanColumn | undefined | null): boolean {
+    if (!stage) return false;
+    if (stage.semantic_category) return stage.semantic_category === 'completed';
+    const title = (stage.title || '').toLowerCase();
+    return title.includes('complete') || title === 'done';
+}
+
+function isTaskCompleted(task: Task): boolean {
+    if (task.completed_at) return true;
+    if ((task.progress ?? 0) >= 100) return true;
+    const stage = task.column;
+    if (stage?.semantic_category) return stage.semantic_category === 'completed';
+    if (stage && isCompletionStage(stage)) return true;
+    const title = (stage?.title || '').toLowerCase();
+    return title.includes('done') || title.includes('complete');
+}
+
+function canMoveTaskToStage(task: Task, permissions?: BoardPermissions, currentUserId?: number): boolean {
+    if (permissions?.canChangeStatus !== false) return true;
+    if (permissions?.canMoveAssignedTask !== false && isUserAssignedToTask(task, currentUserId ?? 'me', currentUserId)) {
+        return true;
+    }
+    return false;
+}
+
 interface TableViewProps {
     board: KanbanBoard;
+    viewId?: number | null;
     viewSettings?: Record<string, any> | null;
     searchTerm: string;
     personFilter: string;
@@ -27,6 +68,7 @@ interface TableViewProps {
 
 export default function TableView({
     board,
+    viewId,
     viewSettings,
     searchTerm,
     personFilter,
@@ -40,10 +82,13 @@ export default function TableView({
 }: TableViewProps) {
     const { auth } = usePage<any>().props;
     const effectiveCurrentUser = currentUser || auth?.user;
-    const [collapsedGroups, setCollapsedGroups] = useState<Record<number, boolean>>({});
-    const [quickAddTitles, setQuickAddTitles] = useState<Record<number, string>>({});
-    const [editingGroupTitle, setEditingGroupTitle] = useState<number | null>(null);
-    const [groupTitleInputs, setGroupTitleInputs] = useState<Record<number, string>>({});
+    const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+    const [quickAddTitles, setQuickAddTitles] = useState<Record<string, string>>({});
+    const [editingGroupTitle, setEditingGroupTitle] = useState<string | null>(null);
+    const [groupTitleInputs, setGroupTitleInputs] = useState<Record<string, string>>({});
+    const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
+    const [dragOverGroupKey, setDragOverGroupKey] = useState<string | null>(null);
+    const [isPersistingGroupBy, setIsPersistingGroupBy] = useState(false);
 
     // Column Management Modal States
     const [renameColumn, setRenameColumn] = useState<BoardColumn | null>(null);
@@ -76,14 +121,16 @@ export default function TableView({
         }
     };
 
-    const toggleCollapse = (groupId: number) => {
-        setCollapsedGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+    const toggleCollapse = (groupKey: string) => {
+        setCollapsedGroups((prev) => ({ ...prev, [groupKey]: !prev[groupKey] }));
     };
 
-    const handleQuickAdd = (groupId: number, e: React.FormEvent) => {
+    const handleQuickAdd = (groupKey: string, e: React.FormEvent) => {
         e.preventDefault();
-        const title = quickAddTitles[groupId]?.trim();
-        if (!title) return;
+        const title = quickAddTitles[groupKey]?.trim();
+        if (!title || groupKey.startsWith('stage-')) return;
+        const groupId = parseInt(groupKey.replace('group-', ''), 10);
+        if (isNaN(groupId)) return;
 
         router.post(
             '/kanban/tasks',
@@ -96,15 +143,15 @@ export default function TableView({
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    setQuickAddTitles((prev) => ({ ...prev, [groupId]: '' }));
+                    setQuickAddTitles((prev) => ({ ...prev, [groupKey]: '' }));
                 },
             },
         );
     };
 
-    const handleUpdateGroupTitle = (groupId: number) => {
+    const handleUpdateGroupTitle = (groupId: number, groupKey: string) => {
         setEditingGroupTitle(null);
-        const title = groupTitleInputs[groupId]?.trim();
+        const title = groupTitleInputs[groupKey]?.trim();
         if (title) {
             router.patch(`/kanban/groups/${groupId}`, { title });
         }
@@ -118,6 +165,64 @@ export default function TableView({
         if (confirm('Delete this group? Any remaining items will be moved to another group.')) {
             router.delete(`/kanban/groups/${groupId}`);
         }
+    };
+
+    const canMoveTask = (task: Task) =>
+        canMoveTaskToStage(task, permissions, effectiveCurrentUser?.id);
+
+    const handleStageDragStart = (e: React.DragEvent, task: Task) => {
+        if (!canMoveTask(task)) {
+            e.preventDefault();
+            return;
+        }
+        setDraggingTaskId(task.id);
+        e.dataTransfer.setData('text/plain', String(task.id));
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleStageDragOver = (e: React.DragEvent, groupKey: string) => {
+        if (permissions?.canChangeStatus === false && permissions?.canMoveAssignedTask === false) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (dragOverGroupKey !== groupKey) {
+            setDragOverGroupKey(groupKey);
+        }
+    };
+
+    const handleStageDragLeave = (groupKey: string) => {
+        if (dragOverGroupKey === groupKey) {
+            setDragOverGroupKey(null);
+        }
+    };
+
+    const handleStageDrop = (e: React.DragEvent, targetColumnId: number | undefined) => {
+        e.preventDefault();
+        setDragOverGroupKey(null);
+        const taskIdStr = e.dataTransfer.getData('text/plain');
+        const taskId = taskIdStr ? parseInt(taskIdStr, 10) : draggingTaskId;
+        if (!taskId || targetColumnId === undefined) {
+            setDraggingTaskId(null);
+            return;
+        }
+
+        const allTasks = (board.columns || []).flatMap((c) => c.tasks || []);
+        const task = allTasks.find((t) => t.id === taskId);
+        if (!task || !canMoveTask(task) || task.column_id === targetColumnId) {
+            setDraggingTaskId(null);
+            return;
+        }
+
+        router.patch(
+            `/kanban/tasks/${taskId}/column`,
+            { column_id: targetColumnId },
+            {
+                preserveScroll: true,
+                onError: () => {
+                    showToast({ variant: 'error', title: 'Task move failed' });
+                },
+            },
+        );
+        setDraggingTaskId(null);
     };
 
     // Dynamic Columns Management
@@ -169,7 +274,10 @@ export default function TableView({
         }
     };
 
-    const groups = board.groups || [];
+    const customGroups = board.groups || [];
+    const workflowStages = (board.columns || [])
+        .filter((c) => !c.is_archived && c.stage_key !== null && c.semantic_category !== 'not_applicable')
+        .sort((a, b) => a.position - b.position);
     const rawBoardColumns = board.board_columns || board.boardColumns || [];
     const boardColumns = rawBoardColumns.filter((c) => c.type !== 'progress' && c.key !== 'progress');
     const rawSubitemColumns = board.subitem_columns || board.subitemColumns || [];
@@ -177,6 +285,46 @@ export default function TableView({
     const statusColumns = board.columns || [];
     const visibleColumns = boardColumns.filter((c) => c.is_visible);
     const gridTemplateColumns = getTableGridTemplate(visibleColumns);
+
+    const boardIsWorkflowConfigured = workflowStages.length > 0;
+    const settingsGroupBy = viewSettings?.group_by;
+    const groupBy: TableViewGroupBy = boardIsWorkflowConfigured
+        ? settingsGroupBy === 'custom_group'
+            ? 'custom_group'
+            : 'workflow_stage'
+        : 'custom_group';
+
+    const handleGroupByChange = (mode: TableViewGroupBy) => {
+        if (mode === groupBy || !viewId) return;
+        setIsPersistingGroupBy(true);
+        router.patch(
+            `/kanban/views/${viewId}`,
+            { settings: { group_by: mode } },
+            {
+                preserveScroll: true,
+                onFinish: () => setIsPersistingGroupBy(false),
+            },
+        );
+    };
+
+    const tableGroups: TableViewTableGroup[] =
+        groupBy === 'workflow_stage'
+            ? workflowStages.map((stage) => ({
+                  key: `stage-${stage.id}`,
+                  id: stage.id,
+                  title: stage.title,
+                  color: stage.color || '#579BFC',
+                  tasks: (stage.tasks || []).filter((t) => !t.parent_id),
+                  stage,
+              }))
+            : customGroups.map((group) => ({
+                  key: `group-${group.id}`,
+                  id: group.id,
+                  title: group.title,
+                  color: group.color || '#579BFC',
+                  tasks: (group.tasks || []).filter((t) => !t.parent_id),
+                  boardGroup: group,
+              }));
 
     // Filter tasks
     const filterTask = (task: Task) => {
@@ -197,9 +345,51 @@ export default function TableView({
 
     return (
         <div className="space-y-6">
-            {/* Top Toolbar for Columns Visibility Switcher */}
+            {/* Top Toolbar for Group By + Columns Visibility Switcher */}
             <div className="text-muted-foreground flex items-center justify-between px-1 text-xs">
                 <div className="flex items-center gap-2">
+                    {boardIsWorkflowConfigured && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    className="bg-card border-border hover:bg-muted text-foreground flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-semibold transition-all"
+                                    disabled={isPersistingGroupBy}
+                                    data-testid="table-group-by-trigger"
+                                >
+                                    <Layers className="text-primary h-3.5 w-3.5" />
+                                    <span>
+                                        Group By: {groupBy === 'workflow_stage' ? 'Workflow Stage' : 'Custom Group'}
+                                    </span>
+                                    <ChevronDown className="text-muted-foreground h-3 w-3" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-56 rounded-xl p-1.5">
+                                <div className="text-muted-foreground px-2 py-1 text-[10px] font-bold tracking-wider uppercase">Group Tasks By</div>
+                                <DropdownMenuItem
+                                    onClick={() => handleGroupByChange('workflow_stage')}
+                                    className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 text-xs"
+                                    data-testid="table-group-by-workflow-stage"
+                                >
+                                    <div className="flex flex-col items-start gap-0.5">
+                                        <span className="font-semibold">Workflow Stage</span>
+                                        <span className="text-muted-foreground text-[10px]">All active stages in configured order</span>
+                                    </div>
+                                    {groupBy === 'workflow_stage' && <Check className="h-3.5 w-3.5 text-emerald-500" />}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={() => handleGroupByChange('custom_group')}
+                                    className="flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 text-xs"
+                                    data-testid="table-group-by-custom-group"
+                                >
+                                    <div className="flex flex-col items-start gap-0.5">
+                                        <span className="font-semibold">Custom Group</span>
+                                        <span className="text-muted-foreground text-[10px]">Board groups for flexible buckets</span>
+                                    </div>
+                                    {groupBy === 'custom_group' && <Check className="h-3.5 w-3.5 text-emerald-500" />}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <button className="bg-card border-border hover:bg-muted text-foreground flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-xs font-semibold transition-all">
@@ -232,23 +422,35 @@ export default function TableView({
             </div>
 
             {/* Groups Loop */}
-            {groups.map((group) => {
-                const isCollapsed = collapsedGroups[group.id] || false;
-                const groupTasks = (group.tasks || []).filter(filterTask);
+            {tableGroups.map((group) => {
+                const groupKey = group.key;
+                const isStageGroup = groupBy === 'workflow_stage';
+                const isCollapsed = collapsedGroups[groupKey] || false;
+                const groupTasks = group.tasks.filter(filterTask);
+                const acceptsStageDrop = isStageGroup && group.stage !== undefined;
 
                 const totalTasks = groupTasks.length;
-                const doneTasks = groupTasks.filter(
-                    (t) => t.completed_at || t.column?.title?.toLowerCase().includes('done') || t.column?.title?.toLowerCase().includes('complete'),
-                ).length;
+                const doneTasks = groupTasks.filter((t) => isTaskCompleted(t) || (isStageGroup && group.stage && isCompletionStage(group.stage))).length;
                 const donePercent = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
+                const canManageGroupUi = !isStageGroup && permissions?.canManageGroups !== false;
+
                 return (
-                    <div key={group.id} className="border-border/70 bg-card overflow-hidden rounded-2xl border shadow-xs">
+                    <div
+                        key={groupKey}
+                        data-testid={`table-group-${groupKey}`}
+                        className={`border-border/70 bg-card overflow-hidden rounded-2xl border shadow-xs transition-colors ${
+                            dragOverGroupKey === groupKey ? 'ring-primary/40 ring-2' : ''
+                        }`}
+                        onDragOver={acceptsStageDrop ? (e) => handleStageDragOver(e, groupKey) : undefined}
+                        onDragLeave={acceptsStageDrop ? () => handleStageDragLeave(groupKey) : undefined}
+                        onDrop={acceptsStageDrop ? (e) => handleStageDrop(e, group.stage?.id) : undefined}
+                    >
                         {/* Group Header */}
                         <div className="bg-muted/20 border-border/40 flex items-center justify-between border-b px-3 py-2.5 select-none">
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={() => toggleCollapse(group.id)}
+                                    onClick={() => toggleCollapse(groupKey)}
                                     className="hover:bg-muted text-muted-foreground rounded p-1 transition-transform"
                                 >
                                     {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -260,7 +462,8 @@ export default function TableView({
                                         <button
                                             className="h-4 w-4 rounded-md shadow-2xs transition-transform hover:scale-110"
                                             style={{ backgroundColor: group.color || '#579BFC' }}
-                                            title="Change group color"
+                                            title={canManageGroupUi ? 'Change group color' : 'Stage color'}
+                                            disabled={!canManageGroupUi}
                                         />
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent className="grid w-36 grid-cols-4 gap-1.5 p-2">
@@ -268,7 +471,7 @@ export default function TableView({
                                             <button
                                                 key={c}
                                                 type="button"
-                                                onClick={() => handleUpdateGroupColor(group.id, c)}
+                                                onClick={() => group.boardGroup && handleUpdateGroupColor(group.boardGroup.id, c)}
                                                 className="h-6 w-6 rounded-md border border-black/10 transition-all hover:scale-110"
                                                 style={{ backgroundColor: c }}
                                             />
@@ -277,24 +480,24 @@ export default function TableView({
                                 </DropdownMenu>
 
                                 {/* Group Title */}
-                                {editingGroupTitle === group.id ? (
+                                {!isStageGroup && editingGroupTitle === groupKey ? (
                                     <input
                                         type="text"
                                         defaultValue={group.title}
                                         onBlur={(e) => {
                                             setGroupTitleInputs((prev) => ({
                                                 ...prev,
-                                                [group.id]: e.target.value,
+                                                [groupKey]: e.target.value,
                                             }));
-                                            handleUpdateGroupTitle(group.id);
+                                            if (group.boardGroup) handleUpdateGroupTitle(group.boardGroup.id, groupKey);
                                         }}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter') {
                                                 setGroupTitleInputs((prev) => ({
                                                     ...prev,
-                                                    [group.id]: (e.target as HTMLInputElement).value,
+                                                    [groupKey]: (e.target as HTMLInputElement).value,
                                                 }));
-                                                handleUpdateGroupTitle(group.id);
+                                                if (group.boardGroup) handleUpdateGroupTitle(group.boardGroup.id, groupKey);
                                             }
                                         }}
                                         autoFocus
@@ -303,15 +506,16 @@ export default function TableView({
                                 ) : (
                                     <h2
                                         onClick={() => {
-                                            setEditingGroupTitle(group.id);
+                                            if (isStageGroup || !canManageGroupUi) return;
+                                            setEditingGroupTitle(groupKey);
                                             setGroupTitleInputs((prev) => ({
                                                 ...prev,
-                                                [group.id]: group.title,
+                                                [groupKey]: group.title,
                                             }));
                                         }}
-                                        className="cursor-pointer text-sm font-black transition-opacity hover:opacity-80"
+                                        className={`${canManageGroupUi ? 'cursor-pointer transition-opacity hover:opacity-80' : ''} text-sm font-black`}
                                         style={{ color: group.color || '#579BFC' }}
-                                        title="Click to rename group"
+                                        title={isStageGroup ? 'Workflow stage' : canManageGroupUi ? 'Click to rename group' : undefined}
                                     >
                                         {group.title}
                                     </h2>
@@ -320,10 +524,13 @@ export default function TableView({
                                 <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px] font-bold">
                                     {totalTasks} items
                                 </span>
+                                {isStageGroup && (
+                                    <span className="text-muted-foreground/60 text-[10px] font-semibold tracking-wide uppercase">Workflow Stage</span>
+                                )}
                             </div>
 
                             {/* Group Options Menu */}
-                            {permissions?.canManageGroups !== false && (
+                            {canManageGroupUi && (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <button className="hover:bg-muted text-muted-foreground rounded p-1">
@@ -331,14 +538,14 @@ export default function TableView({
                                         </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-44 rounded-xl">
-                                        <DropdownMenuItem onClick={() => setEditingGroupTitle(group.id)}>
+                                        <DropdownMenuItem onClick={() => setEditingGroupTitle(groupKey)}>
                                             <Edit3 className="mr-2 h-3.5 w-3.5" />
                                             <span>Rename Group</span>
                                         </DropdownMenuItem>
-                                        {permissions?.canManageBlueprints !== false && (
+                                        {permissions?.canManageBlueprints !== false && group.boardGroup && (
                                             <DropdownMenuItem
                                                 onClick={() => {
-                                                    setBlueprintGroup(group);
+                                                    setBlueprintGroup(group.boardGroup);
                                                     setBlueprintTitle(`${group.title} Blueprint`);
                                                     setBlueprintDesc(`Standard workflow for ${group.title}`);
                                                     setBlueprintCategory('production');
@@ -349,10 +556,12 @@ export default function TableView({
                                             </DropdownMenuItem>
                                         )}
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => handleDeleteGroup(group.id)} className="text-red-500">
-                                            <Trash2 className="mr-2 h-3.5 w-3.5" />
-                                            <span>Delete Group</span>
-                                        </DropdownMenuItem>
+                                        {group.boardGroup && (
+                                            <DropdownMenuItem onClick={() => handleDeleteGroup(group.boardGroup!.id)} className="text-red-500">
+                                                <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                                <span>Delete Group</span>
+                                            </DropdownMenuItem>
+                                        )}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             )}
@@ -496,7 +705,7 @@ export default function TableView({
                                             boardColumns={visibleColumns}
                                             subitemColumns={subitemColumns}
                                             statusColumns={statusColumns}
-                                            groups={groups}
+                                            groups={customGroups}
                                             users={users}
                                             mirroredValues={mirroredValues[task.id] || {}}
                                             gridTemplateColumns={gridTemplateColumns}
@@ -508,10 +717,10 @@ export default function TableView({
 
                                     {groupTasks.length === 0 && (
                                         <div className="border-border/40 bg-card/40 flex items-center justify-center p-4 text-xs text-muted-foreground/60 border-b select-none">
-                                            {personFilter === 'me' ? 'No tasks assigned to you in this group' : 'No tasks in this group'}
+                                            {personFilter === 'me' ? 'No tasks assigned to you in this group' : isStageGroup ? 'No tasks in this stage' : 'No tasks in this group'}
                                         </div>
                                     )}
-                                    {permissions?.canCreateTask !== false && (
+                                    {permissions?.canCreateTask !== false && group.boardGroup && (
                                         <div
                                             className="border-border/40 bg-card hover:bg-muted/10 grid w-full items-stretch border-b transition-colors"
                                             style={{ gridTemplateColumns }}
@@ -521,15 +730,15 @@ export default function TableView({
                                                 <Plus className="h-3.5 w-3.5" />
                                             </div>
                                             <div className="border-border/40 border-r px-2 py-1.5 flex items-center min-w-0 h-full">
-                                                <form onSubmit={(e) => handleQuickAdd(group.id, e)} className="w-full">
+                                                <form onSubmit={(e) => handleQuickAdd(group.key, e)} className="w-full">
                                                     <input
                                                         type="text"
                                                         placeholder="+ Add item"
-                                                        value={quickAddTitles[group.id] || ''}
+                                                        value={quickAddTitles[group.key] || ''}
                                                         onChange={(e) =>
                                                             setQuickAddTitles((prev) => ({
                                                                 ...prev,
-                                                                [group.id]: e.target.value,
+                                                                [group.key]: e.target.value,
                                                             }))
                                                         }
                                                         className="placeholder:text-muted-foreground/60 w-full border-none bg-transparent px-1 py-1 text-xs focus:outline-none"

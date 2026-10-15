@@ -13,7 +13,7 @@ import ImageCell from './ImageCell';
 
 interface TableRowProps {
     task: Task;
-    group: BoardGroup;
+    group: BoardGroup | { id: number; title: string; color: string; boardGroup?: BoardGroup; stage?: KanbanColumn };
     boardColumns: BoardColumn[];
     subitemColumns?: BoardColumn[];
     statusColumns: KanbanColumn[];
