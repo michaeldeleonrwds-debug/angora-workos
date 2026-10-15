@@ -802,7 +802,7 @@ export default function BoardUnifiedHeader({
             {/* ============================================================ */}
             {/* ROW 2: BOARD IDENTITY & TELEMETRY BAR (h-14 / ~56px)         */}
             {/* ============================================================ */}
-            <div className="flex shrink-0 min-h-[52px] sm:h-14 flex-wrap items-center justify-between gap-3 border-b border-[#ECECF0] bg-card/60 px-4 py-2 backdrop-blur-xs transition-colors sm:px-6 dark:border-[#28283E]">
+            <div className="flex shrink-0 min-h-[52px] sm:h-14 items-center justify-between gap-3 border-b border-[#ECECF0] bg-card/60 px-4 py-2 backdrop-blur-xs transition-colors sm:px-6 dark:border-[#28283E]">
                 {/* Left: Board Title, Star, Visibility badge, Subtitle */}
                 <div className="flex items-center gap-2.5 min-w-0">
                     <button
