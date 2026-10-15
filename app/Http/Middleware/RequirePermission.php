@@ -22,12 +22,8 @@ class RequirePermission
         }
 
         if ($user->status !== 'active' || ! $user->hasPermission($permission)) {
-            if ($request->wantsJson()) {
-                return response()->json([
-                    'message' => "Forbidden: Your role '{$user->primaryRoleName()}' lacks required permission '{$permission}'.",
-                ], 403);
-            }
-
+            // Thrown as HttpException so the global handler in bootstrap/app.php
+            // can render the standard branded page or JSON payload.
             abort(403, "Access Denied: Your role '{$user->primaryRoleName()}' does not have the required permission '{$permission}' to access this module.");
         }
 
