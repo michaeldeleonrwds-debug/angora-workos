@@ -41,6 +41,7 @@ import {
     Trash2,
     UserPlus,
     Users,
+    Workflow,
     X,
     Zap,
 } from 'lucide-react';
@@ -67,6 +68,7 @@ interface BoardUnifiedHeaderProps {
     onOpenNewColumn: () => void;
     onOpenAutomate?: () => void;
     onOpenBlueprints?: () => void;
+    onOpenWorkflow?: () => void;
 }
 
 export default function BoardUnifiedHeader({
@@ -89,6 +91,7 @@ export default function BoardUnifiedHeader({
     onOpenNewColumn,
     onOpenAutomate,
     onOpenBlueprints,
+    onOpenWorkflow,
 }: BoardUnifiedHeaderProps) {
     // Dialog States
     const [isCreateWorkspaceOpen, setIsCreateWorkspaceOpen] = useState(false);
@@ -812,6 +815,20 @@ export default function BoardUnifiedHeader({
                         </Button>
                     )}
 
+                    {/* Workflow Settings */}
+                    {permissions?.canManageBoard !== false && onOpenWorkflow && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onOpenWorkflow}
+                            title="Workflow Settings"
+                            className="hidden lg:flex h-8 rounded-lg border-teal-500/30 bg-teal-500/5 text-teal-700 hover:bg-teal-500/10 px-2.5 text-xs font-bold dark:text-teal-400"
+                        >
+                            <Workflow className="mr-1 h-3.5 w-3.5" />
+                            <span>Workflow</span>
+                        </Button>
+                    )}
+
                     {/* Export Dropdown */}
                     {permissions?.canExport !== false && (
                         <DropdownMenu>
@@ -914,6 +931,12 @@ export default function BoardUnifiedHeader({
                                 <DropdownMenuItem onClick={onOpenBlueprints} className="xl:hidden">
                                     <Layers className="mr-2 h-3.5 w-3.5 text-indigo-500" />
                                     <span>Blueprints</span>
+                                </DropdownMenuItem>
+                            )}
+                            {permissions?.canManageBoard !== false && onOpenWorkflow && (
+                                <DropdownMenuItem onClick={onOpenWorkflow}>
+                                    <Workflow className="mr-2 h-3.5 w-3.5 text-teal-600" />
+                                    <span>Workflow Settings</span>
                                 </DropdownMenuItem>
                             )}
                             {permissions?.canManageBoard !== false && (

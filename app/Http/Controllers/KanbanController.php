@@ -576,10 +576,35 @@ class KanbanController extends Controller
             'color' => $validated['color'] ?? '#64748b',
             'position' => $board->columns()->count(),
             'semantic_category' => $validated['semantic_category'] ?? KanbanColumn::categoryForLegacyLabel($validated['title']),
+            // Stages created after Step 1B get a stable key so configured
+            // boards accept them as drag targets alongside template stages.
+            'stage_key' => $this->uniqueStageKey($board, $validated['title']),
+            'stage_role' => 'workflow',
             'is_default' => !$board->columns()->exists(),
         ]);
 
         return back()->with('success', 'Stage created');
+    }
+
+    /**
+     * Generate a board-unique stage key derived from the title.
+     */
+    private function uniqueStageKey(KanbanBoard $board, string $title): string
+    {
+        $base = \Illuminate\Support\Str::slug($title, '_');
+        if ($base === '') {
+            $base = 'stage';
+        }
+
+        $existing = $board->columns()->whereNotNull('stage_key')->pluck('stage_key')->all();
+        $key = $base;
+        $suffix = 2;
+        while (in_array($key, $existing, true)) {
+            $key = $base . '_' . $suffix;
+            $suffix++;
+        }
+
+        return $key;
     }
 
     public function updateWorkflowStage(Request $request, KanbanColumn $column)
@@ -634,7 +659,14 @@ class KanbanController extends Controller
         Gate::authorize('manageStatuses', $board);
         abort_if($column->is_default, 422, 'Choose another default status first.');
         abort_if($board->columns()->where('is_archived', false)->count() <= 1, 422, 'A board needs an active status.');
+        abort_if($column->tasks()->exists(), 422, 'Move or archive the tasks in this stage before deleting it.');
         $column->update(['is_archived' => true]);
+        // Drop transition edges that reference the archived stage.
+        \App\Models\BoardWorkflowTransition::where('board_id', $board->id)
+            ->where(function ($query) use ($column) {
+                $query->where('from_column_id', $column->id)->orWhere('to_column_id', $column->id);
+            })
+            ->delete();
 
         return back()->with('success', 'Status archived');
     }
@@ -659,6 +691,76 @@ class KanbanController extends Controller
         }
 
         return back()->with('success', 'Stages reordered');
+    }
+
+    /**
+     * Board workflow settings payload for the Workflow Settings panel.
+     */
+    public function getWorkflowSettings(KanbanBoard $board)
+    {
+        Gate::authorize('manageStatuses', $board);
+
+        $stages = $board->columns()->orderBy('position')->get()->map(fn (KanbanColumn $column) => [
+            'id' => $column->id,
+            'title' => $column->title,
+            'color' => $column->color,
+            'position' => $column->position,
+            'semantic_category' => $column->semantic_category,
+            'stage_key' => $column->stage_key,
+            'stage_role' => $column->stage_role,
+            'is_default' => $column->is_default,
+            'is_archived' => $column->is_archived,
+            'task_count' => $column->tasks()->count(),
+        ]);
+
+        return response()->json([
+            'configured' => $this->workflowService->boardIsConfigured($board),
+            'stages' => $stages,
+            'transitions' => \App\Models\BoardWorkflowTransition::where('board_id', $board->id)
+                ->get(['from_column_id', 'to_column_id', 'contributor_allowed']),
+            'contributor_forbidden_targets' => config('angora_workflows.contributor_forbidden_targets', []),
+            'contributor_locked_sources' => config('angora_workflows.contributor_locked_sources', []),
+        ]);
+    }
+
+    /**
+     * Replace the board's workflow transitions (WorkflowService::syncTransitions).
+     */
+    public function updateWorkflowTransitions(Request $request, KanbanBoard $board)
+    {
+        Gate::authorize('manageStatuses', $board);
+
+        $validated = $request->validate([
+            // present (not required): an empty array clears all edges and
+            // returns the board to legacy behaviour.
+            'transitions' => 'present|array',
+            'transitions.*.from_column_id' => 'required|integer',
+            'transitions.*.to_column_id' => 'required|integer',
+            'transitions.*.contributor_allowed' => 'nullable|boolean',
+        ]);
+
+        // Review-gate guard: contributors may never be granted an edge into
+        // completion semantics, regardless of what the UI sends.
+        $semantics = $board->columns()->pluck('semantic_category', 'id');
+        foreach ($validated['transitions'] as $transition) {
+            if (! empty($transition['contributor_allowed'])) {
+                $targetSemantic = $semantics[$transition['to_column_id']] ?? null;
+                abort_if(
+                    in_array($targetSemantic, ['completed', 'cancelled'], true),
+                    422,
+                    'Contributors cannot be allowed into completed or cancelled stages.'
+                );
+            }
+        }
+
+        $this->workflowService->syncTransitions($board, $validated['transitions']);
+
+        return response()->json([
+            'success' => true,
+            'configured' => $this->workflowService->boardIsConfigured($board),
+            'transitions' => \App\Models\BoardWorkflowTransition::where('board_id', $board->id)
+                ->get(['from_column_id', 'to_column_id', 'contributor_allowed']),
+        ]);
     }
 
     // --- Groups Management ---

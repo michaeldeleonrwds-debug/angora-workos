@@ -120,6 +120,10 @@ export interface KanbanColumn {
     position: number;
     category?: string | null;
     semantic_category?: string | null;
+    stage_key?: string | null;
+    stage_role?: string | null;
+    is_default?: boolean;
+    is_archived?: boolean;
     tasks?: Task[];
 }
 

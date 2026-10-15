@@ -20,6 +20,7 @@ import ItemDetailDrawer from './components/ItemDetailDrawer';
 import KanbanBoardView from './components/KanbanBoardView';
 import TableView from './components/TableView';
 import WorkflowBlueprintModal from './components/WorkflowBlueprintModal';
+import WorkflowSettingsModal from './components/WorkflowSettingsModal';
 import WorkloadView from './components/WorkloadView';
 import WorkspaceBoardNav from './components/WorkspaceBoardNav';
 import { KanbanBoard, KanbanPageProps, Task } from './types';
@@ -242,6 +243,7 @@ export default function KanbanPage({
     const [isNewColumnModalOpen, setIsNewColumnModalOpen] = useState(false);
     const [isAutomationModalOpen, setIsAutomationModalOpen] = useState(false);
     const [isBlueprintModalOpen, setIsBlueprintModalOpen] = useState(false);
+    const [isWorkflowModalOpen, setIsWorkflowModalOpen] = useState(false);
 
     // New Task Form
     const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -348,6 +350,7 @@ export default function KanbanPage({
                     onOpenNewColumn={() => setIsNewColumnModalOpen(true)}
                     onOpenAutomate={() => setIsAutomationModalOpen(true)}
                     onOpenBlueprints={() => setIsBlueprintModalOpen(true)}
+                    onOpenWorkflow={() => setIsWorkflowModalOpen(true)}
                 />
 
                 {/* 2. Main Views Container */}
@@ -486,6 +489,9 @@ export default function KanbanPage({
                 groups={board.groups || []}
                 users={users}
             />
+
+            {/* Workflow Settings Modal */}
+            <WorkflowSettingsModal board={board} isOpen={isWorkflowModalOpen} onClose={() => setIsWorkflowModalOpen(false)} />
 
             {/* New Group Modal */}
             <Dialog open={isNewGroupModalOpen} onOpenChange={setIsNewGroupModalOpen}>

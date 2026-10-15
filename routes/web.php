@@ -54,6 +54,10 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/kanban/stages/{column}', [KanbanController::class, 'deleteWorkflowStage'])->name('kanban.stages.delete');
     Route::post('/kanban/boards/{board}/stages/reorder', [KanbanController::class, 'reorderWorkflowStages'])->name('kanban.stages.reorder');
 
+    // Workflow Settings (dynamic transition graph)
+    Route::get('/kanban/boards/{board}/workflow', [KanbanController::class, 'getWorkflowSettings'])->name('kanban.boards.workflow.get');
+    Route::patch('/kanban/boards/{board}/workflow/transitions', [KanbanController::class, 'updateWorkflowTransitions'])->name('kanban.boards.workflow.transitions.update');
+
     // Dynamic Columns
     Route::post('/kanban/boards/{board}/columns', [KanbanController::class, 'storeBoardColumn'])->name('kanban.columns.store');
     Route::patch('/kanban/board-columns/{column}', [KanbanController::class, 'updateBoardColumn'])->name('kanban.columns.update');
