@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-14T20:45:31.173Z",
+  "generated_at": "2026-10-15T14:45:39.871Z",
   "stats": {
-    "total_nodes": 567,
-    "total_edges": 1110,
+    "total_nodes": 572,
+    "total_edges": 1123,
     "clusters": 7
   },
   "nodes": [
@@ -1082,6 +1082,16 @@
       "file": null
     },
     {
+      "id": "route:POST:/rbac/roles",
+      "label": "POST /rbac/roles",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/rbac/roles",
+      "name": "rbac.roles.store",
+      "action": "storeRole"
+    },
+    {
       "id": "route:POST:/rbac/roles/{role}/permissions",
       "label": "POST /rbac/roles/{role}/permissions",
       "type": "route",
@@ -1090,6 +1100,16 @@
       "uri": "/rbac/roles/{role}/permissions",
       "name": "rbac.roles.permissions.update",
       "action": "updateRolePermissions"
+    },
+    {
+      "id": "route:POST:/rbac/users/{user}/role",
+      "label": "POST /rbac/users/{user}/role",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/rbac/users/{user}/role",
+      "name": "rbac.users.role.update",
+      "action": "updateUserRole"
     },
     {
       "id": "route:GET:/projects",
@@ -2492,6 +2512,12 @@
       "file": "app/Services/Ai/AngoraAiService.php"
     },
     {
+      "id": "service:RbacGovernanceService",
+      "label": "RbacGovernanceService",
+      "type": "service",
+      "file": "app/Services/Authorization/RbacGovernanceService.php"
+    },
+    {
       "id": "service:WorkOsPermissionService",
       "label": "WorkOsPermissionService",
       "type": "service",
@@ -3366,6 +3392,18 @@
       "label": "ProjectMember",
       "type": "model",
       "file": "app/Models/ProjectMember.php"
+    },
+    {
+      "id": "model:RbacPermission",
+      "label": "RbacPermission",
+      "type": "model",
+      "file": "app/Models/RbacPermission.php"
+    },
+    {
+      "id": "model:RbacRole",
+      "label": "RbacRole",
+      "type": "model",
+      "file": "app/Models/RbacRole.php"
     },
     {
       "id": "model:RolePermission",
@@ -4840,10 +4878,22 @@
       "action": "index"
     },
     {
+      "source": "route:POST:/rbac/roles",
+      "target": "controller:\\App\\Http\\Controllers\\RbacController",
+      "relationship": "routes_to",
+      "action": "storeRole"
+    },
+    {
       "source": "route:POST:/rbac/roles/{role}/permissions",
       "target": "controller:\\App\\Http\\Controllers\\RbacController",
       "relationship": "routes_to",
       "action": "updateRolePermissions"
+    },
+    {
+      "source": "route:POST:/rbac/users/{user}/role",
+      "target": "controller:\\App\\Http\\Controllers\\RbacController",
+      "relationship": "routes_to",
+      "action": "updateUserRole"
     },
     {
       "source": "route:GET:/projects",
@@ -6358,11 +6408,6 @@
     },
     {
       "source": "controller:MarketingController",
-      "target": "model:User",
-      "relationship": "queries_model"
-    },
-    {
-      "source": "controller:MarketingController",
       "target": "model:MarketingCampaign",
       "relationship": "queries_model"
     },
@@ -6420,11 +6465,6 @@
     },
     {
       "source": "controller:ProductionController",
-      "target": "model:User",
-      "relationship": "queries_model"
-    },
-    {
-      "source": "controller:ProductionController",
       "target": "model:ProductionWorkOrder",
       "relationship": "queries_model"
     },
@@ -6440,13 +6480,29 @@
     },
     {
       "source": "controller:RbacController",
+      "target": "User::class, $validated['role'",
+      "relationship": "authorizes_with",
+      "ability": "assignRole"
+    },
+    {
+      "source": "controller:RbacController",
       "target": "component:index",
       "relationship": "renders",
       "page": "rbac/index"
     },
     {
       "source": "controller:RbacController",
-      "target": "model:RolePermission",
+      "target": "service:RbacGovernanceService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:RbacController",
+      "target": "model:RbacRole",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:RbacController",
+      "target": "model:RbacPermission",
       "relationship": "queries_model"
     },
     {
@@ -6475,11 +6531,6 @@
       "target": "component:index",
       "relationship": "renders",
       "page": "sales/index"
-    },
-    {
-      "source": "controller:SalesController",
-      "target": "model:User",
-      "relationship": "queries_model"
     },
     {
       "source": "controller:SalesController",
@@ -6576,7 +6627,7 @@
       "source": "controller:UserController",
       "target": "User::class",
       "relationship": "authorizes_with",
-      "ability": "viewAny"
+      "ability": "create"
     },
     {
       "source": "controller:UserController",
@@ -6628,9 +6679,21 @@
     },
     {
       "source": "controller:UserController",
+      "target": "User::class, $invitation->role",
+      "relationship": "authorizes_with",
+      "ability": "assignRole"
+    },
+    {
+      "source": "controller:UserController",
       "target": "User::class",
       "relationship": "authorizes_with",
       "ability": "create"
+    },
+    {
+      "source": "controller:UserController",
+      "target": "User::class, $invitation->role",
+      "relationship": "authorizes_with",
+      "ability": "assignRole"
     },
     {
       "source": "controller:UserController",
@@ -6670,7 +6733,17 @@
     },
     {
       "source": "controller:UserController",
+      "target": "service:RbacGovernanceService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:UserController",
       "target": "model:User",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:UserController",
+      "target": "model:RbacRole",
       "relationship": "queries_model"
     },
     {
@@ -6895,6 +6968,36 @@
       "source": "service:AngoraAiService",
       "target": "model:BoardAutomation",
       "relationship": "uses_model"
+    },
+    {
+      "source": "service:RbacGovernanceService",
+      "target": "service_method:RbacGovernanceService::canManage",
+      "relationship": "defines_method",
+      "method": "canManage"
+    },
+    {
+      "source": "service:RbacGovernanceService",
+      "target": "service_method:RbacGovernanceService::canManageRole",
+      "relationship": "defines_method",
+      "method": "canManageRole"
+    },
+    {
+      "source": "service:RbacGovernanceService",
+      "target": "service_method:RbacGovernanceService::canAssignRole",
+      "relationship": "defines_method",
+      "method": "canAssignRole"
+    },
+    {
+      "source": "service:RbacGovernanceService",
+      "target": "service_method:RbacGovernanceService::canDelegate",
+      "relationship": "defines_method",
+      "method": "canDelegate"
+    },
+    {
+      "source": "service:RbacGovernanceService",
+      "target": "service_method:RbacGovernanceService::assertLastActiveSuperAdminSafe",
+      "relationship": "defines_method",
+      "method": "assertLastActiveSuperAdminSafe"
     },
     {
       "source": "service:WorkOsPermissionService",
@@ -9848,6 +9951,11 @@
     },
     {
       "source": "test:RbacSecurityTest",
+      "target": "controller:UserController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:RbacSecurityTest",
       "target": "policy:TaskPolicy",
       "relationship": "tests"
     },
@@ -9865,6 +9973,12 @@
       "source": "test:RbacSecurityTest",
       "target": "service:WorkOsPermissionService",
       "relationship": "tests"
+    },
+    {
+      "source": "test:RbacSecurityTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
     },
     {
       "source": "test:WorkOsAssignedTaskMovementAndFilterTest",

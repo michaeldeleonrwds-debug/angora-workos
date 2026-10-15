@@ -1,92 +1,31 @@
 # 04 — RBAC & Security
 
-## 1. Security Philosophy: Deny-by-Default
-Angora Work OS enforces a **strict deny-by-default access control architecture**.
-- Users possess zero operational authority unless an explicit policy method or role check grants it.
-- **Board membership does NOT confer editing or administrative authority.**
-- **Workspace membership does NOT confer task mutation authority.**
-- Hiding a button on the frontend is never considered an authorization fix. Every state mutation endpoint evaluates Laravel Policies on the backend.
+## Step 1A: global roles
 
----
+Angora uses Spatie Laravel Permission v6 for global roles and registered capabilities. `User` uses `HasRoles`; the former `users.role` value is retained in `users.legacy_role` for audit and rollback only. Authorization reads Spatie assignments. Workspace and board membership roles remain in their existing tables and are separate from global roles. Spatie Teams is disabled.
 
-## 2. Centralized Permission Matrix
+The migration retains the legacy `permissions`, `role_permissions`, and `user_permissions` tables. New grants live in `roles`, `spatie_permissions`, `model_has_roles`, `model_has_permissions`, and `role_has_permissions`. Registered capability names come from reviewed migrations and seeders. The RBAC interface accepts permission IDs from this catalog; it cannot create executable permission strings.
 
-| Capability | Super Admin | Admin | Project Manager | Account Manager | Designer (Employee) |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-| **Workspace Management** | ✅ | ✅ (Own) | ❌ | ❌ | ❌ |
-| **Board Creation / Deletion** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Board Column Configuration** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Workflow Stage Configuration** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Automations & Blueprints** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Task Creation** | ✅ | ✅ | ✅ | ✅ (Configured) | ❌ |
-| **Task Deletion** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Assign Users / Deadlines / Priority** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Move Any Task Card** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Move Assigned Task Card** | ✅ | ✅ | ✅ | ❌ | ✅ (Permitted Stages) |
-| **Directly Complete (Bypass QA)** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Update Assigned Task Progress** | ✅ | ✅ | ✅ | ❌ | ✅ |
-| **Add / Complete Assigned Subtasks** | ✅ | ✅ | ✅ | ❌ | ✅ |
-| **Post Comments & Reactions** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Submit Review Deliverables** | ✅ | ✅ | ✅ | ❌ | ✅ (Assigned Only) |
-| **Approve / Reject Review Cycles** | ✅ | ✅ | ✅ | ❌ | ❌ |
-| **Export Board CSV / JSON** | ✅ | ✅ | ✅ | ❌ | ❌ |
+## Governance
 
----
+Only an active Super Admin or an active Admin with `rbac.manage` may open RBAC administration. Admin can create custom roles, assign permitted roles to other users, and grant registered delegable permissions. Admin cannot edit the protected Super Admin or Admin roles, assign them, change their holders, alter their own role, or grant protected capabilities. `rbac.manage`, `permissions.manage`, and `system.settings.manage` are protected; only the Super Admin role receives the latter two. The final active Super Admin cannot be demoted or suspended.
 
-## 3. Assignment-Based Task Movement (`canMoveAssignedTask`)
-Enhanced in commit `fix(work-os): enable category-assigned task movement and simplify child cards`, `TaskPolicy::canMoveAssignedTask` permits contributors (`designer`, `developer`, `dept_user`, `employee`) to move cards under strict conditions:
-1. **Assignment Check**: User must be directly assigned (`assigned_to`), referenced in dynamic designer/person columns (`task.custom_values.designer_ids`), OR assigned to any child work category belonging to the parent project (`task.subitems`).
-2. **Transition Rules**:
-   - `not_started` ➔ `in_progress`, `in_review`, `blocked` ✅
-   - `in_progress` ➔ `in_review`, `not_started`, `blocked` ✅
-   - `in_review` ➔ `in_progress` (rework) ✅
-   - Direct move to `completed` or `cancelled` ❌ (Denied: must pass through PM/reviewer approval).
-3. **Unassigned Tasks**: Employees cannot move tasks unless assigned to the parent or at least one child work category.
-4. **Progress Deprecation**: Legacy progress percentages and bars have been removed across all production UI views in favor of discrete status transitions.
+The legacy `admin_manager` matrix included `rbac.manage`. That grant is deliberately excluded during cutover. This is an intentional access reduction.
 
-### Code Reference: `App\Policies\TaskPolicy.php`
-```php
-public function updateTaskColumn(User $user, KanbanTask $task, KanbanColumn $targetColumn): bool
-{
-    // Super Admin, Admin, and Project Manager have full movement authority
-    if ($this->canManageTasks($user, $task->board)) {
-        return true;
-    }
+## Resource authorization
 
-    // Designers can only move tasks assigned to them through permitted stages
-    if ($user->role === 'designer') {
-        if (!$task->isAssignedTo($user)) {
-            return false;
-        }
+Spatie grants are necessary but never sufficient for a task or board operation. Laravel policies check workspace and board access, task assignment, target stage ownership, archived stages, dependency blockers, and review restrictions. A board member's local role does not become a global role. Child work-category assignment counts for parent task movement.
 
-        // Must not transition directly to completed without PM review approval
-        if ($targetColumn->semantic_category === 'completed') {
-            return false;
-        }
+Important registered Work OS capabilities include `workos.boards.manage`, `workos.tasks.create`, `workos.tasks.update`, `workos.tasks.update.assigned`, `workos.tasks.move.any`, `workos.tasks.move.assigned`, `workos.tasks.review.submit`, `workos.tasks.review.decide`, and `workos.tasks.export`. The reviewed default grants are defined in `App\Support\RbacCapabilityCatalog`. Custom roles can receive delegable grants through the existing RBAC page.
 
-        return true;
-    }
+Employees with only assigned-task capabilities cannot edit privileged metadata, manage board configuration, jump to completion, or approve their own work. A board or workspace manager still needs the relevant global capability. Review decisions require another reviewer, including when a manager submitted the cycle.
 
-    return false;
-}
-```
+The UI receives capability-aware controls through `HandleInertiaRequests` and `WorkOsPermissionService`. The backend independently enforces every mutation. Client visibility remains bounded by explicit board access and client-specific task access; internal production records are not exposed through a global permission alone.
 
----
+## Migration and rollback
 
-## 4. Protected Endpoints & Policies
-- **`BoardPolicy`**: Protects board CRUD, columns, stages, automations, blueprints, and data exports.
-- **`TaskPolicy`**: Protects task creation, field updates, column moves, deletion, subitem creation, and dependency links.
-- **`TaskReviewPolicy`**: Protects submission (designers) vs approval/decision (PMs and Admins).
-- **`UserController`**: Prevents privilege escalation (Admins cannot create or assign `super_admin` roles).
+See [[handoffs/step-1a-spatie-rbac-migration]] for the verified backup, restored-copy rehearsal, role comparison, rollout, and rollback procedure.
 
----
+## Next milestones
 
-## 5. Security Audit Log
-All administrative actions, role assignments, user status toggles (suspensions), and security-sensitive updates write immutable records to the `audit_logs` table via `AuditLogService`.
-
----
-
-## 6. Key Cross-References
-- Architectural decision record: [[decisions/ADR-002-role-based-access-control-and-deny-by-default]]
-- Assignment movement decision: [[decisions/ADR-003-assignment-based-task-movement-and-employee-filters]]
-- RBAC feature tests: [[08-TESTING-AND-QA]]
+Step 1B dynamic transitions, review routing, client handoffs, S3/MinIO storage, Reverb, and chat require separate approval. A future Super Admin settings milestone may configure S3/MinIO and SMTP securely; Step 1A only registers `system.settings.manage`. No storage or mail credentials belong in source control or this vault.

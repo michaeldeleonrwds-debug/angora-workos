@@ -1,60 +1,18 @@
-# 09 — Deployment & Hosting Constraints
+# 09 — Deployment direction
 
-## 1. Target Environment: Shared Hosting
-Angora Work OS is engineered to deploy seamlessly to **shared cPanel / LiteSpeed / Apache hosting** without requiring specialized infrastructure or elevated permissions.
+The intended production target is a VPS with PHP 8.3 or newer, Nginx/PHP-FPM, MariaDB/MySQL, Redis, persistent queue workers, the Laravel scheduler, Laravel Reverb, and a private Amazon S3 bucket over HTTPS. The VPS has not been provisioned. Step 1A does not install or require Redis, Reverb, S3, or a new queue worker.
 
----
+Composer still declares `php: ^8.2`. The selected `spatie/laravel-permission` v6 package is compatible with this constraint. Confirm the actual VPS PHP runtime and extensions before deployment; do not change the Composer minimum silently.
 
-## 2. Infrastructure Requirements & Constraints
+## Deployment gates
 
-| Component | Shared Hosting Strategy | What is PROHIBITED |
-| :--- | :--- | :--- |
-| **PHP Runtime** | PHP 8.2 or 8.3 with standard extensions (pdo, mbstring, openssl, tokenizer, xml, ctype, json, fileinfo) | Requiring custom PHP extensions or root-level daemons |
-| **Cache Store** | `CACHE_STORE=file` or `CACHE_STORE=database` | **No Redis / Memcached** |
-| **Session Driver** | `SESSION_DRIVER=database` or `SESSION_DRIVER=file` | **No Redis** |
-| **Queue Driver** | `QUEUE_CONNECTION=sync` or `QUEUE_CONNECTION=database` | **No Redis / Horizon** |
-| **Task Scheduling** | Standard cPanel cron calling `php artisan schedule:run` every minute | Requiring persistent Node / Python background processes |
-| **Web Server** | Apache (`.htaccess`) or LiteSpeed with `public/` web root | Requiring Nginx custom reverse proxies for core function |
+1. Take a recoverable database backup and verify its integrity.
+2. Rehearse database migrations and rollback against a restored copy.
+3. Run focused security tests, Work OS tests, the full Laravel suite, TypeScript checks, and a frontend build.
+4. Deploy code and dependencies with the migration sequence in [[handoffs/step-1a-spatie-rbac-migration]].
+5. Run `php artisan migrate --force`, clear and rebuild Laravel permission/config caches, and verify role assignments and access.
+6. Keep automated database and object-storage backups, monitoring, logs, and recovery procedures in the VPS plan.
 
----
+Local EnvKit MinIO is intended for a later S3-compatible storage milestone. Production will use private Amazon S3 through Laravel's filesystem abstraction. Storage credentials, SMTP credentials, and other secrets must stay outside Git and Obsidian. A future protected Super Admin settings page is planned for authorized S3/MinIO and SMTP configuration; `system.settings.manage` is registered in Step 1A without implementing the settings page.
 
-## 3. Standard Deployment Commands
-When deploying updates to production:
-
-```bash
-# 1. Update codebase
-git pull origin master
-
-# 2. Install PHP production dependencies (no dev packages)
-composer install --no-dev --optimize-autoloader
-
-# 3. Run database migrations
-php artisan migrate --force
-
-# 4. Optimize Laravel caches
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
-# 5. Build production frontend assets (if building on server, or upload build/)
-npm ci
-npm run build
-```
-
----
-
-## 4. Production Cron Configuration
-Set up a single cron entry in cPanel:
-```bash
-* * * * * cd /home/username/public_html && php artisan schedule:run >> /dev/null 2>&1
-```
-This handles:
-- Task recurrence rule evaluation (`php artisan kanban:process-recurrence`).
-- Upcoming deadline notifications and warnings.
-- Expired user invitation cleanups.
-
----
-
-## 5. Key Cross-References
-- Shared hosting architectural decision: [[decisions/ADR-005-shared-hosting-zero-redis-production-architecture]]
-- Architecture overview: [[02-ARCHITECTURE]]
+The former shared-hosting design is historical context in [[decisions/ADR-005-shared-hosting-zero-redis-production-architecture]] and is no longer the production target.
