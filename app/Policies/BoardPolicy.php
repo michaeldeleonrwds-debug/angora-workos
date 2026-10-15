@@ -30,7 +30,8 @@ class BoardPolicy
     {
         $workspace = $board->workspace;
         if (!$workspace) {
-            return true;
+            return (int) $board->created_by === (int) $user->id
+                || $board->members()->where('user_id', $user->id)->exists();
         }
 
         // If board member explicitly exists in board_members table
@@ -40,7 +41,7 @@ class BoardPolicy
         }
 
         // Clients cannot access standard internal boards unless explicitly invited in board_members
-        if ($user->role === 'client') {
+        if ($user->primaryRoleName() === 'client') {
             return false;
         }
 
@@ -75,8 +76,7 @@ class BoardPolicy
      */
     public function create(User $user, $workspace = null): bool
     {
-        // Designers and external users can never create boards
-        if (in_array($user->role, ['client', 'guest', 'designer', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.boards.manage')) {
             return false;
         }
 
@@ -88,7 +88,7 @@ class BoardPolicy
             return $membership && in_array($membership->role, ['owner', 'admin', 'member'], true);
         }
 
-        return in_array($user->role, ['super_admin', 'admin', 'admin_manager', 'project_manager', 'account_manager'], true);
+        return true;
     }
 
     /**
@@ -96,8 +96,7 @@ class BoardPolicy
      */
     public function update(User $user, KanbanBoard $board): bool
     {
-        // Designers can never administer or update boards
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.boards.manage') || ! $this->view($user, $board)) {
             return false;
         }
 
@@ -127,7 +126,7 @@ class BoardPolicy
      */
     public function manageStatuses(User $user, KanbanBoard $board): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.boards.manage')) {
             return false;
         }
 
@@ -139,7 +138,7 @@ class BoardPolicy
      */
     public function manageColumns(User $user, KanbanBoard $board): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.boards.manage')) {
             return false;
         }
 
@@ -151,7 +150,7 @@ class BoardPolicy
      */
     public function manageGroups(User $user, KanbanBoard $board): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.boards.manage')) {
             return false;
         }
 
@@ -163,7 +162,7 @@ class BoardPolicy
      */
     public function manageAutomations(User $user, KanbanBoard $board): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.boards.manage')) {
             return false;
         }
 
@@ -175,7 +174,7 @@ class BoardPolicy
      */
     public function export(User $user, KanbanBoard $board): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.tasks.export')) {
             return false;
         }
 
@@ -187,7 +186,7 @@ class BoardPolicy
      */
     public function delete(User $user, KanbanBoard $board): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.boards.manage')) {
             return false;
         }
 
@@ -220,7 +219,7 @@ class BoardPolicy
      */
     public function manageMembers(User $user, KanbanBoard $board): bool
     {
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.boards.manage')) {
             return false;
         }
 

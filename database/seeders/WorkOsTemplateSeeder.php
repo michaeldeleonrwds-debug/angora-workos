@@ -10,7 +10,7 @@ class WorkOsTemplateSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::where('role', 'super_admin')->first() ?? User::first();
+        $admin = User::role('super_admin')->first() ?? User::first();
         if (!$admin) return;
 
         // 1. Website Development Project Template

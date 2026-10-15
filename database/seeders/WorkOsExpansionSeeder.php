@@ -16,7 +16,7 @@ class WorkOsExpansionSeeder extends Seeder
 {
     public function run(): void
     {
-        $superAdmin = User::where('role', 'super_admin')->first() ?? User::first();
+        $superAdmin = User::role('super_admin')->first() ?? User::first();
         if (!$superAdmin) {
             return;
         }
@@ -42,7 +42,7 @@ class WorkOsExpansionSeeder extends Seeder
                     'user_id' => $user->id,
                 ],
                 [
-                    'role' => $user->role === 'super_admin' ? 'owner' : ($user->role === 'admin_manager' ? 'admin' : 'member'),
+                    'role' => $user->primaryRoleName() === 'super_admin' ? 'owner' : ($user->primaryRoleName() === 'admin_manager' ? 'admin' : 'member'),
                 ]
             );
         }

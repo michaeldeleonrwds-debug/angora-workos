@@ -48,7 +48,7 @@ class WorkspacePolicy
      */
     public function create(User $user): bool
     {
-        return in_array($user->role, ['super_admin', 'admin', 'project_manager', 'account_manager'], true);
+        return in_array($user->primaryRoleName(), ['super_admin', 'admin', 'project_manager', 'account_manager'], true);
     }
 
     /**
@@ -56,7 +56,7 @@ class WorkspacePolicy
      */
     public function update(User $user, Workspace $workspace): bool
     {
-        if ($user->role === 'designer') {
+        if ($user->primaryRoleName() === 'designer') {
             return false;
         }
 
@@ -73,7 +73,7 @@ class WorkspacePolicy
      */
     public function delete(User $user, Workspace $workspace): bool
     {
-        if ($user->role === 'designer') {
+        if ($user->primaryRoleName() === 'designer') {
             return false;
         }
 
@@ -85,7 +85,7 @@ class WorkspacePolicy
      */
     public function manageMembers(User $user, Workspace $workspace): bool
     {
-        if ($user->role === 'designer') {
+        if ($user->primaryRoleName() === 'designer') {
             return false;
         }
 

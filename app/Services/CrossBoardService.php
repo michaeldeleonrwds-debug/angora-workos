@@ -27,7 +27,8 @@ class CrossBoardService
             ->where('is_visible', true)
             ->get();
 
-        if ($mirrorColumns->isEmpty() || $tasks->isEmpty()) {
+        if ($mirrorColumns->isEmpty() || $tasks->isEmpty()
+            || ($currentUser && ! $currentUser->can('view', $board))) {
             return [];
         }
 
@@ -61,8 +62,8 @@ class CrossBoardService
                     $targetTask = $rel->targetTask;
                     if (!$targetTask) return null;
 
-                    // If user is restricted and cannot view target board
-                    if ($currentUser && !$currentUser->isSuperAdmin() && !$currentUser->hasPermission('kanban.view')) {
+                    // A module permission never grants access to another board's task.
+                    if ($currentUser && ! $currentUser->can('view', $targetTask)) {
                         return null;
                     }
 

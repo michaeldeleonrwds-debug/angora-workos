@@ -4,6 +4,9 @@ namespace Database\Seeders;
 
 use App\Models\Permission;
 use App\Models\RolePermission;
+use App\Models\RbacPermission;
+use App\Models\RbacRole;
+use App\Support\RbacCapabilityCatalog;
 use Illuminate\Database\Seeder;
 
 class RbacSeeder extends Seeder
@@ -123,6 +126,13 @@ class RbacSeeder extends Seeder
             ],
         ];
 
+        // Seed historical defaults once. Re-running the seeder must not restore
+        // a permission that an administrator deliberately revoked later.
+        $rolesNeedingDefaults = [];
+        foreach (array_keys($rolePermissionMap) as $roleName) {
+            $rolesNeedingDefaults[$roleName] = ! RolePermission::where('role', $roleName)->exists();
+        }
+
         foreach ($rolePermissionMap as $role => $perms) {
             foreach ($perms as $permName) {
                 $permission = Permission::where('name', $permName)->first();
@@ -134,5 +144,56 @@ class RbacSeeder extends Seeder
                 }
             }
         }
+
+        // Keep the legacy catalog intact while seeding the authoritative Spatie catalog.
+        foreach ($permissions as $definition) {
+            RbacPermission::updateOrCreate(
+                ['name' => $definition['name'], 'guard_name' => 'web'],
+                $definition + [
+                    'guard_name' => 'web',
+                    'is_protected' => $definition['name'] === 'rbac.manage',
+                    'is_delegable' => $definition['name'] !== 'rbac.manage',
+                ]
+            );
+        }
+        foreach (['permissions.manage', 'system.settings.manage'] as $name) {
+            RbacPermission::firstOrCreate(
+                ['name' => $name, 'guard_name' => 'web'],
+                ['label' => $name, 'department' => 'System', 'is_protected' => true, 'is_delegable' => false]
+            );
+        }
+        foreach (RbacCapabilityCatalog::workOs() as $name => $capability) {
+            RbacPermission::firstOrCreate(
+                ['name' => $name, 'guard_name' => 'web'],
+                ['label' => $capability['label'], 'department' => 'Work OS', 'is_protected' => false, 'is_delegable' => true]
+            );
+        }
+
+        foreach (array_unique(array_merge(array_keys($rolePermissionMap), [
+            'super_admin', 'admin', 'project_manager', 'account_manager',
+            'employee', 'designer', 'developer', 'client', 'guest',
+        ])) as $name) {
+            RbacRole::firstOrCreate(
+                ['name' => $name, 'guard_name' => 'web'],
+                ['is_system' => true, 'is_protected' => in_array($name, ['super_admin', 'admin'], true)]
+            );
+        }
+
+        foreach ($rolePermissionMap as $name => $grants) {
+            if (! $rolesNeedingDefaults[$name]) {
+                continue;
+            }
+            $role = RbacRole::findByName($name, 'web');
+            foreach ($grants as $grant) {
+                if ($grant !== 'rbac.manage') {
+                    $role->givePermissionTo($grant);
+                }
+            }
+        }
+        $superAdmin = RbacRole::findByName('super_admin', 'web');
+        foreach (RbacPermission::all() as $permission) {
+            $superAdmin->givePermissionTo($permission);
+        }
+        RbacRole::findByName('admin', 'web')->givePermissionTo('rbac.manage');
     }
 }

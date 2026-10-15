@@ -3,6 +3,8 @@
 namespace App\Policies;
 
 use App\Models\User;
+use App\Models\RbacRole;
+use App\Services\Authorization\RbacGovernanceService;
 
 class UserPolicy
 {
@@ -15,10 +17,6 @@ class UserPolicy
             return false;
         }
 
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
         return null;
     }
 
@@ -27,7 +25,7 @@ class UserPolicy
      */
     public function viewAny(User $user): bool
     {
-        return in_array($user->role, ['super_admin', 'admin', 'project_manager', 'account_manager'], true);
+        return $user->hasPermission('workos.users.view');
     }
 
     /**
@@ -39,7 +37,7 @@ class UserPolicy
             return true;
         }
 
-        return in_array($user->role, ['super_admin', 'admin', 'project_manager', 'account_manager'], true);
+        return $user->hasPermission('workos.users.view');
     }
 
     /**
@@ -47,7 +45,7 @@ class UserPolicy
      */
     public function create(User $user): bool
     {
-        return in_array($user->role, ['super_admin', 'admin'], true);
+        return app(RbacGovernanceService::class)->canManage($user);
     }
 
     /**
@@ -61,25 +59,21 @@ class UserPolicy
         }
 
         // Admins cannot edit Super Admins
-        if ($model->isSuperAdmin() && !$user->isSuperAdmin()) {
+        if ($model->hasAnyRole('super_admin', 'admin') && !$user->isSuperAdmin()) {
             return false;
         }
 
-        return in_array($user->role, ['super_admin', 'admin'], true);
+        return app(RbacGovernanceService::class)->canManage($user);
     }
 
     /**
      * Determine whether the user can assign roles (prevent privilege escalation).
      */
-    public function assignRole(User $user, string $targetRole): bool
+    public function assignRole(User $user, string $targetRole, ?User $targetUser = null): bool
     {
-        // Only Super Admin can assign super_admin role
-        if ($targetRole === 'super_admin') {
-            return $user->isSuperAdmin();
-        }
+        $role = RbacRole::findByName($targetRole, 'web');
 
-        // Admin can assign other roles, but not super_admin
-        return in_array($user->role, ['super_admin', 'admin'], true);
+        return app(RbacGovernanceService::class)->canAssignRole($user, $role, $targetUser);
     }
 
     /**
@@ -93,11 +87,11 @@ class UserPolicy
         }
 
         // Cannot suspend super admin unless super admin
-        if ($model->isSuperAdmin() && !$user->isSuperAdmin()) {
+        if ($model->hasAnyRole('super_admin', 'admin') && !$user->isSuperAdmin()) {
             return false;
         }
 
-        return in_array($user->role, ['super_admin', 'admin'], true);
+        return app(RbacGovernanceService::class)->canManage($user);
     }
 
     /**

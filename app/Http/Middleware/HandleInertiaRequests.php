@@ -78,12 +78,18 @@ class HandleInertiaRequests extends Middleware
             'quote' => ['message' => trim($message), 'author' => trim($author)],
             'auth' => [
                 'user' => $user ? array_merge($user->toArray(), [
-                    'permissions' => $user->getAllPermissions(),
+                    'permissions' => $user->getAllPermissions()->pluck('name')->all(),
                 ]) : null,
+                'capabilities' => $user ? [
+                    'canManageUsers' => $user->can('create', \App\Models\User::class),
+                    'canManageRbac' => app(\App\Services\Authorization\RbacGovernanceService::class)->canManage($user),
+                ] : [],
             ],
             'unreadNotificationsCount' => $user ? \App\Models\SystemNotification::where('user_id', $user->id)->where('is_read', false)->count() : 0,
             'recentNotifications' => $user ? \App\Models\SystemNotification::with('actor:id,name,avatar,avatar_url')->where('user_id', $user->id)->latest()->take(10)->get() : [],
-            'availablePersonas' => \App\Models\User::select('id', 'name', 'email', 'role', 'department')->orderBy('id')->get(),
+            'availablePersonas' => app()->environment('local', 'testing') && $user?->isSuperAdmin()
+                ? \App\Models\User::select('id', 'name', 'email', 'department')->orderBy('id')->get()
+                : [],
             'userWorkspaces' => $userWorkspaces,
             'activeWorkspaceId' => $activeWorkspaceId,
         ]);

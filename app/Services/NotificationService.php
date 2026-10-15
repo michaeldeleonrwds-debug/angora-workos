@@ -116,7 +116,7 @@ class NotificationService
 
         if (!$targetUser) {
             // Find an admin or project manager
-            $targetUser = User::whereIn('role', ['super_admin', 'admin', 'project_manager'])
+            $targetUser = User::role(['super_admin', 'admin', 'project_manager'])
                 ->where('id', '!=', $actor->id)
                 ->first();
         }

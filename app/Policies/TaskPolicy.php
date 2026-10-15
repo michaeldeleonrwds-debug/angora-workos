@@ -18,10 +18,6 @@ class TaskPolicy
             return false;
         }
 
-        if ($user->isSuperAdmin()) {
-            return true;
-        }
-
         return null;
     }
 
@@ -40,7 +36,7 @@ class TaskPolicy
         }
 
         // Clients must be assigned or have explicit access to client-visible tasks
-        if ($user->role === 'client') {
+        if ($user->primaryRoleName() === 'client') {
             return $task->isAssignedTo($user) || $task->created_by === $user->id;
         }
 
@@ -52,8 +48,7 @@ class TaskPolicy
      */
     public function create(User $user, $boardOrTask = null): bool
     {
-        // Production contributors and external roles cannot create arbitrary tasks
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.tasks.create')) {
             return false;
         }
 
@@ -72,7 +67,7 @@ class TaskPolicy
             }
         }
 
-        return in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true);
+        return true;
     }
 
     /**
@@ -85,20 +80,11 @@ class TaskPolicy
             return false;
         }
 
-        // Clients/Guests cannot update arbitrary tasks unless assigned
-        if (in_array($user->role, ['client', 'guest', 'external_user'], true)) {
-            return $task->isAssignedTo($user) || $task->created_by === $user->id;
-        }
-
-        // Contributor roles (designer, developer, dept_user, employee) can ONLY update tasks they are assigned to (unless workspace owner or board creator)
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
-            if ($board->workspace && (int) $board->workspace->owner_id === (int) $user->id) {
+        if (! $user->hasPermission('workos.tasks.update')) {
+            if ($user->hasPermission('workos.boards.manage') && $user->can('update', $board)) {
                 return true;
             }
-            if ((int) $board->created_by === (int) $user->id) {
-                return true;
-            }
-            return $task->isAssignedTo($user);
+            return $user->hasPermission('workos.tasks.update.assigned') && $task->isAssignedTo($user);
         }
 
         // Board viewers cannot edit tasks unless assigned
@@ -108,9 +94,7 @@ class TaskPolicy
         }
 
         // Admin, PM, AM or authorized board members can update
-        return in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true)
-            || ($boardMember && in_array($boardMember->role, ['owner', 'admin', 'editor'], true))
-            || $board->created_by === $user->id;
+        return true;
     }
 
     /**
@@ -118,8 +102,7 @@ class TaskPolicy
      */
     public function delete(User $user, KanbanTask $task): bool
     {
-        // Contributors and external users can never delete tasks
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.tasks.delete')) {
             return false;
         }
 
@@ -128,15 +111,7 @@ class TaskPolicy
             return false;
         }
 
-        if (in_array($user->role, ['admin', 'admin_manager', 'project_manager'], true)) {
-            return true;
-        }
-
-        if ($user->role === 'account_manager' && ($task->created_by === $user->id || $board->created_by === $user->id)) {
-            return true;
-        }
-
-        return $user->can('update', $board);
+        return true;
     }
 
     /**
@@ -148,19 +123,21 @@ class TaskPolicy
             return false;
         }
 
-        if ($user->isSuperAdmin() || in_array($user->role, ['admin', 'admin_manager', 'project_manager'], true)) {
-            return true;
+        $board = $task->board;
+        if (! $board || ! $user->can('view', $board)) {
+            return false;
         }
-
-        if ($user->role === 'account_manager') {
-            return $this->update($user, $task);
+        if ($targetColumn && ((int) $targetColumn->board_id !== (int) $board->id || $targetColumn->is_archived)) {
+            return false;
         }
-
-        if (in_array($user->role, ['client', 'guest', 'external_user'], true)) {
+        if ($targetColumn && $task->is_blocked && in_array($targetColumn->semantic_category, ['in_progress', 'in_review', 'completed'], true)) {
             return false;
         }
 
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
+        if ($user->hasPermission('workos.tasks.move.any')) {
+            return true;
+        }
+        if ($user->hasPermission('workos.tasks.move.assigned')) {
             return $this->canMoveAssignedTask($user, $task, $targetColumn);
         }
 
@@ -176,8 +153,7 @@ class TaskPolicy
             return false;
         }
 
-        // Must be assigned to this user
-        if (!$task->isAssignedTo($user)) {
+        if (! $user->hasPermission('workos.tasks.move.assigned') || !$task->isAssignedTo($user)) {
             return false;
         }
 
@@ -232,11 +208,14 @@ class TaskPolicy
             return false;
         }
 
-        if ($user->isSuperAdmin() || in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true)) {
-            return true;
+        if (! $task->board || ! $user->can('view', $task->board)) {
+            return false;
         }
 
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
+        if ($user->hasPermission('workos.tasks.move.any')) {
+            return true;
+        }
+        if ($user->hasPermission('workos.tasks.move.assigned')) {
             return $task->isAssignedTo($user);
         }
 
@@ -248,7 +227,7 @@ class TaskPolicy
      */
     public function changeGroup(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
+        if (in_array($user->primaryRoleName(), ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
             return false;
         }
 
@@ -260,11 +239,11 @@ class TaskPolicy
      */
     public function manageDependencies(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
+        if (in_array($user->primaryRoleName(), ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
             return false;
         }
 
-        return in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true)
+        return in_array($user->primaryRoleName(), ['super_admin', 'admin', 'admin_manager', 'project_manager', 'account_manager'], true)
             && $this->update($user, $task);
     }
 
@@ -273,11 +252,11 @@ class TaskPolicy
      */
     public function manageRecurrence(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
+        if (in_array($user->primaryRoleName(), ['designer', 'developer', 'dept_user', 'employee', 'client', 'guest', 'external_user'], true)) {
             return false;
         }
 
-        return in_array($user->role, ['admin', 'admin_manager', 'project_manager', 'account_manager'], true)
+        return in_array($user->primaryRoleName(), ['super_admin', 'admin', 'admin_manager', 'project_manager', 'account_manager'], true)
             && $this->update($user, $task);
     }
 
@@ -286,11 +265,11 @@ class TaskPolicy
      */
     public function manageSubtasks(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['client', 'guest', 'external_user'], true)) {
+        if (! $user->hasPermission('workos.tasks.review.submit')) {
             return false;
         }
 
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
+        if (in_array($user->primaryRoleName(), ['designer', 'developer', 'dept_user', 'employee'], true)) {
             return $task->isAssignedTo($user);
         }
 
@@ -302,7 +281,10 @@ class TaskPolicy
      */
     public function submitReview(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->role, ['client', 'guest', 'external_user'], true)) {
+        if (! $this->view($user, $task)) {
+            return false;
+        }
+        if (in_array($user->primaryRoleName(), ['client', 'guest', 'external_user'], true)) {
             return false;
         }
 
@@ -318,44 +300,21 @@ class TaskPolicy
      */
     public function reviewTask(User $user, KanbanTask $task): bool
     {
-        if ($user->isSuperAdmin()) {
-            return true;
+        if (in_array($user->primaryRoleName(), ['client', 'external_user'], true)) {
+            $board = $task->board;
+            if (! $board || ! $user->can('view', $board)) {
+                return false;
+            }
+            $activeCycle = $task->reviewCycles()->where('state', 'pending')->latest('round_number')->first();
+            $currentStage = $activeCycle?->stages()->where('stage_index', $activeCycle->current_stage_index ?? 1)->first();
+
+            return $currentStage?->required_role === 'client';
         }
 
-        // Contributors can NEVER approve/review tasks (strict self-review prevention)
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
+        if (! $this->view($user, $task)) {
             return false;
         }
 
-        // PM and Admin can review internal stages
-        if (in_array($user->role, ['admin', 'admin_manager', 'project_manager'], true)) {
-            return true;
-        }
-
-        // Account Manager can review client liaison and account stages
-        if ($user->role === 'account_manager') {
-            return true;
-        }
-
-        $board = $task->board;
-        if ($board && $board->created_by === $user->id) {
-            return true;
-        }
-
-        $boardMember = $board?->members()->where('user_id', $user->id)->first();
-        if ($boardMember && in_array($boardMember->role, ['owner', 'admin'], true)) {
-            return true;
-        }
-
-        // Client / external users can review if the active stage specifies client required_role
-        if (in_array($user->role, ['client', 'external_user'], true)) {
-            $activeCycle = $task->reviewCycles()->where('state', 'pending')->latest('round_number')->first();
-            $currentStage = $activeCycle?->stages()->where('stage_index', $activeCycle->current_stage_index ?? 1)->first();
-            if ($currentStage && $currentStage->required_role === 'client') {
-                return true;
-            }
-        }
-
-        return false;
+        return $user->hasPermission('workos.tasks.review.decide');
     }
 }

@@ -26,7 +26,7 @@ class AngoraWorkOsDemoSeeder extends Seeder
      */
     public function run(): void
     {
-        $admin = User::where('role', 'super_admin')->first() ?? User::first();
+        $admin = User::role('super_admin')->first() ?? User::first();
         if (!$admin) {
             return;
         }
@@ -92,11 +92,13 @@ class AngoraWorkOsDemoSeeder extends Seeder
                 [
                     'name' => $uDef['name'],
                     'password' => bcrypt('password123'),
-                    'role' => $uDef['role'],
                     'department' => $uDef['department'],
                     'status' => 'active',
                 ]
             );
+            if ($user->roles()->doesntExist()) {
+                $user->assignRole($uDef['role']);
+            }
             $users[$key] = $user;
         }
 
@@ -124,7 +126,7 @@ class AngoraWorkOsDemoSeeder extends Seeder
         foreach ($allUsers as $u) {
             WorkspaceMember::firstOrCreate(
                 ['workspace_id' => $workspace->id, 'user_id' => $u->id],
-                ['role' => $u->role === 'super_admin' ? 'owner' : 'member']
+                ['role' => $u->primaryRoleName() === 'super_admin' ? 'owner' : 'member']
             );
         }
 
@@ -381,7 +383,7 @@ class AngoraWorkOsDemoSeeder extends Seeder
         foreach ($allUsers as $u) {
             WorkspaceMember::firstOrCreate(
                 ['workspace_id' => $workspace->id, 'user_id' => $u->id],
-                ['role' => $u->role === 'super_admin' ? 'owner' : 'member']
+                ['role' => $u->primaryRoleName() === 'super_admin' ? 'owner' : 'member']
             );
         }
 

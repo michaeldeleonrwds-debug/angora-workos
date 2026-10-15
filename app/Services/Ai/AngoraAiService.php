@@ -84,7 +84,7 @@ class AngoraAiService
 
         $context = [
             'user_name' => $user->name,
-            'user_role' => $user->role ?? 'member',
+            'user_role' => $user->primaryRoleName() ?? 'member',
             'is_client' => $isExternalUser,
             'projects_count' => $projects->count(),
             'tasks_count' => $tasks->count(),
@@ -151,7 +151,7 @@ class AngoraAiService
             . "You assist teams with agency projects, kanban boards, tasks, workdocs, and automations. "
             . "Always be professional, concise, structured, and helpful. "
             . "Never invent unauthorized data or bypass permissions. "
-            . "Authorized User: {$user->name} ({$user->role}). Workspace: {$conversation->workspace_id}.";
+            . "Authorized User: {$user->name} ({$user->primaryRoleName()}). Workspace: {$conversation->workspace_id}.";
 
         // 3. Complete with AI Provider
         $result = $this->providerService->generateCompletion(

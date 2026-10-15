@@ -311,7 +311,7 @@ HTML;
             return [
                 'name' => $u->name,
                 'email' => $u->email,
-                'role' => ucfirst(str_replace('_', ' ', $u->role)),
+                'role' => ucfirst(str_replace('_', ' ', $u->primaryRoleName())),
                 'active_tasks' => $u->assigned_tasks_count,
                 'status' => $status,
             ];

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -15,6 +16,22 @@ class UserFactory extends Factory
      * The current password being used by the factory.
      */
     protected static ?string $password;
+
+    public function create($attributes = [], ?Model $parent = null)
+    {
+        // The factory's role input is an instruction to Spatie, never a users.role write.
+        $role = $attributes['role'] ?? 'team_member';
+        unset($attributes['role']);
+
+        $created = parent::create($attributes, $parent);
+        if ($created instanceof \Illuminate\Support\Collection) {
+            $created->each(fn ($user) => $user->syncRoles([$role]));
+        } else {
+            $created->syncRoles([$role]);
+        }
+
+        return $created;
+    }
 
     /**
      * Define the model's default state.

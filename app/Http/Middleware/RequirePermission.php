@@ -21,14 +21,14 @@ class RequirePermission
             return redirect()->route('login');
         }
 
-        if (! $user->hasPermission($permission)) {
+        if ($user->status !== 'active' || ! $user->hasPermission($permission)) {
             if ($request->wantsJson()) {
                 return response()->json([
-                    'message' => "Forbidden: Your role '{$user->role}' lacks required permission '{$permission}'.",
+                    'message' => "Forbidden: Your role '{$user->primaryRoleName()}' lacks required permission '{$permission}'.",
                 ], 403);
             }
 
-            abort(403, "Access Denied: Your role '{$user->role}' does not have the required permission '{$permission}' to access this module.");
+            abort(403, "Access Denied: Your role '{$user->primaryRoleName()}' does not have the required permission '{$permission}' to access this module.");
         }
 
         return $next($request);

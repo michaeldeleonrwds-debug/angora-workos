@@ -51,7 +51,7 @@ class DashboardAnalyticsService
 
         // Department-specific / Financial / HR metrics with permission checks
         if (str_starts_with($metric, 'finance_')) {
-            if (!$user->hasPermission('finance.view') && $user->role !== 'super_admin') {
+            if (!$user->hasPermission('finance.view') && $user->primaryRoleName() !== 'super_admin') {
                 return [
                     'value' => 'N/A',
                     'label' => 'Restricted',
@@ -80,7 +80,7 @@ class DashboardAnalyticsService
         }
 
         if (str_starts_with($metric, 'hr_')) {
-            if (!$user->hasPermission('hr.view') && $user->role !== 'super_admin') {
+            if (!$user->hasPermission('hr.view') && $user->primaryRoleName() !== 'super_admin') {
                 return [
                     'value' => 'N/A',
                     'label' => 'Restricted',

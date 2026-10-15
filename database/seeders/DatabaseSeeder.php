@@ -40,6 +40,11 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RbacSeeder::class);
 
+        // This is a demo-data seeder. Never duplicate or overwrite its existing personas.
+        if (User::where('email', 'super_admin@angora.internal')->exists()) {
+            return;
+        }
+
         // 1. Create the 10 User Personas from the System Architecture Overview
         $password = Hash::make('password123');
 
@@ -48,7 +53,6 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Alexander Vance',
                 'email' => 'super_admin@angora.internal',
                 'password' => $password,
-                'role' => 'super_admin',
                 'department' => 'Executive',
                 'phone' => '+1 (555) 010-0001',
                 'status' => 'active',
@@ -57,7 +61,6 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Elena Rostova',
                 'email' => 'admin.manager@angora.internal',
                 'password' => $password,
-                'role' => 'admin_manager',
                 'department' => 'Operations',
                 'phone' => '+1 (555) 010-0002',
                 'status' => 'active',
@@ -66,7 +69,6 @@ class DatabaseSeeder extends Seeder
                 'name' => 'David Chen',
                 'email' => 'dept.user@angora.internal',
                 'password' => $password,
-                'role' => 'dept_user',
                 'department' => 'Engineering',
                 'phone' => '+1 (555) 010-0003',
                 'status' => 'active',
@@ -75,7 +77,6 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Sarah Jenkins',
                 'email' => 'hr.staff@angora.internal',
                 'password' => $password,
-                'role' => 'hr_staff',
                 'department' => 'Human Resources',
                 'phone' => '+1 (555) 010-0004',
                 'status' => 'active',
@@ -84,7 +85,6 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Marcus Brody',
                 'email' => 'production.staff@angora.internal',
                 'password' => $password,
-                'role' => 'production_staff',
                 'department' => 'Production & QC',
                 'phone' => '+1 (555) 010-0005',
                 'status' => 'active',
@@ -93,7 +93,6 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Rachel Sterling',
                 'email' => 'sales.staff@angora.internal',
                 'password' => $password,
-                'role' => 'sales_staff',
                 'department' => 'Sales',
                 'phone' => '+1 (555) 010-0006',
                 'status' => 'active',
@@ -102,7 +101,6 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Liam Gallagher',
                 'email' => 'marketing.staff@angora.internal',
                 'password' => $password,
-                'role' => 'marketing_staff',
                 'department' => 'Marketing',
                 'phone' => '+1 (555) 010-0007',
                 'status' => 'active',
@@ -111,7 +109,6 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Sophia Martinez',
                 'email' => 'finance.staff@angora.internal',
                 'password' => $password,
-                'role' => 'finance_staff',
                 'department' => 'Finance',
                 'phone' => '+1 (555) 010-0008',
                 'status' => 'active',
@@ -120,7 +117,6 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Julian Alvarez',
                 'email' => 'team.member@angora.internal',
                 'password' => $password,
-                'role' => 'team_member',
                 'department' => 'General Staff',
                 'phone' => '+1 (555) 010-0009',
                 'status' => 'active',
@@ -129,12 +125,15 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Aria Thorne',
                 'email' => 'external.user@angora.internal',
                 'password' => $password,
-                'role' => 'external_user',
                 'department' => 'Partner / Client',
                 'phone' => '+1 (555) 010-0010',
                 'status' => 'active',
             ]),
         ];
+
+        foreach ($users as $role => $user) {
+            $user->assignRole($role);
+        }
 
         // 2. Notifications & Initial Audit Logs
         SystemNotification::create([
