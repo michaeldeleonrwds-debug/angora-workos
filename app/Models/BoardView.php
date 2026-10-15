@@ -14,12 +14,14 @@ class BoardView extends Model
         'name',
         'type',
         'is_default',
+        'is_system',
         'settings',
         'position',
     ];
 
     protected $casts = [
         'is_default' => 'boolean',
+        'is_system' => 'boolean',
         'settings' => 'array',
         'position' => 'integer',
     ];

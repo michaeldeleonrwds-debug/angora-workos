@@ -30,6 +30,7 @@ import { BoardPermissions, getTaskAssignedUsers, isUserAssignedToTask, KanbanBoa
 
 interface KanbanBoardViewProps {
     board: KanbanBoard;
+    viewSettings?: Record<string, any> | null;
     searchTerm: string;
     personFilter: string;
     priorityFilter: string;
@@ -42,6 +43,7 @@ interface KanbanBoardViewProps {
 
 export default function KanbanBoardView({
     board,
+    viewSettings,
     searchTerm,
     personFilter,
     priorityFilter,

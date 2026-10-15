@@ -7,6 +7,7 @@ import { isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
 interface CalendarViewProps {
     board: KanbanBoard;
+    viewSettings?: Record<string, any> | null;
     searchTerm: string;
     personFilter: string;
     priorityFilter: string;
@@ -18,6 +19,7 @@ interface CalendarViewProps {
 
 export default function CalendarView({
     board,
+    viewSettings,
     searchTerm,
     personFilter,
     priorityFilter,
@@ -29,7 +31,9 @@ export default function CalendarView({
     const { auth } = usePage<any>().props;
     const currentUserId = auth?.user?.id;
     const [currentDate, setCurrentDate] = useState(() => new Date());
-    const [calendarMode, setCalendarMode] = useState<'month' | 'week'>('month');
+    const [calendarMode, setCalendarMode] = useState<'month' | 'week'>(() =>
+        viewSettings?.calendarMode === 'week' ? 'week' : viewSettings?.calendarMode === 'month' ? 'month' : 'month',
+    );
 
     // Extract all board items
     const allTasks = (board.groups || [])

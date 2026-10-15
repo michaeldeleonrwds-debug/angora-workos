@@ -13,6 +13,7 @@ import TableRow from './TableRow';
 
 interface TableViewProps {
     board: KanbanBoard;
+    viewSettings?: Record<string, any> | null;
     searchTerm: string;
     personFilter: string;
     priorityFilter: string;
@@ -26,6 +27,7 @@ interface TableViewProps {
 
 export default function TableView({
     board,
+    viewSettings,
     searchTerm,
     personFilter,
     priorityFilter,

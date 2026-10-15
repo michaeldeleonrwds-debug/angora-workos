@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { showToast } from '@/components/toast';
 import { router } from '@inertiajs/react';
 import {
     AlertCircle,
@@ -16,6 +17,8 @@ import {
     Check,
     CheckCircle2,
     ChevronDown,
+    ChevronLeft,
+    ChevronRight,
     Clock,
     Columns3,
     Copy,
@@ -32,6 +35,7 @@ import {
     MoreHorizontal,
     MoreVertical,
     Paperclip,
+    Pencil,
     Plus,
     Search,
     Settings,
@@ -54,8 +58,8 @@ interface BoardUnifiedHeaderProps {
     boards: KanbanBoard[];
     activeBoard: KanbanBoard;
     users: User[];
-    activeTab: string;
-    onTabChange: (tab: string) => void;
+    activeViewId: number | null;
+    onViewSelect: (viewId: number) => void;
     searchTerm: string;
     onSearchChange: (val: string) => void;
     personFilter: string;
@@ -77,8 +81,8 @@ export default function BoardUnifiedHeader({
     boards = [],
     activeBoard,
     users = [],
-    activeTab,
-    onTabChange,
+    activeViewId,
+    onViewSelect,
     searchTerm,
     onSearchChange,
     personFilter,
@@ -117,6 +121,10 @@ export default function BoardUnifiedHeader({
     const [newViewType, setNewViewType] = useState<string>('table');
     const [selectedFolder, setSelectedFolder] = useState<string>('all');
 
+    const [isRenameViewOpen, setIsRenameViewOpen] = useState(false);
+    const [renamingView, setRenamingView] = useState<BoardView | null>(null);
+    const [renameViewName, setRenameViewName] = useState('');
+
     // Boards belonging to active workspace
     const currentWorkspaceBoards = boards.filter((b) => !b.workspace_id || b.workspace_id === activeWorkspace?.id);
     const availableFolders = Array.from(new Set(currentWorkspaceBoards.map((b) => b.folder_name).filter(Boolean) as string[]));
@@ -125,27 +133,24 @@ export default function BoardUnifiedHeader({
         return b.folder_name === selectedFolder;
     });
 
-    // Available Views
+    // Available Views, rendered in saved position order (P2-02 — no fixed type sort)
     const views: BoardView[] =
         activeBoard.views && activeBoard.views.length > 0
-            ? activeBoard.views
+            ? [...activeBoard.views].sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
             : [
-                  { id: 1, board_id: activeBoard.id, name: 'Main Table', type: 'table', is_default: true, position: 0 },
-                  { id: 2, board_id: activeBoard.id, name: 'Kanban', type: 'kanban', is_default: false, position: 1 },
-                  { id: 3, board_id: activeBoard.id, name: 'Calendar', type: 'calendar', is_default: false, position: 2 },
-                  { id: 4, board_id: activeBoard.id, name: 'Gantt', type: 'gantt', is_default: false, position: 3 },
-                  { id: 5, board_id: activeBoard.id, name: 'Workload', type: 'workload', is_default: false, position: 4 },
-                  { id: 6, board_id: activeBoard.id, name: 'Chart', type: 'chart', is_default: false, position: 5 },
-                  { id: 7, board_id: activeBoard.id, name: 'Files', type: 'files', is_default: false, position: 6 },
-                  { id: 8, board_id: activeBoard.id, name: 'Gallery', type: 'gallery', is_default: false, position: 7 },
+                  { id: 1, board_id: activeBoard.id, name: 'Main Table', type: 'table', is_default: true, is_system: true, position: 0 },
+                  { id: 2, board_id: activeBoard.id, name: 'Kanban', type: 'kanban', is_default: false, is_system: true, position: 1 },
+                  { id: 3, board_id: activeBoard.id, name: 'Calendar', type: 'calendar', is_default: false, is_system: true, position: 2 },
+                  { id: 4, board_id: activeBoard.id, name: 'Gantt', type: 'gantt', is_default: false, is_system: true, position: 3 },
+                  { id: 5, board_id: activeBoard.id, name: 'Workload', type: 'workload', is_default: false, is_system: true, position: 4 },
+                  { id: 6, board_id: activeBoard.id, name: 'Chart', type: 'chart', is_default: false, is_system: true, position: 5 },
+                  { id: 7, board_id: activeBoard.id, name: 'Files', type: 'files', is_default: false, is_system: true, position: 6 },
+                  { id: 8, board_id: activeBoard.id, name: 'Gallery', type: 'gallery', is_default: false, is_system: true, position: 7 },
               ];
 
-    // Primary Views pinned on navigation bar in specific required order: Main Table, Production Kanban, Timeline Overview, Production Calendar
-    const primaryViewOrder = ['table', 'kanban', 'timeline', 'gantt', 'calendar'];
-    const pinnedViews = views
-        .filter((v) => primaryViewOrder.includes(v.type))
-        .sort((a, b) => primaryViewOrder.indexOf(a.type) - primaryViewOrder.indexOf(b.type));
-    const moreViews = views.filter((v) => !primaryViewOrder.includes(v.type));
+    const canManageViews = permissions?.canManageColumns !== false;
+    const isViewDeletable = (v: BoardView) => !v.is_system && views.length > 1;
+    const isViewReorderable = (v: BoardView) => !v.is_system;
 
     const getFormattedViewName = (v: BoardView) => {
         if (v.type === 'kanban') {
@@ -361,7 +366,34 @@ export default function BoardUnifiedHeader({
                 onSuccess: () => {
                     setIsAddViewModalOpen(false);
                     setNewViewName('');
-                    onTabChange(newViewType);
+                },
+                onError: () => {
+                    showToast({ title: 'Could not create view', variant: 'error' });
+                },
+            },
+        );
+    };
+
+    const handleOpenRenameView = (view: BoardView, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setRenamingView(view);
+        setRenameViewName(view.name);
+        setIsRenameViewOpen(true);
+    };
+
+    const handleRenameView = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!renamingView || !renameViewName.trim()) return;
+        router.patch(
+            `/kanban/views/${renamingView.id}`,
+            { name: renameViewName.trim() },
+            {
+                onSuccess: () => {
+                    setIsRenameViewOpen(false);
+                    setRenamingView(null);
+                },
+                onError: () => {
+                    showToast({ title: 'Could not rename view', variant: 'error' });
                 },
             },
         );
@@ -369,23 +401,121 @@ export default function BoardUnifiedHeader({
 
     const handleDeleteView = (view: BoardView, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (confirm(`Delete view "${view.name}"?`)) {
-            router.delete(`/kanban/views/${view.id}`, {
-                onSuccess: () => {
-                    if (activeTab === view.type) {
-                        onTabChange('table');
-                    }
-                },
-            });
+        if (!confirm(`Delete view "${view.name}"? Tasks, columns, groups, comments and attachments are not affected.`)) {
+            return;
         }
+        router.delete(`/kanban/views/${view.id}`, {
+            onError: () => {
+                showToast({ title: 'Could not delete view', variant: 'error' });
+            },
+        });
     };
 
     const handleSetDefaultView = (view: BoardView, e: React.MouseEvent) => {
         e.stopPropagation();
-        router.patch(`/kanban/views/${view.id}`, {
-            is_default: true,
-        });
+        router.patch(
+            `/kanban/views/${view.id}`,
+            { is_default: true },
+            {
+                onError: () => {
+                    showToast({ title: 'Could not set default view', variant: 'error' });
+                },
+            },
+        );
     };
+
+    const handleMoveView = (view: BoardView, direction: -1 | 1, e: React.MouseEvent) => {
+        e.stopPropagation();
+        const ordered = [...views].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        const from = ordered.findIndex((v) => v.id === view.id);
+        const to = from + direction;
+        if (from < 0 || to < 0 || to >= ordered.length) return;
+        const [moved] = ordered.splice(from, 1);
+        ordered.splice(to, 0, moved);
+        router.post(
+            `/kanban/boards/${activeBoard.id}/views/reorder`,
+            { view_ids: ordered.map((v) => v.id) },
+            {
+                onError: () => {
+                    showToast({ title: 'Could not reorder views', variant: 'error' });
+                },
+            },
+        );
+    };
+
+    const getViewMenu = (v: BoardView) => (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button
+                    type="button"
+                    title="View actions"
+                    onClick={(e) => e.stopPropagation()}
+                    className="rounded p-0.5 text-slate-400 transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+                >
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-44 rounded-xl p-1 text-xs shadow-lg">
+                {canManageViews && (
+                    <>
+                        <DropdownMenuItem
+                            onClick={(e) => handleOpenRenameView(v, e)}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium"
+                        >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Rename
+                        </DropdownMenuItem>
+                        {isViewReorderable(v) && (
+                            <>
+                                <DropdownMenuItem
+                                    disabled={views.findIndex((x) => x.id === v.id) <= 0}
+                                    onClick={(e) => handleMoveView(v, -1, e)}
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium"
+                                >
+                                    <ChevronLeft className="h-3.5 w-3.5" />
+                                    Move Left
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    disabled={views.findIndex((x) => x.id === v.id) >= views.length - 1}
+                                    onClick={(e) => handleMoveView(v, 1, e)}
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium"
+                                >
+                                    <ChevronRight className="h-3.5 w-3.5" />
+                                    Move Right
+                                </DropdownMenuItem>
+                            </>
+                        )}
+                        {!v.is_default && (
+                            <DropdownMenuItem
+                                onClick={(e) => handleSetDefaultView(v, e)}
+                                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium"
+                            >
+                                <Star className="h-3.5 w-3.5" />
+                                Set as Default
+                            </DropdownMenuItem>
+                        )}
+                        {isViewDeletable(v) && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    onClick={(e) => handleDeleteView(v, e)}
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium text-rose-600 focus:text-rose-600 dark:text-rose-400"
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Delete
+                                </DropdownMenuItem>
+                            </>
+                        )}
+                    </>
+                )}
+                {v.is_system && (
+                    <div className="px-2 py-1.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
+                        System view — rename only
+                    </div>
+                )}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
 
     const hasActiveFilters = personFilter !== 'all' || priorityFilter !== 'all';
     const activeFiltersCount = (personFilter !== 'all' ? 1 : 0) + (priorityFilter !== 'all' ? 1 : 0);
@@ -970,90 +1100,58 @@ export default function BoardUnifiedHeader({
             {/* ROW 3: BOARD VIEW NAVIGATION (h-10 / 40px)                   */}
             {/* ============================================================ */}
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#ECECF0] bg-[#F8F9F7]/95 px-4 backdrop-blur-md transition-colors sm:px-6 dark:border-[#28283E] dark:bg-[#161624]/95">
-                {/* Left: View Tabs */}
+                {/* Left: View Tabs (ordered by saved position, selected by unique view ID) */}
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1">
-                    {pinnedViews.map((v) => {
-                        const isActive = activeTab === v.type;
+                    {views.map((v) => {
+                        const isActive = activeViewId === v.id;
                         return (
-                            <button
-                                key={v.id}
-                                onClick={() => onTabChange(v.type)}
-                                className={`group relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
-                                    isActive
-                                        ? 'bg-primary/10 text-primary font-bold shadow-2xs border border-primary/25'
-                                        : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border border-transparent'
-                                }`}
-                            >
-                                {getViewIcon(v.type, `h-3.5 w-3.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`)}
-                                <span>{getFormattedViewName(v)}</span>
-                                {v.is_default && <span className="h-1.5 w-1.5 rounded-full bg-primary" title="Default View" />}
-                            </button>
+                            <div key={v.id} className="group/tab relative flex items-center">
+                                <button
+                                    onClick={() => onViewSelect(v.id)}
+                                    className={`group relative flex items-center gap-1.5 rounded-lg py-1.5 pr-8 pl-3 text-xs font-semibold whitespace-nowrap transition-all ${
+                                        isActive
+                                            ? 'bg-primary/10 text-primary font-bold shadow-2xs border border-primary/25'
+                                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border border-transparent'
+                                    }`}
+                                    title={v.name}
+                                >
+                                    {getViewIcon(v.type, `h-3.5 w-3.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'}`)}
+                                    <span>{getFormattedViewName(v)}</span>
+                                    {v.is_default && <span className="h-1.5 w-1.5 rounded-full bg-primary" title="Default View" />}
+                                </button>
+                                <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover/tab:opacity-100">
+                                    {getViewMenu(v)}
+                                </div>
+                            </div>
                         );
                     })}
 
-                    {/* More Views Dropdown */}
-                    {(moreViews.length > 0 || permissions?.canManageColumns !== false) && (
+                    {/* Add View */}
+                    {canManageViews && (
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <button
-                                    className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap transition-all ${
-                                        moreViews.some((mv) => mv.type === activeTab)
-                                            ? 'bg-primary/10 text-primary font-bold border border-primary/25'
-                                            : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground border border-transparent'
-                                    }`}
+                                    className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground border border-transparent"
+                                    title="Add View"
                                 >
-                                    <span>More</span>
-                                    <ChevronDown className="h-3 w-3" />
+                                    <Plus className="h-3 w-3" />
+                                    <span>Add View</span>
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="start" className="w-48 rounded-xl p-1 text-xs shadow-lg">
-                                {moreViews.map((v) => (
-                                    <div
-                                        key={v.id}
-                                        onClick={() => onTabChange(v.type)}
-                                        className={`group/v flex cursor-pointer items-center justify-between rounded-lg px-2 py-1.5 ${
-                                            activeTab === v.type ? 'bg-primary/10 font-bold text-primary' : 'hover:bg-muted/60'
-                                        }`}
+                                {(['table', 'kanban', 'calendar', 'timeline', 'gantt', 'workload', 'chart', 'files', 'gallery'] as const).map((t) => (
+                                    <DropdownMenuItem
+                                        key={t}
+                                        onClick={() => {
+                                            setNewViewType(t);
+                                            setIsAddViewModalOpen(true);
+                                        }}
+                                        className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium capitalize"
                                     >
-                                        <div className="flex items-center gap-2 truncate">
-                                            {getViewIcon(v.type)}
-                                            <span className="truncate">{getFormattedViewName(v)}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1">
-                                            {v.is_default && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                                            <button
-                                                type="button"
-                                                title="Set as Default"
-                                                onClick={(e) => handleSetDefaultView(v, e)}
-                                                className="p-0.5 text-slate-400 opacity-0 group-hover/v:opacity-100 hover:text-amber-400"
-                                            >
-                                                <Star className="h-3 w-3" />
-                                            </button>
-                                            {permissions?.canManageColumns !== false && views.length > 1 && (
-                                                <button
-                                                    type="button"
-                                                    title="Delete View"
-                                                    onClick={(e) => handleDeleteView(v, e)}
-                                                    className="p-0.5 text-slate-400 opacity-0 group-hover/v:opacity-100 hover:text-rose-500"
-                                                >
-                                                    <Trash2 className="h-3 w-3" />
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
+                                        {getViewIcon(t)}
+                                        <span>{t}</span>
+                                    </DropdownMenuItem>
                                 ))}
-                                {permissions?.canManageColumns !== false && (
-                                    <>
-                                        {moreViews.length > 0 && <DropdownMenuSeparator className="my-1" />}
-                                        <DropdownMenuItem
-                                            onClick={() => setIsAddViewModalOpen(true)}
-                                            className="flex cursor-pointer items-center gap-1.5 text-primary font-semibold"
-                                        >
-                                            <Plus className="h-3.5 w-3.5" />
-                                            <span>Add View</span>
-                                        </DropdownMenuItem>
-                                    </>
-                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     )}
@@ -1396,6 +1494,36 @@ export default function BoardUnifiedHeader({
                             </Button>
                             <Button type="submit" disabled={!newViewName.trim()} className="h-9 rounded-xl">
                                 Add View
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Rename Board View Modal */}
+            <Dialog open={isRenameViewOpen} onOpenChange={setIsRenameViewOpen}>
+                <DialogContent className="rounded-2xl sm:max-w-md">
+                    <form onSubmit={handleRenameView}>
+                        <DialogHeader>
+                            <DialogTitle>Rename View</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4 text-xs">
+                            <div>
+                                <Label>View Name</Label>
+                                <Input
+                                    value={renameViewName}
+                                    onChange={(e) => setRenameViewName(e.target.value)}
+                                    required
+                                    className="mt-1 h-9 rounded-xl"
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsRenameViewOpen(false)} className="h-9 rounded-xl">
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={!renameViewName.trim()} className="h-9 rounded-xl">
+                                Rename
                             </Button>
                         </DialogFooter>
                     </form>

@@ -172,7 +172,7 @@ class AngoraWorkOsDemoSeeder extends Seeder
         foreach ($views as $idx => $v) {
             BoardView::firstOrCreate(
                 ['board_id' => $board->id, 'name' => $v['name']],
-                ['type' => $v['type'], 'is_default' => $v['is_default'], 'position' => $idx]
+                ['type' => $v['type'], 'is_default' => $v['is_default'], 'is_system' => true, 'position' => $idx]
             );
         }
 
@@ -433,7 +433,7 @@ class AngoraWorkOsDemoSeeder extends Seeder
         foreach ($views as $idx => $v) {
             BoardView::firstOrCreate(
                 ['board_id' => $board->id, 'name' => $v['name']],
-                ['type' => $v['type'], 'is_default' => $v['is_default'], 'position' => $idx]
+                ['type' => $v['type'], 'is_default' => $v['is_default'], 'is_system' => true, 'position' => $idx]
             );
         }
 

@@ -115,6 +115,7 @@ class WorkOsExpansionSeeder extends Seeder
                     'name' => 'Main Table',
                     'type' => 'table',
                     'is_default' => true,
+                    'is_system' => true,
                     'position' => 0,
                 ]);
 
@@ -123,6 +124,7 @@ class WorkOsExpansionSeeder extends Seeder
                     'name' => 'Kanban',
                     'type' => 'kanban',
                     'is_default' => false,
+                    'is_system' => true,
                     'position' => 1,
                 ]);
 
@@ -131,6 +133,7 @@ class WorkOsExpansionSeeder extends Seeder
                     'name' => 'Timeline',
                     'type' => 'timeline',
                     'is_default' => false,
+                    'is_system' => true,
                     'position' => 2,
                 ]);
 
@@ -139,6 +142,7 @@ class WorkOsExpansionSeeder extends Seeder
                     'name' => 'Calendar',
                     'type' => 'calendar',
                     'is_default' => false,
+                    'is_system' => true,
                     'position' => 3,
                 ]);
             }

@@ -77,9 +77,38 @@ export default function KanbanPage({
     const { auth } = usePage<any>().props;
     const currentUser = auth?.user;
 
-    // View & Filter states: detect default view from board or fallback
-    const defaultViewType = board.views?.find((v) => v.is_default)?.type || 'table';
-    const [activeTab, setActiveTab] = useState<string>(defaultViewType);
+    // View & Filter states: select by unique view ID (P1-02), persisted in ?view= (P2-03)
+    const boardViews = board.views ?? [];
+    const resolveInitialViewId = (): number | null => {
+        if (typeof window !== 'undefined') {
+            const fromUrl = Number(new URLSearchParams(window.location.search).get('view'));
+            if (fromUrl && boardViews.some((v) => v.id === fromUrl)) return fromUrl;
+        }
+        const fallback = boardViews.find((v) => v.is_default) ?? boardViews[0];
+        return fallback?.id ?? null;
+    };
+    const [activeViewId, setActiveViewId] = useState<number | null>(() => resolveInitialViewId());
+    const activeView = boardViews.find((v) => v.id === activeViewId) ?? boardViews[0] ?? null;
+    const activeTab = activeView?.type ?? 'table';
+
+    const handleViewSelect = (viewId: number) => {
+        setActiveViewId(viewId);
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('view', String(viewId));
+            window.history.replaceState({}, '', url.toString());
+        }
+    };
+
+    // Re-sync selection when the board changes or the active view disappears (deleted)
+    useEffect(() => {
+        if (boardViews.length === 0) return;
+        if (activeViewId != null && boardViews.some((v) => v.id === activeViewId)) return;
+        const next = boardViews.find((v) => v.is_default) ?? boardViews[0];
+        if (next) handleViewSelect(next.id);
+         
+    }, [board.id, activeViewId, boardViews]);
+
     const [searchTerm, setSearchTerm] = useState('');
 
     // Default My Tasks Filter for Employees (Section 5)
@@ -336,8 +365,8 @@ export default function KanbanPage({
                     boards={boards}
                     activeBoard={board}
                     users={users}
-                    activeTab={activeTab}
-                    onTabChange={setActiveTab}
+                    activeViewId={activeView?.id ?? null}
+                    onViewSelect={handleViewSelect}
                     searchTerm={searchTerm}
                     onSearchChange={setSearchTerm}
                     personFilter={personFilter}
@@ -357,7 +386,9 @@ export default function KanbanPage({
                 <div className={`flex-1 min-h-0 w-full ${activeTab === 'kanban' ? 'overflow-hidden p-3 sm:p-4 flex flex-col' : 'p-4 md:p-6 overflow-auto'}`}>
                     {activeTab === 'table' && (
                     <TableView
+                        key={`view-${activeView?.id ?? 'table'}`}
                         board={board}
+                        viewSettings={activeView?.settings ?? null}
                         searchTerm={searchTerm}
                         personFilter={personFilter}
                         priorityFilter={priorityFilter}
@@ -371,9 +402,10 @@ export default function KanbanPage({
                 )}
 
                 {activeTab === 'kanban' && (
-                    <div className="flex-1 min-h-0 overflow-hidden">
+                    <div key={`view-${activeView?.id ?? 'kanban'}`} className="flex-1 min-h-0 overflow-hidden">
                         <KanbanBoardView
                             board={board}
+                            viewSettings={activeView?.settings ?? null}
                             searchTerm={searchTerm}
                             personFilter={personFilter}
                             priorityFilter={priorityFilter}
@@ -388,7 +420,9 @@ export default function KanbanPage({
 
                 {activeTab === 'calendar' && (
                     <CalendarView
+                        key={`view-${activeView?.id ?? 'calendar'}`}
                         board={board}
+                        viewSettings={activeView?.settings ?? null}
                         searchTerm={searchTerm}
                         personFilter={personFilter}
                         priorityFilter={priorityFilter}
@@ -408,6 +442,7 @@ export default function KanbanPage({
 
                 {(activeTab === 'gantt' || activeTab === 'timeline') && (
                     <GanttView
+                        key={`view-${activeView?.id ?? 'gantt'}`}
                         board={board}
                         searchTerm={searchTerm}
                         personFilter={personFilter}
@@ -419,6 +454,7 @@ export default function KanbanPage({
 
                 {activeTab === 'workload' && (
                     <WorkloadView
+                        key={`view-${activeView?.id ?? 'workload'}`}
                         board={board}
                         searchTerm={searchTerm}
                         personFilter={personFilter}
@@ -430,6 +466,7 @@ export default function KanbanPage({
 
                 {activeTab === 'chart' && (
                     <ChartView
+                        key={`view-${activeView?.id ?? 'chart'}`}
                         board={board}
                         searchTerm={searchTerm}
                         personFilter={personFilter}
@@ -441,6 +478,7 @@ export default function KanbanPage({
 
                 {activeTab === 'files' && (
                     <FilesView
+                        key={`view-${activeView?.id ?? 'files'}`}
                         board={board}
                         searchTerm={searchTerm}
                         personFilter={personFilter}
@@ -452,6 +490,7 @@ export default function KanbanPage({
 
                 {activeTab === 'gallery' && (
                     <GalleryView
+                        key={`view-${activeView?.id ?? 'gallery'}`}
                         board={board}
                         searchTerm={searchTerm}
                         personFilter={personFilter}

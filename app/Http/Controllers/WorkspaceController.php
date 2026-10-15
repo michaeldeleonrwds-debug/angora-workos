@@ -81,8 +81,8 @@ class WorkspaceController extends Controller
         }
 
         // Default views
-        BoardView::create(['board_id' => $board->id, 'name' => 'Main Table', 'type' => 'table', 'is_default' => true, 'position' => 0]);
-        BoardView::create(['board_id' => $board->id, 'name' => 'Kanban', 'type' => 'kanban', 'is_default' => false, 'position' => 1]);
+        BoardView::create(['board_id' => $board->id, 'name' => 'Main Table', 'type' => 'table', 'is_default' => true, 'is_system' => true, 'position' => 0]);
+        BoardView::create(['board_id' => $board->id, 'name' => 'Kanban', 'type' => 'kanban', 'is_default' => false, 'is_system' => true, 'position' => 1]);
 
         AuditLog::log(
             action: 'WORKSPACE_CREATED',

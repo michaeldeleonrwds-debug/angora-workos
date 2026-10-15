@@ -99,6 +99,7 @@ export interface BoardView {
     name: string;
     type: 'table' | 'kanban' | 'calendar' | 'timeline' | 'gantt' | 'workload' | 'chart' | 'files' | 'gallery';
     is_default: boolean;
+    is_system?: boolean;
     settings?: Record<string, any>;
     position: number;
 }

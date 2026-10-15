@@ -349,10 +349,10 @@ class KanbanController extends Controller
 
         // 3. Ensure default views exist
         if ($board->views()->count() === 0) {
-            BoardView::create(['board_id' => $board->id, 'name' => 'Main Table', 'type' => 'table', 'is_default' => true, 'position' => 0]);
-            BoardView::create(['board_id' => $board->id, 'name' => 'Kanban', 'type' => 'kanban', 'is_default' => false, 'position' => 1]);
-            BoardView::create(['board_id' => $board->id, 'name' => 'Timeline', 'type' => 'timeline', 'is_default' => false, 'position' => 2]);
-            BoardView::create(['board_id' => $board->id, 'name' => 'Calendar', 'type' => 'calendar', 'is_default' => false, 'position' => 3]);
+            BoardView::create(['board_id' => $board->id, 'name' => 'Main Table', 'type' => 'table', 'is_default' => true, 'is_system' => true, 'position' => 0]);
+            BoardView::create(['board_id' => $board->id, 'name' => 'Kanban', 'type' => 'kanban', 'is_default' => false, 'is_system' => true, 'position' => 1]);
+            BoardView::create(['board_id' => $board->id, 'name' => 'Timeline', 'type' => 'timeline', 'is_default' => false, 'is_system' => true, 'position' => 2]);
+            BoardView::create(['board_id' => $board->id, 'name' => 'Calendar', 'type' => 'calendar', 'is_default' => false, 'is_system' => true, 'position' => 3]);
         }
 
         // 4. Ensure starter automation exists
@@ -492,6 +492,7 @@ class KanbanController extends Controller
                 'name' => $v->name,
                 'type' => $v->type,
                 'is_default' => $v->is_default,
+                'is_system' => $v->is_system,
                 'settings' => $v->settings,
                 'position' => $v->position,
             ]);
@@ -1789,6 +1790,7 @@ class KanbanController extends Controller
             'type' => $validated['type'],
             'settings' => $validated['settings'] ?? [],
             'is_default' => false,
+            'is_system' => false,
             'position' => $board->views()->count(),
         ]);
 
@@ -1807,7 +1809,18 @@ class KanbanController extends Controller
             'type' => 'sometimes|in:table,kanban,calendar,timeline,gantt,workload,chart,files,gallery',
             'settings' => 'nullable|array',
             'is_default' => 'sometimes|boolean',
+            'position' => 'sometimes|integer|min:0',
         ]);
+
+        if (isset($validated['name'])) {
+            $duplicate = BoardView::where('board_id', $view->board_id)
+                ->where('id', '!=', $view->id)
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower($validated['name'])])
+                ->exists();
+            if ($duplicate) {
+                return back()->with('error', 'A view with this name already exists on this board');
+            }
+        }
 
         if (!empty($validated['is_default'])) {
             BoardView::where('board_id', $view->board_id)->update(['is_default' => false]);
@@ -1830,6 +1843,10 @@ class KanbanController extends Controller
             Gate::authorize('update', $board);
         }
 
+        if ($view->is_system) {
+            return back()->with('error', 'System views cannot be deleted');
+        }
+
         $boardId = $view->board_id;
         if (BoardView::where('board_id', $boardId)->count() <= 1) {
             return back()->with('error', 'Cannot delete the only view on the board');
@@ -1839,8 +1856,8 @@ class KanbanController extends Controller
         $view->delete();
 
         if ($wasDefault) {
-            $first = BoardView::where('board_id', $boardId)->first();
-            $first?->update(['is_default' => true]);
+            $replacement = BoardView::where('board_id', $boardId)->orderBy('position')->orderBy('id')->first();
+            $replacement?->update(['is_default' => true]);
         }
 
         return back()->with('success', 'View deleted');
@@ -1851,13 +1868,22 @@ class KanbanController extends Controller
         Gate::authorize('update', $board);
 
         $validated = $request->validate([
-            'view_ids' => 'required|array',
-            'view_ids.*' => 'exists:board_views,id',
+            'view_ids' => ['required', 'array', 'min:1'],
+            'view_ids.*' => ['integer', 'distinct'],
         ]);
 
-        foreach ($validated['view_ids'] as $idx => $id) {
-            BoardView::where('id', $id)->where('board_id', $board->id)->update(['position' => $idx]);
+        $boardViewIds = BoardView::where('board_id', $board->id)->pluck('id')->map(fn ($id) => (int) $id)->sort()->values();
+        $submittedIds = collect($validated['view_ids'])->map(fn ($id) => (int) $id)->sort()->values();
+
+        if ($submittedIds->count() !== $boardViewIds->count() || $submittedIds->all() !== $boardViewIds->all()) {
+            return back()->with('error', 'Reorder must include every view on this board exactly once');
         }
+
+        DB::transaction(function () use ($validated, $board) {
+            foreach ($validated['view_ids'] as $idx => $id) {
+                BoardView::where('id', $id)->where('board_id', $board->id)->update(['position' => $idx]);
+            }
+        });
 
         return back()->with('success', 'Views reordered');
     }
