@@ -20,7 +20,7 @@ class UserFactory extends Factory
     public function create($attributes = [], ?Model $parent = null)
     {
         // The factory's role input is an instruction to Spatie, never a users.role write.
-        $role = $attributes['role'] ?? 'team_member';
+        $role = $attributes['role'] ?? 'employee';
         unset($attributes['role']);
 
         $created = parent::create($attributes, $parent);

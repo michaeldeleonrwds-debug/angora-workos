@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-15T14:57:19.721Z",
+  "generated_at": "2026-10-15T15:23:45.435Z",
   "stats": {
-    "total_nodes": 572,
-    "total_edges": 1126,
+    "total_nodes": 573,
+    "total_edges": 1129,
     "clusters": 7
   },
   "nodes": [
@@ -4226,6 +4226,12 @@
       "label": "WorkOsRbacSecurityAuditTest",
       "type": "test",
       "file": "tests/Feature/WorkOsRbacSecurityAuditTest.php"
+    },
+    {
+      "id": "test:WorkOsRoleSimplificationTest",
+      "label": "WorkOsRoleSimplificationTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsRoleSimplificationTest.php"
     },
     {
       "id": "test:WorkOsUserManagementTest",
@@ -10293,6 +10299,23 @@
     },
     {
       "source": "test:WorkOsRbacSecurityAuditTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
+    },
+    {
+      "source": "test:WorkOsRoleSimplificationTest",
+      "target": "controller:UserController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:WorkOsRoleSimplificationTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsRoleSimplificationTest",
       "target": "role:project_manager",
       "relationship": "audits_role",
       "role": "project_manager"

@@ -11,7 +11,90 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, Notifiable;
+    use HasRoles {
+        assignRole as traitAssignRole;
+        syncRoles as traitSyncRoles;
+        hasRole as traitHasRole;
+    }
+
+    /**
+     * Map of legacy or obsolete roles to their supported Work OS canonical role.
+     *
+     * @var array<string, string>
+     */
+    protected static array $legacyRoleMap = [
+        'admin_manager' => 'admin',
+        'dept_user' => 'employee',
+        'team_member' => 'employee',
+        'production_staff' => 'employee',
+        'sales_staff' => 'employee',
+        'marketing_staff' => 'employee',
+        'finance_staff' => 'employee',
+        'hr_staff' => 'employee',
+        'external_user' => 'employee',
+        'client' => 'employee',
+    ];
+
+    /**
+     * Normalize role name from legacy aliases if needed.
+     */
+    public static function normalizeLegacyRole(string $role): string
+    {
+        return static::$legacyRoleMap[$role] ?? $role;
+    }
+
+    /**
+     * Override Spatie assignRole to map legacy roles cleanly.
+     */
+    public function assignRole(...$roles)
+    {
+        $roleList = is_array($roles[0] ?? null) ? $roles[0] : $roles;
+        $normalized = array_map(function ($role) {
+            if (is_string($role)) {
+                return static::normalizeLegacyRole($role);
+            }
+            return $role;
+        }, $roleList);
+
+        return $this->traitAssignRole(...$normalized);
+    }
+
+    /**
+     * Override Spatie syncRoles to map legacy roles cleanly.
+     */
+    public function syncRoles(...$roles)
+    {
+        $roleList = is_array($roles[0] ?? null) ? $roles[0] : $roles;
+        $normalized = array_map(function ($role) {
+            if (is_string($role)) {
+                return static::normalizeLegacyRole($role);
+            }
+            return $role;
+        }, $roleList);
+
+        return $this->traitSyncRoles(...$normalized);
+    }
+
+    /**
+     * Override Spatie hasRole to match legacy role aliases.
+     */
+    public function hasRole($roles, ?string $guard = null): bool
+    {
+        $hasDirect = $this->traitHasRole($roles, $guard);
+        if ($hasDirect) {
+            return true;
+        }
+
+        if (is_string($roles)) {
+            $mapped = static::normalizeLegacyRole($roles);
+            if ($mapped !== $roles) {
+                return $this->traitHasRole($mapped, $guard);
+            }
+        }
+
+        return false;
+    }
 
     /**
      * The attributes that are mass assignable.

@@ -62,25 +62,25 @@ class AngoraWorkOsDemoSeeder extends Seeder
             'designer_leo' => [
                 'name' => 'Leo De Guzman',
                 'email' => 'leo.deguzman@angora.internal',
-                'role' => 'dept_user',
+                'role' => 'designer',
                 'department' => 'Creative & Design',
             ],
             'designer_chloe' => [
                 'name' => 'Chloe Bennett',
                 'email' => 'chloe.bennett@angora.internal',
-                'role' => 'dept_user',
+                'role' => 'designer',
                 'department' => 'Creative & Design',
             ],
             'designer_maya' => [
                 'name' => 'Maya Lin',
                 'email' => 'maya.lin@angora.internal',
-                'role' => 'dept_user',
+                'role' => 'designer',
                 'department' => 'Video & Motion',
             ],
             'dev_sam' => [
                 'name' => 'Sam Rivera',
                 'email' => 'sam.rivera@angora.internal',
-                'role' => 'dept_user',
+                'role' => 'developer',
                 'department' => 'Web Development',
             ],
         ];

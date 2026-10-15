@@ -31,10 +31,16 @@ const mainNavItems: NavItem[] = [
         color: '#0073ea',
     },
     {
-        title: 'Boards & Tasks',
-        url: '/kanban',
+        title: 'My Tasks',
+        url: '/kanban?person=me',
         icon: CheckSquare,
         color: '#00c875',
+    },
+    {
+        title: 'Kanban Boards',
+        url: '/kanban',
+        icon: Kanban,
+        color: '#579bfc',
     },
 ];
 
@@ -171,7 +177,7 @@ export function AppSidebar() {
             <SidebarContent className="px-2.5 py-2.5 group-data-[collapsible=icon]:px-1.5 group-data-[collapsible=icon]:py-2">
                 {/* Section Header */}
                 <div className="px-2.5 pt-2 pb-1.5 group-data-[collapsible=icon]:hidden">
-                    <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Work OS</span>
+                    <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Work Management</span>
                 </div>
 
                 {/* Primary Navigation Items */}

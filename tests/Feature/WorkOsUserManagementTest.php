@@ -212,7 +212,7 @@ class WorkOsUserManagementTest extends TestCase
         // Send invitation
         $response = $this->actingAs($this->admin)->post(route('users.invite'), [
             'email' => 'invitee@external.com',
-            'role' => 'guest',
+            'role' => 'designer',
             'workspace_id' => $this->workspace->id,
             'board_id' => $this->board->id,
         ]);
@@ -220,7 +220,7 @@ class WorkOsUserManagementTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('user_invitations', [
             'email' => 'invitee@external.com',
-            'role' => 'guest',
+            'role' => 'designer',
             'invited_by' => $this->admin->id,
         ]);
 

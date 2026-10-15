@@ -162,34 +162,31 @@ class RbacSeeder extends Seeder
                 ['label' => $name, 'department' => 'System', 'is_protected' => true, 'is_delegable' => false]
             );
         }
-        foreach (RbacCapabilityCatalog::workOs() as $name => $capability) {
+        foreach (RbacCapabilityCatalog::capabilities() as $name => $capability) {
             RbacPermission::firstOrCreate(
                 ['name' => $name, 'guard_name' => 'web'],
-                ['label' => $capability['label'], 'department' => 'Work OS', 'is_protected' => false, 'is_delegable' => true]
+                ['label' => $capability['label'], 'department' => $capability['department'], 'is_protected' => false, 'is_delegable' => true]
             );
         }
 
-        foreach (array_unique(array_merge(array_keys($rolePermissionMap), [
-            'super_admin', 'admin', 'project_manager', 'account_manager',
-            'employee', 'designer', 'developer', 'client', 'guest',
-        ])) as $name) {
+        $supportedRoles = RbacCapabilityCatalog::roles();
+        foreach ($supportedRoles as $name => $definition) {
             RbacRole::firstOrCreate(
                 ['name' => $name, 'guard_name' => 'web'],
                 ['is_system' => true, 'is_protected' => in_array($name, ['super_admin', 'admin'], true)]
             );
         }
 
-        foreach ($rolePermissionMap as $name => $grants) {
-            if (! $rolesNeedingDefaults[$name]) {
-                continue;
-            }
-            $role = RbacRole::findByName($name, 'web');
-            foreach ($grants as $grant) {
-                if ($grant !== 'rbac.manage') {
-                    $role->givePermissionTo($grant);
+        $capabilities = RbacCapabilityCatalog::capabilities();
+        foreach ($capabilities as $permName => $def) {
+            foreach ($def['roles'] as $roleName) {
+                if (isset($supportedRoles[$roleName])) {
+                    $role = RbacRole::findByName($roleName, 'web');
+                    $role->givePermissionTo($permName);
                 }
             }
         }
+
         $superAdmin = RbacRole::findByName('super_admin', 'web');
         foreach (RbacPermission::all() as $permission) {
             $superAdmin->givePermissionTo($permission);

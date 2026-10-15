@@ -116,7 +116,7 @@ class DashboardController extends Controller
 
         // Team Workload Analytics (active assignees with task counts)
         $teamMembers = User::where('status', 'active')
-            ->role(['dept_user', 'project_manager', 'account_manager', 'admin'])
+            ->role(['employee', 'designer', 'developer', 'project_manager', 'account_manager', 'admin'])
             ->select('id', 'name', 'email', 'avatar', 'avatar_url', 'department')
             ->get()
             ->map(function ($member) use ($taskQuery) {

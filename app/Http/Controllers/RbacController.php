@@ -7,6 +7,7 @@ use App\Models\RbacPermission;
 use App\Models\RbacRole;
 use App\Models\User;
 use App\Services\Authorization\RbacGovernanceService;
+use App\Support\RbacCapabilityCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -19,14 +20,37 @@ class RbacController extends Controller
     {
         abort_unless($governance->canManage($request->user()), 403);
 
-        $roles = RbacRole::query()->with('permissions')->orderBy('name')->get();
-        $permissions = RbacPermission::query()->orderBy('department')->orderBy('name')->get();
+        $supportedRoleNames = array_keys(RbacCapabilityCatalog::roles());
+        $roles = RbacRole::query()
+            ->with('permissions')
+            ->where(function ($q) use ($supportedRoleNames) {
+                $q->whereIn('name', $supportedRoleNames)
+                  ->orWhere('is_system', false);
+            })
+            ->get()
+            ->sortBy(function ($role) use ($supportedRoleNames) {
+                $idx = array_search($role->name, $supportedRoleNames, true);
+                return $idx !== false ? $idx : 999;
+            })
+            ->values();
+
+        $activeCapabilities = RbacCapabilityCatalog::capabilities();
+        $activePermissionNames = array_keys($activeCapabilities);
+
+        $permissions = RbacPermission::query()
+            ->whereIn('name', $activePermissionNames)
+            ->get()
+            ->sortBy(function ($perm) use ($activePermissionNames) {
+                return array_search($perm->name, $activePermissionNames, true);
+            })
+            ->values();
+
         $actor = $request->user();
         $allPermissions = $permissions->map(fn ($permission) => [
             'id' => $permission->id,
             'name' => $permission->name,
-            'label' => $permission->label ?: $permission->name,
-            'department' => $permission->department ?: 'Other',
+            'label' => $activeCapabilities[$permission->name]['label'] ?? ($permission->label ?: $permission->name),
+            'department' => $activeCapabilities[$permission->name]['department'] ?? ($permission->department ?: 'Other'),
             'description' => $permission->description,
             'canDelegate' => $governance->canDelegate($actor, $permission),
         ]);

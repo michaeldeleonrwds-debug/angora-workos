@@ -42,6 +42,11 @@ class RbacGovernanceService
             return false;
         }
 
+        $supportedRoles = \App\Support\RbacCapabilityCatalog::roles();
+        if ($role->is_system && ! isset($supportedRoles[$role->name])) {
+            return false;
+        }
+
         return true;
     }
 

@@ -62,12 +62,30 @@ class UserController extends Controller
             $target->setAttribute('can_delete', Gate::allows('delete', $target));
         });
 
-        $systemRoles = RbacRole::query()->orderBy('name')->pluck('name', 'name')->mapWithKeys(
-            fn ($name, $key) => [$key => str($name)->replace('_', ' ')->title()->toString()]
-        )->all();
-        $assignableRoles = RbacRole::query()->orderBy('name')->get()
+        $catalogRoles = \App\Support\RbacCapabilityCatalog::roles();
+        $supportedRoleNames = array_keys($catalogRoles);
+
+        $systemRoles = RbacRole::query()
+            ->where(function ($q) use ($supportedRoleNames) {
+                $q->whereIn('name', $supportedRoleNames)
+                  ->orWhere('is_system', false);
+            })
+            ->get()
+            ->mapWithKeys(fn (RbacRole $role) => [
+                $role->name => $catalogRoles[$role->name]['label'] ?? str($role->name)->replace('_', ' ')->title()->toString(),
+            ])
+            ->all();
+
+        $assignableRoles = RbacRole::query()
+            ->where(function ($q) use ($supportedRoleNames) {
+                $q->whereIn('name', $supportedRoleNames)
+                  ->orWhere('is_system', false);
+            })
+            ->get()
             ->filter(fn (RbacRole $role) => app(RbacGovernanceService::class)->canAssignRole($request->user(), $role))
-            ->mapWithKeys(fn (RbacRole $role) => [$role->name => $systemRoles[$role->name]])
+            ->mapWithKeys(fn (RbacRole $role) => [
+                $role->name => $systemRoles[$role->name] ?? str($role->name)->replace('_', ' ')->title()->toString(),
+            ])
             ->all();
 
         $invitations = UserInvitation::select('id', 'email', 'role', 'workspace_id', 'board_id', 'invited_by', 'expires_at', 'accepted_at', 'revoked_at', 'created_at', 'token')
