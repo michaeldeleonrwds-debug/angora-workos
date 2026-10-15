@@ -732,13 +732,19 @@ export default function KanbanBoardView({
 
             {/* + Add Workflow Stage Button */}
             {permissions?.canManageColumns !== false && (
-                <div className="w-72 shrink-0">
+                <div className="shrink-0 self-start">
                     <button
                         onClick={() => setIsAddStageOpen(true)}
-                        className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/80 text-xs font-bold text-muted-foreground transition-all hover:border-primary/60 hover:bg-card hover:text-foreground"
+                        aria-label="Add Workflow Stage"
+                        className="flex h-14 w-11 flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border/80 bg-card/40 text-muted-foreground transition-colors hover:border-primary/60 hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
-                        <Plus className="h-4 w-4" />
-                        <span>Add Workflow Stage</span>
+                        <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
+                        <span
+                            className="select-none text-[11px] font-bold leading-none tracking-wide"
+                            style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}
+                        >
+                            Add Workflow Stage
+                        </span>
                     </button>
                 </div>
             )}
