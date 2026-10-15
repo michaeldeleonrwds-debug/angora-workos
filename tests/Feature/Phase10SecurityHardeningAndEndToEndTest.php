@@ -37,8 +37,8 @@ class Phase10SecurityHardeningAndEndToEndTest extends TestCase
 
     public function test_role_switching_is_strictly_forbidden_in_production(): void
     {
-        $admin = User::where('role', 'super_admin')->first();
-        $member = User::where('role', 'team_member')->first() ?? User::factory()->create(['role' => 'team_member']);
+        $admin = User::role('super_admin')->first();
+        $member = User::role('team_member')->first() ?? User::factory()->create(['role' => 'team_member']);
 
         // Under testing environment, switch works
         $response = $this->actingAs($admin)->post('/switch-role', [
@@ -132,7 +132,7 @@ class Phase10SecurityHardeningAndEndToEndTest extends TestCase
 
     public function test_task_attachment_download_blocks_external_users(): void
     {
-        $superAdmin = User::where('role', 'super_admin')->first();
+        $superAdmin = User::role('super_admin')->first();
         $externalUser = User::factory()->create(['role' => 'external_user']);
 
         $board = KanbanBoard::first();
@@ -275,7 +275,7 @@ class Phase10SecurityHardeningAndEndToEndTest extends TestCase
 
     public function test_report_export_supports_csv_json_and_print_html_formats(): void
     {
-        $superAdmin = User::where('role', 'super_admin')->first();
+        $superAdmin = User::role('super_admin')->first();
 
         $report = AnalyticsReport::create([
             'title' => 'Executive Task Progress',
@@ -314,7 +314,7 @@ class Phase10SecurityHardeningAndEndToEndTest extends TestCase
             DeliverableStatusChangedEvent::class,
         ]);
 
-        $superAdmin = User::where('role', 'super_admin')->first();
+        $superAdmin = User::role('super_admin')->first();
         $board = KanbanBoard::first();
         $column = KanbanColumn::where('board_id', $board->id)->first() ?? KanbanColumn::create([
             'board_id' => $board->id,
@@ -355,7 +355,7 @@ class Phase10SecurityHardeningAndEndToEndTest extends TestCase
 
     public function test_workdocs_and_dashboards_index_views_render_successfully_with_agency_projects(): void
     {
-        $superAdmin = User::where('role', 'super_admin')->first();
+        $superAdmin = User::role('super_admin')->first();
         $customer = SalesCustomer::create([
             'name' => 'Acme Test Customer',
             'company' => 'Acme Inc',

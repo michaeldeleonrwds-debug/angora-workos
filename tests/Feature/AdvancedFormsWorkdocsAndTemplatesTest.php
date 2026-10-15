@@ -36,7 +36,7 @@ class AdvancedFormsWorkdocsAndTemplatesTest extends TestCase
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
 
-        $this->superAdmin = User::where('role', 'super_admin')->first();
+        $this->superAdmin = User::role('super_admin')->first();
         $this->manager = User::factory()->create([
             'role' => 'admin_manager',
             'department' => 'Operations',

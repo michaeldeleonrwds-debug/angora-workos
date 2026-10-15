@@ -42,7 +42,6 @@ class WorkOsPhase36ActivityAndMultiAssigneesTest extends TestCase
             [
                 'name' => 'Admin Phase 3.6',
                 'password' => bcrypt('password'),
-                'role' => 'super_admin',
                 'department' => 'Executive',
             ]
         );
@@ -52,7 +51,6 @@ class WorkOsPhase36ActivityAndMultiAssigneesTest extends TestCase
             [
                 'name' => 'Leo Rivera',
                 'password' => bcrypt('password'),
-                'role' => 'dept_user',
                 'department' => 'Design',
             ]
         );
@@ -62,7 +60,6 @@ class WorkOsPhase36ActivityAndMultiAssigneesTest extends TestCase
             [
                 'name' => 'Maya Lin',
                 'password' => bcrypt('password'),
-                'role' => 'dept_user',
                 'department' => 'Video & Motion',
             ]
         );
@@ -72,7 +69,6 @@ class WorkOsPhase36ActivityAndMultiAssigneesTest extends TestCase
             [
                 'name' => 'Maria Santos',
                 'password' => bcrypt('password'),
-                'role' => 'project_manager',
                 'department' => 'Account Management',
             ]
         );
@@ -82,10 +78,15 @@ class WorkOsPhase36ActivityAndMultiAssigneesTest extends TestCase
             [
                 'name' => 'Chris Vance',
                 'password' => bcrypt('password'),
-                'role' => 'project_manager',
                 'department' => 'Account Management',
             ]
         );
+
+        $this->superAdmin->assignRole('super_admin');
+        $this->designerLeo->assignRole('dept_user');
+        $this->designerMaya->assignRole('dept_user');
+        $this->amMaria->assignRole('project_manager');
+        $this->amChris->assignRole('project_manager');
 
         $this->workspace = Workspace::create([
             'name' => 'Production Workspace Phase 3.6',
@@ -96,7 +97,7 @@ class WorkOsPhase36ActivityAndMultiAssigneesTest extends TestCase
             WorkspaceMember::create([
                 'workspace_id' => $this->workspace->id,
                 'user_id' => $u->id,
-                'role' => $u->role === 'super_admin' ? 'owner' : 'member',
+                'role' => $u->isSuperAdmin() ? 'owner' : 'member',
             ]);
         }
 

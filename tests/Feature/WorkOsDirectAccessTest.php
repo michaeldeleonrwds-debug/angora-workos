@@ -22,7 +22,7 @@ class WorkOsDirectAccessTest extends TestCase
 
     public function test_authenticated_user_can_directly_access_kanban_without_inertia_header(): void
     {
-        $user = User::where('role', 'super_admin')->first();
+        $user = User::role('super_admin')->first();
 
         $response = $this->actingAs($user)->get('/kanban');
 
@@ -42,7 +42,7 @@ class WorkOsDirectAccessTest extends TestCase
 
     public function test_authenticated_user_can_access_kanban_via_inertia_spa_request(): void
     {
-        $user = User::where('role', 'super_admin')->first();
+        $user = User::role('super_admin')->first();
         $dummyRequest = Request::create('/kanban', 'GET');
         $version = app(HandleInertiaRequests::class)->version($dummyRequest);
 
@@ -59,7 +59,7 @@ class WorkOsDirectAccessTest extends TestCase
 
     public function test_inertia_page_assertion_verifies_kanban_component(): void
     {
-        $user = User::where('role', 'super_admin')->first();
+        $user = User::role('super_admin')->first();
 
         $response = $this->actingAs($user)->get('/kanban');
 
@@ -74,7 +74,7 @@ class WorkOsDirectAccessTest extends TestCase
 
     public function test_direct_access_to_dashboard_works_cleanly(): void
     {
-        $user = User::where('role', 'super_admin')->first();
+        $user = User::role('super_admin')->first();
 
         $response = $this->actingAs($user)->get('/dashboard');
 

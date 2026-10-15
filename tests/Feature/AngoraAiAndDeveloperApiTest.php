@@ -37,7 +37,7 @@ class AngoraAiAndDeveloperApiTest extends TestCase
 
         $this->seed();
 
-        $this->adminUser = User::where('role', 'super_admin')->first()
+        $this->adminUser = User::role('super_admin')->first()
             ?? User::factory()->create(['role' => 'super_admin']);
 
         $this->clientUser = User::factory()->create([

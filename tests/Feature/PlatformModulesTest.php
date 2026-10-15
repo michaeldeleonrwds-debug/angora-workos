@@ -19,7 +19,7 @@ class PlatformModulesTest extends TestCase
 
     public function test_super_admin_can_access_dashboard_and_all_department_modules(): void
     {
-        $superAdmin = User::where('role', 'super_admin')->first();
+        $superAdmin = User::role('super_admin')->first();
         $this->actingAs($superAdmin);
 
         $routes = [
@@ -45,10 +45,10 @@ class PlatformModulesTest extends TestCase
 
     public function test_user_can_switch_role_persona(): void
     {
-        $superAdmin = User::where('role', 'super_admin')->first();
+        $superAdmin = User::role('super_admin')->first();
         $this->actingAs($superAdmin);
 
-        $productionStaff = User::where('role', 'production_staff')->first();
+        $productionStaff = User::role('production_staff')->first();
 
         $response = $this->post('/switch-role', [
             'user_id' => $productionStaff->id,

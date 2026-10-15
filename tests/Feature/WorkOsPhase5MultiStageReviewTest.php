@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\KanbanBoard;
+use App\Models\BoardMember;
 use App\Models\KanbanColumn;
 use App\Models\KanbanTask;
 use App\Models\TaskReviewCycle;
@@ -71,7 +72,7 @@ class WorkOsPhase5MultiStageReviewTest extends TestCase
         foreach ([$this->admin, $this->projectManager, $this->designer, $this->client, $this->otherDeptUser] as $u) {
             $this->workspace->members()->create([
                 'user_id' => $u->id,
-                'role' => $u->role === 'client' ? 'viewer' : 'member',
+                'role' => $u->hasRole('client') ? 'viewer' : 'member',
             ]);
         }
 
@@ -80,6 +81,7 @@ class WorkOsPhase5MultiStageReviewTest extends TestCase
             'title' => 'Brand Campaign Q4',
             'created_by' => $this->admin->id,
         ]);
+        BoardMember::create(['board_id' => $this->board->id, 'user_id' => $this->client->id, 'role' => 'viewer']);
 
         $this->colTodo = KanbanColumn::create([
             'board_id' => $this->board->id,

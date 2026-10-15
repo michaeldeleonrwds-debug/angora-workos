@@ -32,7 +32,7 @@ class AgencyProjectAndClientPortalTest extends TestCase
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
 
-        $this->superAdmin = User::where('role', 'super_admin')->first();
+        $this->superAdmin = User::role('super_admin')->first();
 
         $this->projectManager = User::factory()->create([
             'name' => 'Sarah PM',

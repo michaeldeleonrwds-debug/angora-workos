@@ -36,57 +36,52 @@ class WorkOsPhase2SecurityAuditTest extends TestCase
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
 
-        $this->superAdmin = User::where('role', 'super_admin')->first();
+        $this->superAdmin = User::role('super_admin')->first();
 
         $this->admin = User::create([
             'name' => 'Security Admin',
             'email' => 'sec_admin@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'admin',
             'department' => 'Security',
             'status' => 'active',
             'email_verified_at' => now(),
-        ]);
+        ])->assignRole('admin');
 
         $this->projectManager = User::create([
             'name' => 'Security PM',
             'email' => 'sec_pm@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'project_manager',
             'department' => 'Operations',
             'status' => 'active',
             'email_verified_at' => now(),
-        ]);
+        ])->assignRole('project_manager');
 
         $this->developer = User::create([
             'name' => 'Security Dev',
             'email' => 'sec_dev@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'developer',
             'department' => 'Engineering',
             'status' => 'active',
             'email_verified_at' => now(),
-        ]);
+        ])->assignRole('developer');
 
         $this->guest = User::create([
             'name' => 'Security Guest',
             'email' => 'sec_guest@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'guest',
             'department' => 'External',
             'status' => 'active',
             'email_verified_at' => now(),
-        ]);
+        ])->assignRole('guest');
 
         $this->client = User::create([
             'name' => 'Security Client',
             'email' => 'sec_client@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'client',
             'department' => 'Client Portal',
             'status' => 'active',
             'email_verified_at' => now(),
-        ]);
+        ])->assignRole('client');
 
         $this->workspace = Workspace::firstOrCreate([
             'name' => 'Secure Corporate Workspace',
@@ -269,7 +264,7 @@ class WorkOsPhase2SecurityAuditTest extends TestCase
             ])
             ->assertStatus(403);
 
-        $this->assertEquals('admin', $this->admin->fresh()->role);
+        $this->assertTrue($this->admin->fresh()->hasRole('admin'));
 
         // Admin tries to suspend Super Admin
         $this->actingAs($this->admin)

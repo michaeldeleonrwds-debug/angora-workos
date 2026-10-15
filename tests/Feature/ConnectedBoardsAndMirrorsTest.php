@@ -34,7 +34,7 @@ class ConnectedBoardsAndMirrorsTest extends TestCase
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
 
-        $this->superAdmin = User::where('role', 'super_admin')->first();
+        $this->superAdmin = User::role('super_admin')->first();
         $this->manager = User::factory()->create([
             'name' => 'Department Manager',
             'email' => 'manager@angora.work',

@@ -32,7 +32,7 @@ class WorkOsBoardTest extends TestCase
     {
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
-        $this->user = User::where('role', 'super_admin')->first();
+        $this->user = User::role('super_admin')->first();
         $this->actingAs($this->user);
     }
 

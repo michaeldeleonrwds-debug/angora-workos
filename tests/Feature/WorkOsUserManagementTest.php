@@ -32,47 +32,43 @@ class WorkOsUserManagementTest extends TestCase
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
 
-        $this->superAdmin = User::where('role', 'super_admin')->first();
+        $this->superAdmin = User::role('super_admin')->first();
 
         $this->admin = User::create([
             'name' => 'Admin User',
             'email' => 'admin_test@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'admin',
             'department' => 'Operations',
             'status' => 'active',
             'email_verified_at' => now(),
-        ]);
+        ])->assignRole('admin');
 
         $this->projectManager = User::create([
             'name' => 'PM User',
             'email' => 'pm_test@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'project_manager',
             'department' => 'Operations',
             'status' => 'active',
             'email_verified_at' => now(),
-        ]);
+        ])->assignRole('project_manager');
 
         $this->developer = User::create([
             'name' => 'Dev User',
             'email' => 'dev_test@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'developer',
             'department' => 'Engineering',
             'status' => 'active',
             'email_verified_at' => now(),
-        ]);
+        ])->assignRole('developer');
 
         $this->client = User::create([
             'name' => 'Client User',
             'email' => 'client_test@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'client',
             'department' => 'Client Portal',
             'status' => 'active',
             'email_verified_at' => now(),
-        ]);
+        ])->assignRole('client');
 
         $this->workspace = Workspace::firstOrCreate([
             'name' => 'Test Organization Workspace',
@@ -143,11 +139,11 @@ class WorkOsUserManagementTest extends TestCase
         $response->assertRedirect();
         $this->assertDatabaseHas('users', [
             'email' => 'dave@angora.internal',
-            'role' => 'designer',
             'status' => 'active',
         ]);
 
         $dave = User::where('email', 'dave@angora.internal')->first();
+        $this->assertTrue($dave->hasRole('designer'));
         $this->assertDatabaseHas('workspace_members', [
             'workspace_id' => $this->workspace->id,
             'user_id' => $dave->id,
@@ -183,7 +179,7 @@ class WorkOsUserManagementTest extends TestCase
             ])
             ->assertStatus(403);
 
-        $this->assertEquals('developer', $this->developer->fresh()->role);
+        $this->assertTrue($this->developer->fresh()->hasRole('developer'));
     }
 
     /**
@@ -195,9 +191,8 @@ class WorkOsUserManagementTest extends TestCase
             'name' => 'Second Super Admin',
             'email' => 'second_super@angora.internal',
             'password' => Hash::make('password123'),
-            'role' => 'admin',
             'status' => 'active',
-        ]);
+        ])->assignRole('admin');
 
         $this->actingAs($this->superAdmin)
             ->put(route('users.update', $newSuperAdmin), [
@@ -206,7 +201,7 @@ class WorkOsUserManagementTest extends TestCase
             ])
             ->assertRedirect();
 
-        $this->assertEquals('super_admin', $newSuperAdmin->fresh()->role);
+        $this->assertTrue($newSuperAdmin->fresh()->hasRole('super_admin'));
     }
 
     /**
@@ -282,11 +277,11 @@ class WorkOsUserManagementTest extends TestCase
         // Check user creation
         $this->assertDatabaseHas('users', [
             'email' => 'newhire@angora.internal',
-            'role' => 'developer',
             'status' => 'active',
         ]);
 
         $newUser = User::where('email', 'newhire@angora.internal')->first();
+        $this->assertTrue($newUser->hasRole('developer'));
 
         // Check workspace membership
         $this->assertDatabaseHas('workspace_members', [

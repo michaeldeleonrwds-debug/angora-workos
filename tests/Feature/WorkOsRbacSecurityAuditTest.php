@@ -37,7 +37,7 @@ class WorkOsRbacSecurityAuditTest extends TestCase
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
 
-        $this->superAdmin = User::where('role', 'super_admin')->first();
+        $this->superAdmin = User::role('super_admin')->first();
 
         // Create Admin, PM, and Designer users
         $this->adminUser = User::factory()->create([

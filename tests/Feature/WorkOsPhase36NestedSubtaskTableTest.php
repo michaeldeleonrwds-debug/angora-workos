@@ -37,30 +37,30 @@ class WorkOsPhase36NestedSubtaskTableTest extends TestCase
             [
                 'name' => 'Admin Subtable',
                 'password' => bcrypt('password'),
-                'role' => 'super_admin',
                 'department' => 'Operations',
             ]
         );
+        $this->admin->syncRoles(['super_admin']);
 
         $this->designerLeo = User::firstOrCreate(
             ['email' => 'leo_subtable@angora.test'],
             [
                 'name' => 'Leo De Guzman',
                 'password' => bcrypt('password'),
-                'role' => 'dept_user',
                 'department' => 'Creative & Design',
             ]
         );
+        $this->designerLeo->syncRoles(['dept_user']);
 
         $this->designerMaya = User::firstOrCreate(
             ['email' => 'maya_subtable@angora.test'],
             [
                 'name' => 'Maya Lin',
                 'password' => bcrypt('password'),
-                'role' => 'dept_user',
                 'department' => 'Video & Motion',
             ]
         );
+        $this->designerMaya->syncRoles(['dept_user']);
 
         $this->workspace = Workspace::create([
             'name' => 'Subtask Test Workspace',

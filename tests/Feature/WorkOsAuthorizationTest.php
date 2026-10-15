@@ -33,7 +33,7 @@ class WorkOsAuthorizationTest extends TestCase
         parent::setUp();
         $this->seed(DatabaseSeeder::class);
 
-        $this->superAdmin = User::where('role', 'super_admin')->first();
+        $this->superAdmin = User::role('super_admin')->first();
 
         // Create User A
         $this->userA = User::factory()->create([

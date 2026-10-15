@@ -35,7 +35,6 @@ class WorkOsPhase3SchedulingAndDeadlinesTest extends TestCase
             [
                 'name' => 'Super Admin',
                 'password' => bcrypt('password'),
-                'role' => 'super_admin',
                 'department' => 'Executive',
                 'timezone' => 'UTC',
             ]
@@ -46,11 +45,12 @@ class WorkOsPhase3SchedulingAndDeadlinesTest extends TestCase
             [
                 'name' => 'PM Phase 3',
                 'password' => bcrypt('password'),
-                'role' => 'project_manager',
                 'department' => 'Operations',
                 'timezone' => 'America/New_York',
             ]
         );
+        $this->superAdmin->assignRole('super_admin');
+        $this->user->assignRole('project_manager');
 
         $this->workspace = Workspace::firstOrCreate(
             ['name' => 'Phase 3 Workspace'],

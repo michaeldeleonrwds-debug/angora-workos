@@ -36,27 +36,26 @@ class WorkOsPhase36DynamicColumnsAndCellsTest extends TestCase
             [
                 'name' => 'Super Admin Phase 3.6',
                 'password' => bcrypt('password'),
-                'role' => 'super_admin',
                 'department' => 'Executive',
             ]
         );
+        $this->superAdmin->syncRoles(['super_admin']);
 
         $this->memberUser = User::firstOrCreate(
             ['email' => 'member_phase36@angora.test'],
             [
                 'name' => 'Member Phase 3.6',
                 'password' => bcrypt('password'),
-                'role' => 'project_manager',
                 'department' => 'Engineering',
             ]
         );
+        $this->memberUser->syncRoles(['project_manager']);
 
         $this->outsiderUser = User::firstOrCreate(
             ['email' => 'outsider_phase36@angora.test'],
             [
                 'name' => 'Outsider Phase 3.6',
                 'password' => bcrypt('password'),
-                'role' => 'freelancer',
                 'department' => 'External',
             ]
         );
