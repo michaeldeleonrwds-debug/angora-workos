@@ -24,7 +24,7 @@ class WorkdocController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -55,7 +55,7 @@ class WorkdocController extends Controller
         $user = $request->user();
 
         // Client authorization check
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             if ($workdoc->visibility !== 'client_shared') {
                 abort(403, 'Unauthorized access to internal document.');
             }
@@ -81,7 +81,7 @@ class WorkdocController extends Controller
             'doc' => $workdoc,
             'tasks' => $tasks,
             'projects' => $projects,
-            'canEdit' => $user->role !== 'external_user',
+            'canEdit' => $user->primaryRoleName() !== 'external_user',
         ]);
     }
 
@@ -91,7 +91,7 @@ class WorkdocController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -131,7 +131,7 @@ class WorkdocController extends Controller
     public function update(Request $request, Workdoc $workdoc): JsonResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -169,7 +169,7 @@ class WorkdocController extends Controller
     public function restoreVersion(Request $request, Workdoc $workdoc, WorkdocVersion $version): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user' || ($workdoc->owner_id !== $user->id && $user->role !== 'super_admin')) {
+        if ($user->primaryRoleName() === 'external_user' || ($workdoc->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin')) {
             abort(403);
         }
 
@@ -221,7 +221,7 @@ class WorkdocController extends Controller
     public function destroy(Request $request, Workdoc $workdoc): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user' || ($workdoc->owner_id !== $user->id && $user->role !== 'super_admin')) {
+        if ($user->primaryRoleName() === 'external_user' || ($workdoc->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin')) {
             abort(403);
         }
 

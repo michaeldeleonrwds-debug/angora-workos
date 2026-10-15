@@ -9,9 +9,12 @@ use App\Models\UserInvitation;
 use App\Models\Workspace;
 use App\Models\WorkspaceMember;
 use App\Models\BoardMember;
+use App\Models\RbacRole;
+use App\Services\Authorization\RbacGovernanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
@@ -22,14 +25,14 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        Gate::authorize('viewAny', User::class);
+        Gate::authorize('create', User::class);
 
         $search = $request->query('search', '');
         $roleFilter = $request->query('role', '');
         $statusFilter = $request->query('status', '');
 
         $query = User::query()
-            ->select('id', 'name', 'email', 'role', 'department', 'phone', 'status', 'created_at')
+            ->select('id', 'name', 'email', 'department', 'phone', 'status', 'created_at')
             ->with([
                 'workspaces:id,name',
                 'managedProjects:id,name,code',
@@ -45,7 +48,7 @@ class UserController extends Controller
         }
 
         if ($roleFilter) {
-            $query->where('role', $roleFilter);
+            $query->whereHas('roles', fn ($roles) => $roles->where('name', $roleFilter));
         }
 
         if ($statusFilter) {
@@ -53,9 +56,23 @@ class UserController extends Controller
         }
 
         $users = $query->orderBy('name')->paginate(20)->withQueryString();
+        $users->getCollection()->each(function (User $target): void {
+            $target->setAttribute('can_edit', Gate::allows('update', $target));
+            $target->setAttribute('can_suspend', Gate::allows('suspend', $target));
+            $target->setAttribute('can_delete', Gate::allows('delete', $target));
+        });
+
+        $systemRoles = RbacRole::query()->orderBy('name')->pluck('name', 'name')->mapWithKeys(
+            fn ($name, $key) => [$key => str($name)->replace('_', ' ')->title()->toString()]
+        )->all();
+        $assignableRoles = RbacRole::query()->orderBy('name')->get()
+            ->filter(fn (RbacRole $role) => app(RbacGovernanceService::class)->canAssignRole($request->user(), $role))
+            ->mapWithKeys(fn (RbacRole $role) => [$role->name => $systemRoles[$role->name]])
+            ->all();
 
         $invitations = UserInvitation::select('id', 'email', 'role', 'workspace_id', 'board_id', 'invited_by', 'expires_at', 'accepted_at', 'revoked_at', 'created_at', 'token')
             ->with(['workspace:id,name', 'board:id,title', 'inviter:id,name'])
+            ->whereIn('role', array_keys($assignableRoles))
             ->latest()
             ->take(30)
             ->get();
@@ -63,24 +80,13 @@ class UserController extends Controller
         $workspaces = Workspace::select('id', 'name')->orderBy('name')->get();
         $boards = KanbanBoard::select('id', 'title', 'workspace_id')->orderBy('title')->get();
 
-        $systemRoles = [
-            'super_admin' => 'Super Admin',
-            'admin' => 'Admin',
-            'project_manager' => 'Project Manager',
-            'account_manager' => 'Account Manager',
-            'designer' => 'Designer',
-            'developer' => 'Developer',
-            'employee' => 'Employee',
-            'guest' => 'Guest / Freelancer',
-            'client' => 'Client',
-        ];
-
         return Inertia::render('users/index', [
             'users' => $users,
             'invitations' => $invitations,
             'workspaces' => $workspaces,
             'boards' => $boards,
             'systemRoles' => $systemRoles,
+            'assignableRoles' => $assignableRoles,
             'filters' => [
                 'search' => $search,
                 'role' => $roleFilter,
@@ -99,10 +105,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users,email',
-            'role' => ['required', 'string', Rule::in([
-                'super_admin', 'admin', 'project_manager', 'account_manager',
-                'designer', 'developer', 'employee', 'guest', 'client'
-            ])],
+            'role' => ['required', 'string', Rule::exists('roles', 'name')->where('guard_name', 'web')],
             'department' => 'nullable|string|max:100',
             'phone' => 'nullable|string|max:50',
             'password' => 'required|string|min:8',
@@ -122,13 +125,13 @@ class UserController extends Controller
         $user = User::create([
             'name' => $validated['name'],
             'email' => strtolower($validated['email']),
-            'role' => $validated['role'],
             'department' => $validated['department'] ?? 'Operations',
             'phone' => $validated['phone'] ?? null,
             'password' => Hash::make($validated['password']),
             'status' => 'active',
             'email_verified_at' => now(),
         ]);
+        $user->assignRole($validated['role']);
 
         if (!empty($validated['workspace_ids'])) {
             foreach ($validated['workspace_ids'] as $wsId) {
@@ -136,7 +139,7 @@ class UserController extends Controller
                     'workspace_id' => $wsId,
                     'user_id' => $user->id,
                 ], [
-                    'role' => in_array($user->role, ['super_admin', 'admin']) ? 'admin' : 'member',
+                    'role' => $user->hasAnyRole('super_admin', 'admin') ? 'admin' : 'member',
                 ]);
             }
         }
@@ -146,7 +149,7 @@ class UserController extends Controller
             department: $user->department,
             entityType: 'User',
             entityId: $user->id,
-            description: "Created user {$user->name} ({$user->email}) with role {$user->role}"
+            description: "Created user {$user->name} ({$user->email}) with role {$validated['role']}"
         );
 
         return back()->with('success', "User '{$user->name}' created successfully.");
@@ -161,10 +164,7 @@ class UserController extends Controller
 
         $validated = $request->validate([
             'email' => 'required|string|email|max:255|unique:users,email',
-            'role' => ['required', 'string', Rule::in([
-                'super_admin', 'admin', 'project_manager', 'account_manager',
-                'designer', 'developer', 'employee', 'guest', 'client'
-            ])],
+            'role' => ['required', 'string', Rule::exists('roles', 'name')->where('guard_name', 'web')],
             'workspace_id' => 'nullable|exists:workspaces,id',
             'board_id' => 'nullable|exists:kanban_boards,id',
         ]);
@@ -215,6 +215,7 @@ class UserController extends Controller
     public function resendInvitation(UserInvitation $invitation)
     {
         Gate::authorize('create', User::class);
+        Gate::authorize('assignRole', [User::class, $invitation->role]);
 
         if ($invitation->accepted_at) {
             return back()->with('error', 'Invitation has already been accepted.');
@@ -246,6 +247,7 @@ class UserController extends Controller
     public function revokeInvitation(UserInvitation $invitation)
     {
         Gate::authorize('create', User::class);
+        Gate::authorize('assignRole', [User::class, $invitation->role]);
 
         $invitation->update(['revoked_at' => now()]);
 
@@ -271,22 +273,31 @@ class UserController extends Controller
             'name' => 'sometimes|string|max:255',
             'department' => 'nullable|string|max:100',
             'phone' => 'nullable|string|max:50',
-            'role' => ['sometimes', 'string', Rule::in([
-                'super_admin', 'admin', 'project_manager', 'account_manager',
-                'designer', 'developer', 'employee', 'guest', 'client'
-            ])],
+            'role' => ['sometimes', 'string', Rule::exists('roles', 'name')->where('guard_name', 'web')],
             'status' => 'sometimes|in:active,inactive,suspended',
         ]);
 
-        if (isset($validated['role']) && $validated['role'] !== $user->role) {
-            Gate::authorize('assignRole', [User::class, $validated['role']]);
+        if (isset($validated['role']) && $validated['role'] !== $user->primaryRoleName()) {
+            Gate::authorize('assignRole', [User::class, $validated['role'], $user]);
         }
 
         if (isset($validated['status']) && $validated['status'] !== $user->status) {
             Gate::authorize('suspend', $user);
         }
 
-        $user->update($validated);
+        DB::transaction(function () use ($user, $validated) {
+            app(RbacGovernanceService::class)->assertLastActiveSuperAdminSafe(
+                $user,
+                $validated['role'] ?? null,
+                $validated['status'] ?? null,
+            );
+            $role = $validated['role'] ?? null;
+            unset($validated['role']);
+            $user->update($validated);
+            if ($role !== null && $role !== $user->primaryRoleName()) {
+                $user->syncRoles([$role]);
+            }
+        });
 
         AuditLog::log(
             action: 'USER_UPDATED',
@@ -310,7 +321,10 @@ class UserController extends Controller
             'status' => 'required|in:active,inactive,suspended',
         ]);
 
-        $user->update(['status' => $validated['status']]);
+        DB::transaction(function () use ($user, $validated) {
+            app(RbacGovernanceService::class)->assertLastActiveSuperAdminSafe($user, null, $validated['status']);
+            $user->update(['status' => $validated['status']]);
+        });
 
         AuditLog::log(
             action: 'USER_STATUS_CHANGED',

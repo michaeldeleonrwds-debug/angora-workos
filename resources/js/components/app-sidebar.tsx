@@ -43,9 +43,7 @@ export function AppSidebar() {
     const { state, isMobile } = useSidebar();
     const isCollapsed = state === 'collapsed' && !isMobile;
 
-    const userRole = page.props.auth?.user?.role;
-    const roleString = typeof userRole === 'string' ? userRole : '';
-    const canManageUsers = ['super_admin', 'admin', 'project_manager', 'account_manager'].includes(roleString);
+    const canManageUsers = page.props.auth?.capabilities?.canManageUsers === true;
 
     const navItems: NavItem[] = [
         ...mainNavItems,

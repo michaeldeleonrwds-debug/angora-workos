@@ -179,7 +179,7 @@ class DeliverableController extends Controller
 
         if ($user->isSuperAdmin()) {
             $isAuthorized = true;
-        } elseif ($user->role !== 'external_user') {
+        } elseif ($user->primaryRoleName() !== 'external_user') {
             if ($project->project_manager_id === $user->id ||
                 $project->project_leader_id === $user->id ||
                 $project->members()->where('user_id', $user->id)->exists() ||

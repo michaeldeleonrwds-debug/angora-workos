@@ -1,5 +1,6 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
 import { type BreadcrumbItem } from '@/types';
@@ -14,14 +15,17 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface RbacProps {
     roles: Record<string, string>;
-    permissionsGrouped: Record<string, any[]>;
-    allPermissions: any[];
+    roleControls: Record<string, { canEdit: boolean; canAssign: boolean }>;
+    canCreateRole: boolean;
+    permissionsGrouped: Record<string, { id: number; name: string; label: string; description?: string; canDelegate: boolean }[]>;
+    allPermissions: { id: number; name: string; canDelegate: boolean }[];
     matrix: Record<string, string[]>;
-    users: any[];
+    users: { id: number; name: string; email: string; department: string; status: string; role: string; canAssignRole: boolean }[];
 }
 
-export default function RbacPage({ roles, permissionsGrouped = {}, allPermissions = [], matrix = {}, users = [] }: RbacProps) {
-    const [selectedRole, setSelectedRole] = useState<string>('admin_manager');
+export default function RbacPage({ roles, roleControls = {}, canCreateRole = false, permissionsGrouped = {}, allPermissions = [], matrix = {}, users = [] }: RbacProps) {
+    const [selectedRole, setSelectedRole] = useState<string>(Object.keys(roles)[0] || '');
+    const [newRole, setNewRole] = useState('');
     const [activeTab, setActiveTab] = useState<'matrix' | 'accounts'>('matrix');
 
     // Local state for role permissions being edited
@@ -29,7 +33,7 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
 
     const togglePermission = (roleKey: string, permName: string) => {
-        if (roleKey === 'super_admin') return; // Super admin has everything
+        if (!roleControls[roleKey]?.canEdit || !allPermissions.find((permission) => permission.name === permName)?.canDelegate) return;
 
         const current = rolePerms[roleKey] || [];
         const updated = current.includes(permName) ? current.filter((p) => p !== permName) : [...current, permName];
@@ -69,6 +73,10 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
         );
     };
 
+    const handleCreateRole = () => {
+        router.post('/rbac/roles', { name: newRole.trim() }, { onSuccess: () => setNewRole(''), preserveScroll: true });
+    };
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="RBAC & Access Control Matrix" />
@@ -91,7 +99,7 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
                                 </Badge>
                             </div>
                             <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">
-                                Configure granular permissions across all 10 departments, manage role matrices, and control account privileges.
+                                Configure registered permissions, custom roles, and account access.
                             </p>
                         </div>
 
@@ -123,6 +131,12 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
                 <div className="space-y-6 p-6">
                     {activeTab === 'matrix' ? (
                         <div className="space-y-6">
+                            {canCreateRole && (
+                                <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#ECECF0] bg-white p-4 dark:border-[#28283E] dark:bg-[#1E1E2F]">
+                                    <Input aria-label="New role name" value={newRole} onChange={(event) => setNewRole(event.target.value)} placeholder="new_role_name" className="w-56 dark:bg-[#181826]" />
+                                    <Button onClick={handleCreateRole} disabled={!newRole.trim()} className="bg-[#0073ea] text-white">Create Role</Button>
+                                </div>
+                            )}
                             {/* Role Selector & Save Bar */}
                             <div className="flex flex-col justify-between gap-4 rounded-2xl border border-[#ECECF0] bg-white p-4 shadow-xs sm:flex-row sm:items-center dark:border-[#28283E] dark:bg-[#1E1E2F]">
                                 <div className="flex items-center gap-3">
@@ -134,7 +148,7 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
                                         <SelectContent className="rounded-xl border-[#ECECF0] bg-white dark:border-[#28283E] dark:bg-[#1E1E2F] dark:text-white">
                                             {Object.entries(roles).map(([key, label]) => (
                                                 <SelectItem key={key} value={key} className="dark:focus:bg-[#28283E] dark:focus:text-white">
-                                                    {label} {key === 'super_admin' ? '(Global)' : ''}
+                                                {label} {key === 'super_admin' ? '(Protected)' : ''}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -144,7 +158,7 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
                                     </span>
                                 </div>
 
-                                {selectedRole !== 'super_admin' && (
+                                {roleControls[selectedRole]?.canEdit && (
                                     <Button
                                         onClick={() => handleSaveRole(selectedRole)}
                                         className="h-8 gap-1.5 rounded-xl bg-[#0073ea] text-xs font-bold text-white hover:bg-[#0060b9]"
@@ -179,13 +193,13 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
                                         <div className="divide-y divide-[#ECECF0] dark:divide-[#28283E]">
                                             {perms.map((p) => {
                                                 const isGranted = (rolePerms[selectedRole] || []).includes(p.name);
-                                                const isSuper = selectedRole === 'super_admin';
+                                                const canEditPermission = !!roleControls[selectedRole]?.canEdit && p.canDelegate;
 
                                                 return (
                                                     <div
                                                         key={p.id}
-                                                        onClick={() => !isSuper && togglePermission(selectedRole, p.name)}
-                                                        className={`flex cursor-pointer items-center justify-between p-3 text-xs transition-colors ${
+                                                        onClick={() => canEditPermission && togglePermission(selectedRole, p.name)}
+                                                        className={`flex items-center justify-between p-3 text-xs transition-colors ${
                                                             isGranted
                                                                 ? 'bg-blue-50/40 dark:bg-blue-900/10'
                                                                 : 'hover:bg-slate-50/80 dark:hover:bg-[#181826]/70'
@@ -202,9 +216,7 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
                                                         </div>
 
                                                         <div>
-                                                            {isSuper ? (
-                                                                <Badge className="bg-[#00c875] text-[10px] text-white">Global Root</Badge>
-                                                            ) : isGranted ? (
+                                                            {isGranted ? (
                                                                 <div className="flex items-center gap-1.5 rounded-lg bg-[#00c875] px-2.5 py-1 text-[11px] font-bold text-white shadow-xs">
                                                                     <Check className="h-3 w-3" /> Granted
                                                                 </div>
@@ -252,12 +264,12 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
                                                 </td>
                                                 <td className="p-3 font-medium text-[#777785] dark:text-slate-300">{u.department}</td>
                                                 <td className="p-3">
-                                                    <Select value={u.role} onValueChange={(val) => handleUserRoleChange(u.id, val)}>
+                                                    {u.canAssignRole ? <Select value={u.role} onValueChange={(val) => handleUserRoleChange(u.id, val)}>
                                                         <SelectTrigger className="h-7 w-48 rounded-lg border-[#ECECF0] bg-slate-50 text-xs font-semibold dark:border-[#28283E] dark:bg-[#181826] dark:text-white">
                                                             <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent className="rounded-xl border-[#ECECF0] bg-white dark:border-[#28283E] dark:bg-[#1E1E2F] dark:text-white">
-                                                            {Object.entries(roles).map(([k, label]) => (
+                                                            {Object.entries(roles).filter(([k]) => roleControls[k]?.canAssign).map(([k, label]) => (
                                                                 <SelectItem
                                                                     key={k}
                                                                     value={k}
@@ -267,7 +279,7 @@ export default function RbacPage({ roles, permissionsGrouped = {}, allPermission
                                                                 </SelectItem>
                                                             ))}
                                                         </SelectContent>
-                                                    </Select>
+                                                    </Select> : <span className="font-semibold">{roles[u.role] || u.role}</span>}
                                                 </td>
                                                 <td className="p-3 text-center">
                                                     <Badge

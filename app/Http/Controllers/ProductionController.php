@@ -26,7 +26,7 @@ class ProductionController extends Controller
             ->latest()
             ->get();
 
-        $supervisors = User::whereIn('role', ['super_admin', 'admin_manager', 'production_staff'])->get();
+        $supervisors = User::role(['super_admin', 'admin_manager', 'production_staff'])->get();
 
         return Inertia::render('production/index', [
             'workOrders' => $workOrders,

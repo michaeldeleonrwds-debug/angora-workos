@@ -29,7 +29,7 @@ class CustomDashboardController extends Controller
         $user = $request->user();
 
         // Deny external client users
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403, 'Unauthorized access to internal dashboards.');
         }
 
@@ -63,14 +63,14 @@ class CustomDashboardController extends Controller
     {
         $user = $request->user();
 
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403, 'Unauthorized access.');
         }
 
         // Check view permission
         if ($dashboard->visibility === 'private' && $dashboard->owner_id !== $user->id) {
             $isMember = $dashboard->members()->where('user_id', $user->id)->exists();
-            if (!$isMember && $user->role !== 'super_admin') {
+            if (!$isMember && $user->primaryRoleName() !== 'super_admin') {
                 abort(403, 'Unauthorized access to this private dashboard.');
             }
         }
@@ -90,7 +90,7 @@ class CustomDashboardController extends Controller
             'dashboard' => array_merge($dashboard->toArray(), ['widgets' => $widgetsWithData]),
             'boards' => $boards,
             'projects' => $projects,
-            'canEdit' => $user->role === 'super_admin' || $dashboard->owner_id === $user->id,
+            'canEdit' => $user->primaryRoleName() === 'super_admin' || $dashboard->owner_id === $user->id,
         ]);
     }
 
@@ -100,7 +100,7 @@ class CustomDashboardController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -134,7 +134,7 @@ class CustomDashboardController extends Controller
     public function update(Request $request, Dashboard $dashboard): RedirectResponse
     {
         $user = $request->user();
-        if ($dashboard->owner_id !== $user->id && $user->role !== 'super_admin') {
+        if ($dashboard->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin') {
             abort(403);
         }
 
@@ -158,7 +158,7 @@ class CustomDashboardController extends Controller
     public function destroy(Request $request, Dashboard $dashboard): RedirectResponse
     {
         $user = $request->user();
-        if ($dashboard->owner_id !== $user->id && $user->role !== 'super_admin') {
+        if ($dashboard->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin') {
             abort(403);
         }
 
@@ -174,7 +174,7 @@ class CustomDashboardController extends Controller
     public function storeWidget(Request $request, Dashboard $dashboard): RedirectResponse
     {
         $user = $request->user();
-        if ($dashboard->owner_id !== $user->id && $user->role !== 'super_admin') {
+        if ($dashboard->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin') {
             abort(403);
         }
 
@@ -204,7 +204,7 @@ class CustomDashboardController extends Controller
     public function updateWidget(Request $request, Dashboard $dashboard, DashboardWidget $widget): RedirectResponse
     {
         $user = $request->user();
-        if ($dashboard->owner_id !== $user->id && $user->role !== 'super_admin') {
+        if ($dashboard->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin') {
             abort(403);
         }
 
@@ -226,7 +226,7 @@ class CustomDashboardController extends Controller
     public function destroyWidget(Request $request, Dashboard $dashboard, DashboardWidget $widget): RedirectResponse
     {
         $user = $request->user();
-        if ($dashboard->owner_id !== $user->id && $user->role !== 'super_admin') {
+        if ($dashboard->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin') {
             abort(403);
         }
 
@@ -241,7 +241,7 @@ class CustomDashboardController extends Controller
     public function updateLayout(Request $request, Dashboard $dashboard): JsonResponse
     {
         $user = $request->user();
-        if ($dashboard->owner_id !== $user->id && $user->role !== 'super_admin') {
+        if ($dashboard->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin') {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 

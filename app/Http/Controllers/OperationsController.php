@@ -15,7 +15,7 @@ class OperationsController extends Controller
     {
         $workflows = OperationsWorkflow::with(['requester', 'assignee'])->latest()->get();
         $tickets = OperationsTicket::with('requester')->latest()->get();
-        $users = User::select('id', 'name', 'department', 'role')->get();
+        $users = User::select('id', 'name', 'department')->get();
 
         return Inertia::render('operations/index', [
             'workflows' => $workflows,

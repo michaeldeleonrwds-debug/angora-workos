@@ -19,7 +19,7 @@ class SalesController extends Controller
         $leads = SalesLead::with(['customer', 'assignee'])->latest()->get();
         $invoices = SalesInvoice::with('customer')->latest()->get();
         $targets = SalesTarget::with('user')->get();
-        $salesReps = User::whereIn('role', ['super_admin', 'sales_staff', 'admin_manager'])->get();
+        $salesReps = User::role(['super_admin', 'sales_staff', 'admin_manager'])->get();
 
         return Inertia::render('sales/index', [
             'customers' => $customers,

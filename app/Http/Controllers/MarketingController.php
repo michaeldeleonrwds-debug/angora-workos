@@ -15,7 +15,7 @@ class MarketingController extends Controller
     {
         $campaigns = MarketingCampaign::with('contents')->latest()->get();
         $contents = MarketingContent::with(['campaign', 'author'])->latest()->get();
-        $team = User::whereIn('role', ['super_admin', 'marketing_staff', 'admin_manager'])->get();
+        $team = User::role(['super_admin', 'marketing_staff', 'admin_manager'])->get();
 
         return Inertia::render('marketing/index', [
             'campaigns' => $campaigns,

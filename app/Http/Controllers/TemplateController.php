@@ -26,7 +26,7 @@ class TemplateController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -55,7 +55,7 @@ class TemplateController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (in_array($user->primaryRoleName(), ['designer', 'client', 'guest', 'external_user'], true)) {
             abort(403, 'Unauthorized. Designers cannot register templates.');
         }
 
@@ -84,7 +84,7 @@ class TemplateController extends Controller
     public function saveBoardAsTemplate(Request $request, KanbanBoard $board): RedirectResponse
     {
         $user = $request->user();
-        if (in_array($user->role, ['designer', 'client', 'guest', 'external_user'], true)) {
+        if (in_array($user->primaryRoleName(), ['designer', 'client', 'guest', 'external_user'], true)) {
             abort(403, 'Unauthorized. Designers cannot save board blueprints.');
         }
 
@@ -131,7 +131,7 @@ class TemplateController extends Controller
     public function instantiate(Request $request, WorkOsTemplate $template): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -316,7 +316,7 @@ class TemplateController extends Controller
     public function destroy(Request $request, WorkOsTemplate $template): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user' || ($template->created_by !== $user->id && $user->role !== 'super_admin')) {
+        if ($user->primaryRoleName() === 'external_user' || ($template->created_by !== $user->id && $user->primaryRoleName() !== 'super_admin')) {
             abort(403);
         }
 

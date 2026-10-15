@@ -215,7 +215,7 @@ class KanbanController extends Controller
             ? $this->crossBoardService->resolveMirrorsForBoard($activeBoard, $boardTasks, $user)
             : [];
 
-        $users = User::select('id', 'name', 'role', 'department', 'email')->get();
+        $users = User::select('id', 'name', 'department', 'email')->get();
 
         $permissions = $activeBoard ? $this->permissionService->getBoardPermissions($user, $activeBoard) : [
             'canView' => false,
@@ -944,12 +944,9 @@ class KanbanController extends Controller
     {
         Gate::authorize('update', $task);
 
-        // Field-level authorization: Contributors can only update progress and actual_hours on assigned tasks (unless workspace owner or board creator)
-        $isBoardOrWorkspaceManager = ($task->board?->workspace && (int) $task->board->workspace->owner_id === (int) $request->user()->id)
-            || ((int) $task->board?->created_by === (int) $request->user()->id)
-            || in_array($request->user()->role, ['admin', 'super_admin', 'project_manager', 'admin_manager'], true);
-
-        if (!$isBoardOrWorkspaceManager && in_array($request->user()->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
+        // An assigned-task grant never allows privileged metadata edits.
+        if (! $request->user()->hasPermission('workos.tasks.update')
+            && ! ($request->user()->hasPermission('workos.boards.manage') && $request->user()->can('update', $task->board))) {
             $disallowedFields = [
                 'title', 'description', 'priority', 'due_date', 'due_time',
                 'start_date', 'start_time', 'is_milestone', 'reminder_lead_minutes',
@@ -1303,32 +1300,13 @@ class KanbanController extends Controller
 
         $tasks = KanbanTask::whereIn('id', $taskIds)->get()->keyBy('id');
 
-        // Check authorization: if user is contributor, ALL reordered tasks must be assigned to them!
-        if (in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
-            foreach ($taskIds as $id) {
-                $task = $tasks->get($id);
-                if (!$task || !$task->isAssignedTo($user)) {
-                    abort(403, 'Employees are not authorized to reorder tasks assigned to other employees.');
-                }
-            }
-        } else {
-            foreach ($taskIds as $id) {
-                $task = $tasks->get($id);
-                if ($task && !$user->can('update', $task)) {
-                    abort(403, 'Unauthorized to reorder tasks.');
-                }
-            }
-        }
-
         $targetColId = $request->input('column_id');
         $targetCol = $targetColId ? KanbanColumn::find($targetColId) : null;
-
-        if ($targetCol && in_array($user->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
-            foreach ($taskIds as $id) {
-                $task = $tasks->get($id);
-                if ($task && !$user->can('changeStatus', [$task, $targetCol])) {
-                    abort(403, 'Unauthorized workflow transition during reorder.');
-                }
+        foreach ($taskIds as $id) {
+            $task = $tasks->get($id);
+            abort_unless($task && $user->can('reorder', $task), 403, 'Unauthorized to reorder tasks.');
+            if ($targetColId !== null) {
+                abort_unless($targetCol && $user->can('changeStatus', [$task, $targetCol]), 403, 'Unauthorized workflow transition during reorder.');
             }
         }
 
@@ -1956,11 +1934,8 @@ class KanbanController extends Controller
     {
         Gate::authorize('update', $task);
 
-        $isBoardOrWorkspaceManager = ($task->board?->workspace && (int) $task->board->workspace->owner_id === (int) $request->user()->id)
-            || ((int) $task->board?->created_by === (int) $request->user()->id)
-            || in_array($request->user()->role, ['admin', 'super_admin', 'project_manager', 'admin_manager'], true);
-
-        if (!$isBoardOrWorkspaceManager && in_array($request->user()->role, ['designer', 'developer', 'dept_user', 'employee'], true)) {
+        if (! $request->user()->hasPermission('workos.tasks.update')
+            && ! ($request->user()->hasPermission('workos.boards.manage') && $request->user()->can('update', $task->board))) {
             abort(403, 'Employees are not authorized to update task schedules.');
         }
 

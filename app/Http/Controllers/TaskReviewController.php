@@ -172,8 +172,8 @@ class TaskReviewController extends Controller
             ], 422);
         }
 
-        // Self-review prevention: designer/submitter cannot approve their own submission unless super_admin or admin
-        if ($cycle->submitted_by === $user->id && !in_array($user->role, ['super_admin', 'admin'])) {
+        // A review decision must always come from someone other than the submitter.
+        if ($cycle->submitted_by === $user->id) {
             return response()->json([
                 'error' => 'You cannot approve or review your own submission. A Project Manager or Reviewer must complete the review.',
             ], 403);
@@ -182,17 +182,17 @@ class TaskReviewController extends Controller
         $currentStage = $cycle->stages()->where('stage_index', $cycle->current_stage_index ?? 1)->first();
 
         // Stage role gating: if stage specifies required_role, enforce it (unless super_admin or admin)
-        if ($currentStage && !empty($currentStage->required_role) && !in_array($user->role, ['super_admin', 'admin'])) {
+        if ($currentStage && !empty($currentStage->required_role) && !in_array($user->primaryRoleName(), ['super_admin', 'admin'])) {
             $allowedRole = $currentStage->required_role;
-            if ($allowedRole === 'client' && $user->role !== 'client' && $user->role !== 'external_user') {
+            if ($allowedRole === 'client' && $user->primaryRoleName() !== 'client' && $user->primaryRoleName() !== 'external_user') {
                 return response()->json([
                     'error' => "Stage '{$currentStage->name}' requires client authorization.",
                 ], 403);
-            } elseif ($allowedRole === 'project_manager' && !in_array($user->role, ['project_manager', 'admin_manager', 'admin', 'super_admin'])) {
+            } elseif ($allowedRole === 'project_manager' && ! $user->hasPermission('workos.tasks.review.decide')) {
                 return response()->json([
                     'error' => "Stage '{$currentStage->name}' requires project manager authorization.",
                 ], 403);
-            } elseif ($allowedRole !== 'any' && $allowedRole !== 'client' && $allowedRole !== 'project_manager' && $user->role !== $allowedRole) {
+            } elseif ($allowedRole !== 'any' && $allowedRole !== 'client' && $allowedRole !== 'project_manager' && $user->primaryRoleName() !== $allowedRole) {
                 return response()->json([
                     'error' => "Stage '{$currentStage->name}' requires '{$allowedRole}' role authorization.",
                 ], 403);

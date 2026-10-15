@@ -155,7 +155,9 @@ Route::middleware(['auth'])->group(function () {
 
     // RBAC Permissions Manager
     Route::get('/rbac', [\App\Http\Controllers\RbacController::class, 'index'])->name('rbac.index')->middleware('permission:rbac.manage');
+    Route::post('/rbac/roles', [\App\Http\Controllers\RbacController::class, 'storeRole'])->name('rbac.roles.store')->middleware('permission:rbac.manage');
     Route::post('/rbac/roles/{role}/permissions', [\App\Http\Controllers\RbacController::class, 'updateRolePermissions'])->name('rbac.roles.permissions.update')->middleware('permission:rbac.manage');
+    Route::post('/rbac/users/{user}/role', [\App\Http\Controllers\RbacController::class, 'updateUserRole'])->name('rbac.users.role.update')->middleware('permission:rbac.manage');
 
     // Agency Projects & Client Deliverables
     Route::get('/projects', [\App\Http\Controllers\AgencyProjectController::class, 'index'])->name('projects.index');

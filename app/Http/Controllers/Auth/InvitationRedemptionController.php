@@ -80,11 +80,11 @@ class InvitationRedemptionController extends Controller
                 'name' => $validated['name'],
                 'email' => strtolower($invitation->email),
                 'password' => Hash::make($validated['password']),
-                'role' => $invitation->role,
                 'department' => 'Operations',
                 'status' => 'active',
                 'email_verified_at' => now(),
             ]);
+            $user->assignRole($invitation->role);
 
             // Auto-join invited workspace if designated
             if ($invitation->workspace_id) {
@@ -92,7 +92,7 @@ class InvitationRedemptionController extends Controller
                     'workspace_id' => $invitation->workspace_id,
                     'user_id' => $user->id,
                 ], [
-                    'role' => in_array($user->role, ['super_admin', 'admin']) ? 'admin' : 'member',
+                    'role' => in_array($user->primaryRoleName(), ['super_admin', 'admin']) ? 'admin' : 'member',
                 ]);
             }
 
@@ -102,7 +102,7 @@ class InvitationRedemptionController extends Controller
                     'board_id' => $invitation->board_id,
                     'user_id' => $user->id,
                 ], [
-                    'role' => in_array($user->role, ['super_admin', 'admin']) ? 'admin' : ($user->role === 'guest' ? 'guest' : 'editor'),
+                    'role' => in_array($user->primaryRoleName(), ['super_admin', 'admin']) ? 'admin' : ($user->primaryRoleName() === 'guest' ? 'guest' : 'editor'),
                 ]);
             }
 
@@ -114,7 +114,7 @@ class InvitationRedemptionController extends Controller
                 department: $user->department,
                 entityType: 'User',
                 entityId: $user->id,
-                description: "Accepted invitation for role {$user->role}"
+                description: "Accepted invitation for role {$user->primaryRoleName()}"
             );
 
             Auth::login($user);

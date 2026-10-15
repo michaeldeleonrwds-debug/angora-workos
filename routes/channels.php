@@ -16,7 +16,7 @@ Broadcast::channel('boards.{boardId}', function (User $user, int $boardId) {
         return true;
     }
 
-    if ($user->role === 'external_user') {
+    if ($user->primaryRoleName() === 'external_user') {
         return false;
     }
 
@@ -45,7 +45,7 @@ Broadcast::channel('tasks.{taskId}', function (User $user, int $taskId) {
         return false;
     }
 
-    if ($user->role === 'external_user') {
+    if ($user->primaryRoleName() === 'external_user') {
         // External user can only join if task is linked to their client project and visible
         return false;
     }
@@ -64,7 +64,7 @@ Broadcast::channel('projects.{projectId}', function (User $user, int $projectId)
     }
 
     // Internal staff
-    if ($user->role !== 'external_user') {
+    if ($user->primaryRoleName() !== 'external_user') {
         return $project->project_manager_id === $user->id
             || $project->project_leader_id === $user->id
             || $project->members()->where('user_id', $user->id)->exists()

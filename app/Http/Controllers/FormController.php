@@ -27,7 +27,7 @@ class FormController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -53,7 +53,7 @@ class FormController extends Controller
     public function edit(Request $request, Form $form): Response
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -74,7 +74,7 @@ class FormController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -106,7 +106,7 @@ class FormController extends Controller
     public function update(Request $request, Form $form): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user' || ($form->owner_id !== $user->id && $user->role !== 'super_admin')) {
+        if ($user->primaryRoleName() === 'external_user' || ($form->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin')) {
             abort(403);
         }
 
@@ -133,7 +133,7 @@ class FormController extends Controller
     public function syncFields(Request $request, Form $form): JsonResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user' || ($form->owner_id !== $user->id && $user->role !== 'super_admin')) {
+        if ($user->primaryRoleName() === 'external_user' || ($form->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin')) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
@@ -172,7 +172,7 @@ class FormController extends Controller
     public function destroy(Request $request, Form $form): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user' || ($form->owner_id !== $user->id && $user->role !== 'super_admin')) {
+        if ($user->primaryRoleName() === 'external_user' || ($form->owner_id !== $user->id && $user->primaryRoleName() !== 'super_admin')) {
             abort(403);
         }
 
@@ -187,7 +187,7 @@ class FormController extends Controller
     public function submissions(Request $request, Form $form): Response
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 

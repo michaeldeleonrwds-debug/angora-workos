@@ -36,7 +36,7 @@ class ClientPortalController extends Controller
         }
 
         // 3. Fallback matching by email if external_user
-        if (!$customer && $user->role === 'external_user') {
+        if (!$customer && $user->primaryRoleName() === 'external_user') {
             $customer = SalesCustomer::where('email', $user->email)->first();
             if ($customer && !$customer->user_id) {
                 $customer->update(['user_id' => $user->id]);

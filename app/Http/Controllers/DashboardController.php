@@ -116,8 +116,8 @@ class DashboardController extends Controller
 
         // Team Workload Analytics (active assignees with task counts)
         $teamMembers = User::where('status', 'active')
-            ->whereIn('role', ['dept_user', 'project_manager', 'account_manager', 'admin'])
-            ->select('id', 'name', 'email', 'avatar', 'avatar_url', 'role', 'department')
+            ->role(['dept_user', 'project_manager', 'account_manager', 'admin'])
+            ->select('id', 'name', 'email', 'avatar', 'avatar_url', 'department')
             ->get()
             ->map(function ($member) use ($taskQuery) {
                 $memberTaskQuery = (clone $taskQuery)->where('assigned_to', $member->id);
@@ -134,7 +134,7 @@ class DashboardController extends Controller
                     'name' => $member->name,
                     'email' => $member->email,
                     'avatar' => $member->avatar,
-                    'role' => $member->role,
+                    'role' => $member->primaryRoleName(),
                     'department' => $member->department,
                     'active_tasks' => $activeCount,
                     'completed_tasks' => $completedCount,

@@ -20,7 +20,7 @@ class AuthenticatedSessionController extends Controller
     {
         $testAccounts = [];
         if (app()->environment(['local', 'testing'])) {
-            $testAccounts = \App\Models\User::select('id', 'name', 'email', 'role', 'department')
+            $testAccounts = \App\Models\User::select('id', 'name', 'email', 'department')
                 ->where('status', 'active')
                 ->orderBy('id')
                 ->get();
@@ -47,6 +47,7 @@ class AuthenticatedSessionController extends Controller
         ]);
 
         $user = \App\Models\User::findOrFail($request->user_id);
+        abort_if($user->isSuperAdmin() && $request->user() && ! $request->user()->isSuperAdmin(), 403);
         abort_if($user->status === 'inactive' || $user->status === 'suspended', 403, 'Cannot quick-login to a deactivated or suspended account.');
 
         Auth::login($user);
@@ -57,7 +58,7 @@ class AuthenticatedSessionController extends Controller
             department: $user->department,
             entityType: 'User',
             entityId: $user->id,
-            description: "Development Quick Login as {$user->name} ({$user->role})"
+            description: "Development Quick Login as {$user->name} ({$user->primaryRoleName()})"
         );
 
         return redirect()->intended(route('dashboard', absolute: false));

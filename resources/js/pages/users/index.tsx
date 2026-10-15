@@ -48,6 +48,9 @@ const breadcrumbs: BreadcrumbItem[] = [
 
 interface UserItem {
     id: number;
+    can_edit: boolean;
+    can_suspend: boolean;
+    can_delete: boolean;
     name: string;
     email: string;
     role: string;
@@ -86,6 +89,7 @@ interface UsersPageProps {
     workspaces: Array<{ id: number; name: string }>;
     boards: Array<{ id: number; title: string; workspace_id: number }>;
     systemRoles: Record<string, string>;
+    assignableRoles: Record<string, string>;
     filters: {
         search: string;
         role: string;
@@ -99,6 +103,7 @@ export default function UsersIndex({
     workspaces,
     boards,
     systemRoles,
+    assignableRoles,
     filters,
 }: UsersPageProps) {
     const [search, setSearch] = useState(filters.search || '');
@@ -490,16 +495,16 @@ export default function UsersIndex({
                                                     <td className="px-4 py-3.5">{getStatusBadge(user.status)}</td>
                                                     <td className="px-4 py-3.5 text-right">
                                                         <div className="flex items-center justify-end gap-1.5">
-                                                            <Button
+                                                            {user.can_edit && <Button
                                                                 size="sm"
                                                                 variant="outline"
                                                                 onClick={() => openEditModal(user)}
                                                                 className="h-7 rounded-lg border-[#ECECF0] px-2 text-[11px] font-semibold dark:border-[#28283E]"
                                                             >
                                                                 Edit
-                                                            </Button>
+                                                            </Button>}
 
-                                                            {user.status === 'active' ? (
+                                                            {user.can_suspend && (user.status === 'active' ? (
                                                                 <Button
                                                                     size="sm"
                                                                     variant="outline"
@@ -517,16 +522,16 @@ export default function UsersIndex({
                                                                 >
                                                                     Activate
                                                                 </Button>
-                                                            )}
+                                                            ))}
 
-                                                            <Button
+                                                            {user.can_delete && <Button
                                                                 size="sm"
                                                                 variant="ghost"
                                                                 onClick={() => handleDeleteUser(user)}
                                                                 className="h-7 w-7 rounded-lg p-0 text-rose-500 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
                                                             >
                                                                 <Trash2 className="h-3.5 w-3.5" />
-                                                            </Button>
+                                                            </Button>}
                                                         </div>
                                                     </td>
                                                 </tr>
@@ -716,7 +721,7 @@ export default function UsersIndex({
                                     onChange={(e) => createForm.setData('role', e.target.value)}
                                     className="mt-1 h-9 w-full rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                                 >
-                                    {Object.entries(systemRoles).map(([val, label]) => (
+                                    {Object.entries(assignableRoles).map(([val, label]) => (
                                         <option key={val} value={val} className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">
                                             {label}
                                         </option>
@@ -803,7 +808,7 @@ export default function UsersIndex({
                                 onChange={(e) => inviteForm.setData('role', e.target.value)}
                                 className="mt-1 h-9 w-full rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                             >
-                                {Object.entries(systemRoles).map(([val, label]) => (
+                                {Object.entries(assignableRoles).map(([val, label]) => (
                                     <option key={val} value={val} className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">
                                         {label}
                                     </option>
@@ -898,7 +903,8 @@ export default function UsersIndex({
                                         onChange={(e) => editForm.setData('role', e.target.value)}
                                         className="mt-1 h-9 w-full rounded-xl border border-input bg-card text-foreground dark:bg-[#1E1E30] dark:text-white px-3 text-xs focus:outline-hidden focus:ring-1 focus:ring-ring"
                                     >
-                                        {Object.entries(systemRoles).map(([val, label]) => (
+                                        {!assignableRoles[editForm.data.role] && <option value={editForm.data.role}>{systemRoles[editForm.data.role] || editForm.data.role}</option>}
+                                        {Object.entries(assignableRoles).map(([val, label]) => (
                                             <option key={val} value={val} className="bg-white text-slate-900 dark:bg-[#1E1E30] dark:text-white">
                                                 {label}
                                             </option>

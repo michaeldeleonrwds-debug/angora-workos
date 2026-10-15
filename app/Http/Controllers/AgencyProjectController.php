@@ -51,7 +51,7 @@ class AgencyProjectController extends Controller
 
         $projects = $query->latest()->get();
         $clients = SalesCustomer::select('id', 'name', 'company', 'email', 'status', 'portal_access_enabled')->get();
-        $users = User::select('id', 'name', 'role', 'department', 'email')->get();
+        $users = User::select('id', 'name', 'department', 'email')->get();
         $boards = KanbanBoard::select('id', 'title', 'workspace_id')->get();
         $workspaces = Workspace::select('id', 'name')->get();
 
@@ -93,7 +93,7 @@ class AgencyProjectController extends Controller
             },
         ]);
 
-        $users = User::select('id', 'name', 'role', 'department', 'email')->get();
+        $users = User::select('id', 'name', 'department', 'email')->get();
 
         return Inertia::render('projects/show', [
             'project' => $project,

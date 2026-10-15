@@ -18,6 +18,7 @@ class RoleSwitchController extends Controller
         ]);
 
         $user = User::findOrFail($request->user_id);
+        abort_if($user->isSuperAdmin() && ! $request->user()?->isSuperAdmin(), 403);
         Auth::login($user);
 
         AuditLog::log(
@@ -25,9 +26,9 @@ class RoleSwitchController extends Controller
             department: $user->department,
             entityType: 'User',
             entityId: $user->id,
-            description: "Switched active test persona to {$user->name} ({$user->role})"
+            description: "Switched active test persona to {$user->name} ({$user->primaryRoleName()})"
         );
 
-        return back()->with('success', "Switched persona to {$user->name} ({$user->role})");
+        return back()->with('success', "Switched persona to {$user->name} ({$user->primaryRoleName()})");
     }
 }

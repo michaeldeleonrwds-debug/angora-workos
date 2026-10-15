@@ -2,6 +2,7 @@ import { LucideIcon } from 'lucide-react';
 
 export interface Auth {
     user: User;
+    capabilities?: { canManageUsers?: boolean; canManageRbac?: boolean };
 }
 
 export interface BreadcrumbItem {

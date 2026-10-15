@@ -25,7 +25,7 @@ class ReportBuilderController extends Controller
     public function index(Request $request): Response
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -47,7 +47,7 @@ class ReportBuilderController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -72,7 +72,7 @@ class ReportBuilderController extends Controller
     public function preview(Request $request, AnalyticsReport $report)
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -87,7 +87,7 @@ class ReportBuilderController extends Controller
     public function export(Request $request, AnalyticsReport $report): HttpResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -122,7 +122,7 @@ class ReportBuilderController extends Controller
     public function destroy(Request $request, AnalyticsReport $report): RedirectResponse
     {
         $user = $request->user();
-        if ($report->created_by !== $user->id && $user->role !== 'super_admin') {
+        if ($report->created_by !== $user->id && $user->primaryRoleName() !== 'super_admin') {
             abort(403);
         }
 
@@ -137,7 +137,7 @@ class ReportBuilderController extends Controller
     public function storeSchedule(Request $request, AnalyticsReport $report): RedirectResponse
     {
         $user = $request->user();
-        if ($user->role === 'external_user') {
+        if ($user->primaryRoleName() === 'external_user') {
             abort(403);
         }
 
@@ -172,7 +172,7 @@ class ReportBuilderController extends Controller
     public function destroySchedule(Request $request, ScheduledReport $schedule): RedirectResponse
     {
         $user = $request->user();
-        if ($schedule->report->created_by !== $user->id && $user->role !== 'super_admin') {
+        if ($schedule->report->created_by !== $user->id && $user->primaryRoleName() !== 'super_admin') {
             abort(403);
         }
 
