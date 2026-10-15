@@ -69,7 +69,7 @@ export default function KanbanBoardView({
     const [editingStage, setEditingStage] = useState<KanbanColumn | null>(null);
     const [editStageTitle, setEditStageTitle] = useState('');
 
-    const columns = board.columns || [];
+    const columns = (board.columns || []).filter((c) => !c.is_archived);
 
     const toggleSubtasks = (taskId: number, e: React.MouseEvent) => {
         e.stopPropagation();

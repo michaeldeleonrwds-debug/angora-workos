@@ -9,6 +9,12 @@ import { ArrowDown, ArrowUp, AlertCircle, CheckCircle2, ChevronRight, Loader2, P
 import React, { useCallback, useEffect, useState } from 'react';
 import { KanbanBoard } from '../types';
 
+export interface WorkflowStageTask {
+    id: number;
+    title: string;
+    has_pending_review: boolean;
+}
+
 export interface WorkflowStage {
     id: number;
     title: string;
@@ -20,6 +26,8 @@ export interface WorkflowStage {
     is_default: boolean;
     is_archived: boolean;
     task_count: number;
+    pending_review_count?: number;
+    tasks?: WorkflowStageTask[];
 }
 
 export interface WorkflowTransition {
@@ -75,6 +83,11 @@ export default function WorkflowSettingsModal({ board, isOpen, onClose }: Workfl
     const [editTitle, setEditTitle] = useState('');
     const [editColor, setEditColor] = useState('#64748b');
     const [editSemantic, setEditSemantic] = useState('not_started');
+
+    // Reassignment flow (shown when archive is blocked by active tasks)
+    const [reassignStage, setReassignStage] = useState<WorkflowStage | null>(null);
+    const [reassignTargetId, setReassignTargetId] = useState<string>('');
+    const [reassignBusy, setReassignBusy] = useState(false);
 
     const activeStages = (data?.stages || []).filter((s) => !s.is_archived);
     const archivedStages = (data?.stages || []).filter((s) => s.is_archived);
@@ -184,19 +197,116 @@ export default function WorkflowSettingsModal({ board, isOpen, onClose }: Workfl
         );
     };
 
-    const handleArchiveStage = (stage: WorkflowStage) => {
+    const reassignTargets = activeStages.filter((s) => s.id !== reassignStage?.id);
+    const reassignMovableTasks = (reassignStage?.tasks || []).filter((t) => !t.has_pending_review);
+    const reassignLockedTasks = (reassignStage?.tasks || []).filter((t) => t.has_pending_review);
+
+    const handleArchiveStage = async (stage: WorkflowStage) => {
         if (!confirm(`Archive stage "${stage.title}"?`)) return;
         setBanner(null);
-        router.delete(`/kanban/stages/${stage.id}`, {
-            ...inertiaDefaults,
-            onSuccess: () => setBanner({ type: 'success', message: 'Stage archived.' }),
-            onError: (errors: any) => {
-                setBanner({
-                    type: 'error',
-                    message: (typeof errors === 'string' ? errors : null) || 'Could not archive this stage. It may still contain tasks.',
+        try {
+            const res = await fetch(`/kanban/stages/${stage.id}`, {
+                method: 'DELETE',
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            if (res.ok) {
+                setBanner({ type: 'success', message: 'Stage archived.' });
+                loadData();
+                return;
+            }
+
+            const payload = await res.json().catch(() => null);
+            const message =
+                typeof payload?.message === 'string' && payload.message
+                    ? payload.message
+                    : 'Could not archive this stage.';
+
+            if (res.status === 422 && payload?.reason === 'has_tasks') {
+                // Attach the freshly-returned task list so the reassignment
+                // dialog does not depend on a second round-trip.
+                setReassignStage({ ...stage, tasks: payload.tasks || stage.tasks || [] });
+                setReassignTargetId('');
+                return;
+            }
+
+            setBanner({ type: 'error', message });
+        } catch {
+            setBanner({ type: 'error', message: 'Could not archive this stage.' });
+        }
+    };
+
+    const handleReassignAndArchive = async () => {
+        if (!reassignStage || !reassignTargetId) return;
+        setReassignBusy(true);
+        setBanner(null);
+
+        const targetId = Number(reassignTargetId);
+        let moved = 0;
+
+        try {
+            for (const task of reassignMovableTasks) {
+                const res = await fetch(`/kanban/tasks/${task.id}/column`, {
+                    method: 'PATCH',
+                    headers: {
+                        Accept: 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    body: JSON.stringify({ column_id: targetId }),
                 });
-            },
-        });
+
+                if (!res.ok) {
+                    const payload = await res.json().catch(() => null);
+                    setBanner({
+                        type: 'error',
+                        message:
+                            (typeof payload?.message === 'string' && payload.message) ||
+                            `Could not move task "${task.title}".`,
+                    });
+                    return;
+                }
+                moved += 1;
+            }
+
+            // Retry the archive now that eligible tasks have been moved.
+            const res = await fetch(`/kanban/stages/${reassignStage.id}`, {
+                method: 'DELETE',
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+
+            if (res.ok) {
+                const target = activeStages.find((s) => s.id === targetId);
+                const locked = reassignLockedTasks.length;
+                const note =
+                    moved > 0
+                        ? `Moved ${moved} task(s) to ${target?.title || 'the selected stage'} and archived "${reassignStage.title}".`
+                        : `Archived "${reassignStage.title}".`;
+                setBanner({
+                    type: 'success',
+                    message: locked > 0 ? `${note} ${locked} task(s) with a pending review were left in place.` : note,
+                });
+                setReassignStage(null);
+                setReassignTargetId('');
+                loadData();
+                return;
+            }
+
+            const payload = await res.json().catch(() => null);
+            setBanner({
+                type: 'error',
+                message:
+                    (typeof payload?.message === 'string' && payload.message) ||
+                    'Tasks were moved but the stage could not be archived yet.',
+            });
+            setReassignStage(null);
+            setReassignTargetId('');
+            loadData();
+        } catch {
+            setBanner({ type: 'error', message: 'Reassignment failed. No further tasks were moved.' });
+        } finally {
+            setReassignBusy(false);
+        }
     };
 
     const handleReorder = (index: number, direction: -1 | 1) => {
@@ -303,6 +413,7 @@ export default function WorkflowSettingsModal({ board, isOpen, onClose }: Workfl
     );
 
     return (
+        <>
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-4xl">
                 <DialogHeader>
@@ -626,5 +737,91 @@ export default function WorkflowSettingsModal({ board, isOpen, onClose }: Workfl
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        {/* Reassignment dialog — shown when archiving is blocked by active tasks */}
+        <Dialog open={Boolean(reassignStage)} onOpenChange={(open) => !open && !reassignBusy && setReassignStage(null)}>
+            <DialogContent className="rounded-2xl sm:max-w-lg">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <AlertCircle className="text-amber-500 h-5 w-5" />
+                        Reassign tasks before archiving
+                    </DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4 text-xs">
+                    <p className="text-muted-foreground">
+                        <span className="text-foreground font-semibold">{reassignStage?.title}</span> still contains{' '}
+                        <span className="text-foreground font-semibold">{reassignMovableTasks.length}</span> task(s) that can be
+                        moved. Choose a destination stage to move them to, then archive.
+                    </p>
+
+                    {reassignLockedTasks.length > 0 && (
+                        <div className="border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-xl border px-3 py-2">
+                            <p className="mb-1 font-semibold">
+                                {reassignLockedTasks.length} task(s) have a pending review and cannot be moved.
+                            </p>
+                            <p className="text-amber-700 dark:text-amber-400">
+                                Resolve the pending review for each task before it can leave this stage. These tasks were left in
+                                place and the stage was not archived.
+                            </p>
+                        </div>
+                    )}
+
+                    {reassignMovableTasks.length > 0 ? (
+                        <>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="reassign-target">Move {reassignMovableTasks.length} task(s) to</Label>
+                                <Select value={reassignTargetId} onValueChange={setReassignTargetId} disabled={reassignBusy}>
+                                    <SelectTrigger id="reassign-target" className="h-9 rounded-xl">
+                                        <SelectValue placeholder="Select a destination stage" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {reassignTargets.map((s) => (
+                                            <SelectItem key={s.id} value={String(s.id)}>
+                                                {s.title}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <ul className="border-border/70 max-h-40 space-y-1 overflow-y-auto rounded-xl border p-2">
+                                {reassignMovableTasks.map((t) => (
+                                    <li key={t.id} className="text-muted-foreground truncate">
+                                        {t.title}
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    ) : (
+                        <p className="text-muted-foreground">
+                            No tasks in this stage can be moved right now. Resolve the pending review(s) first.
+                        </p>
+                    )}
+                </div>
+
+                <DialogFooter className="gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setReassignStage(null)}
+                        disabled={reassignBusy}
+                        className="h-9 rounded-xl"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        onClick={handleReassignAndArchive}
+                        disabled={reassignBusy || !reassignTargetId || reassignMovableTasks.length === 0}
+                        className="h-9 rounded-xl"
+                    >
+                        {reassignBusy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
+                        Move &amp; Archive
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+        </>
     );
 }

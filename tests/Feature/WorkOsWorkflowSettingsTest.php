@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\KanbanBoard;
 use App\Models\KanbanColumn;
 use App\Models\KanbanTask;
+use App\Models\TaskReviewCycle;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Services\WorkflowService;
@@ -275,5 +276,144 @@ class WorkOsWorkflowSettingsTest extends TestCase
             ->orderByDesc('id')
             ->first();
         $this->assertSame('client_feedback_2', $second->stage_key);
+    }
+
+    // ------------------------------------------------------------------
+    // Deletion / archiving feedback (blocked vs allowed)
+    // ------------------------------------------------------------------
+
+    public function test_archiving_stage_with_tasks_returns_structured_block_reason(): void
+    {
+        $processing = $this->columnByTitle('Processing');
+        KanbanTask::create([
+            'board_id' => $this->board->id,
+            'column_id' => $processing->id,
+            'title' => 'Blocked task one',
+            'created_by' => $this->pm->id,
+        ]);
+        KanbanTask::create([
+            'board_id' => $this->board->id,
+            'column_id' => $processing->id,
+            'title' => 'Blocked task two',
+            'created_by' => $this->pm->id,
+        ]);
+
+        $response = $this->actingAs($this->pm)
+            ->deleteJson(route('kanban.stages.delete', $processing));
+
+        $response->assertStatus(422)
+            ->assertJsonPath('blocked', true)
+            ->assertJsonPath('reason', 'has_tasks')
+            ->assertJsonPath('task_count', 2)
+            ->assertJsonPath('pending_review_count', 0);
+
+        $this->assertCount(2, $response->json('tasks'));
+        $this->assertDatabaseHas('kanban_columns', ['id' => $processing->id, 'is_archived' => false]);
+    }
+
+    public function test_archiving_default_stage_is_blocked_with_reason(): void
+    {
+        $processing = $this->columnByTitle('Processing');
+        $processing->update(['is_default' => true]);
+
+        $this->actingAs($this->pm)
+            ->deleteJson(route('kanban.stages.delete', $processing))
+            ->assertStatus(422)
+            ->assertJsonPath('blocked', true)
+            ->assertJsonPath('reason', 'is_default');
+
+        $this->assertDatabaseHas('kanban_columns', ['id' => $processing->id, 'is_archived' => false]);
+    }
+
+    public function test_archiving_last_active_stage_is_blocked_with_reason(): void
+    {
+        $processing = $this->columnByTitle('Processing');
+        // Archive every other stage so Processing is the only one left active.
+        // Leave is_default unset so the is_default guard does not fire first.
+        foreach (['New Task', 'To Do', 'For Review', 'Done'] as $title) {
+            $this->columnByTitle($title)->update(['is_archived' => true]);
+        }
+
+        $this->actingAs($this->pm)
+            ->deleteJson(route('kanban.stages.delete', $processing))
+            ->assertStatus(422)
+            ->assertJsonPath('blocked', true)
+            ->assertJsonPath('reason', 'last_active');
+
+        $this->assertDatabaseHas('kanban_columns', ['id' => $processing->id, 'is_archived' => false]);
+    }
+
+    public function test_pending_review_tasks_are_flagged_and_block_reassignment(): void
+    {
+        $review = $this->columnByTitle('For Review');
+        $task = KanbanTask::create([
+            'board_id' => $this->board->id,
+            'column_id' => $review->id,
+            'title' => 'Awaiting review',
+            'created_by' => $this->pm->id,
+        ]);
+        TaskReviewCycle::create([
+            'task_id' => $task->id,
+            'round_number' => 1,
+            'state' => 'pending',
+            'submitted_by' => $this->pm->id,
+            'submitted_at' => now(),
+        ]);
+
+        // Workflow settings flag the task as locked by a pending review.
+        $stage = collect($this->actingAs($this->pm)
+            ->getJson(route('kanban.boards.workflow.get', $this->board))
+            ->assertOk()
+            ->json()['stages'])->firstWhere('title', 'For Review');
+
+        $this->assertSame(1, $stage['pending_review_count']);
+        $this->assertTrue($stage['tasks'][0]['has_pending_review']);
+
+        // The block payload reports the pending-review count so the UI can
+        // explain what must be resolved before removal.
+        $response = $this->actingAs($this->pm)
+            ->deleteJson(route('kanban.stages.delete', $review));
+
+        $response->assertStatus(422)
+            ->assertJsonPath('reason', 'has_tasks')
+            ->assertJsonPath('pending_review_count', 1);
+
+        // Reassignment must not bypass the review gate: the stage stays active.
+        $this->assertDatabaseHas('kanban_columns', ['id' => $review->id, 'is_archived' => false]);
+    }
+
+    public function test_empty_stage_archives_successfully_with_json_ack(): void
+    {
+        $processing = $this->columnByTitle('Processing');
+
+        $this->actingAs($this->pm)
+            ->deleteJson(route('kanban.stages.delete', $processing))
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('kanban_columns', ['id' => $processing->id, 'is_archived' => true]);
+    }
+
+    public function test_workflow_settings_expose_task_lists_and_pending_review_counts(): void
+    {
+        $processing = $this->columnByTitle('Processing');
+        KanbanTask::create([
+            'board_id' => $this->board->id,
+            'column_id' => $processing->id,
+            'title' => 'Normal task',
+            'created_by' => $this->pm->id,
+        ]);
+
+        $json = $this->actingAs($this->pm)
+            ->getJson(route('kanban.boards.workflow.get', $this->board))
+            ->assertOk()
+            ->json();
+
+        $stage = collect($json['stages'])->firstWhere('title', 'Processing');
+
+        $this->assertSame(1, $stage['task_count']);
+        $this->assertSame(0, $stage['pending_review_count']);
+        $this->assertCount(1, $stage['tasks']);
+        $this->assertFalse($stage['tasks'][0]['has_pending_review']);
     }
 }

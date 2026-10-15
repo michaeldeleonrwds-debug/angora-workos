@@ -653,14 +653,57 @@ class KanbanController extends Controller
         return back()->with('success', 'Stage updated');
     }
 
-    public function deleteWorkflowStage(KanbanColumn $column)
+    public function deleteWorkflowStage(Request $request, KanbanColumn $column)
     {
         $board = $column->board;
         abort_unless($board, 404);
         Gate::authorize('manageStatuses', $board);
-        abort_if($column->is_default, 422, 'Choose another default status first.');
-        abort_if($board->columns()->where('is_archived', false)->count() <= 1, 422, 'A board needs an active status.');
-        abort_if($column->tasks()->exists(), 422, 'Move or archive the tasks in this stage before deleting it.');
+
+        // Structured JSON error payloads so the Workflow Settings UI can
+        // surface the real block reason (and offer reassignment) instead of a
+        // generic "action not allowed" toast. Always 422 so callers (tests,
+        // fetch, Inertia) get a consistent machine-readable contract.
+        $blocked = function (string $reason, string $message, array $extra = []) {
+            return response()->json(
+                array_merge(['blocked' => true, 'reason' => $reason, 'message' => $message], $extra),
+                422
+            );
+        };
+
+        if ($column->is_default) {
+            return $blocked('is_default', 'Choose another default status before archiving this one.');
+        }
+
+        $activeCount = $board->columns()->where('is_archived', false)->count();
+        if ($activeCount <= 1) {
+            return $blocked('last_active', 'A board needs at least one active stage.');
+        }
+
+        $tasks = $column->tasks()
+            ->withCount(['reviewCycles as pending_reviews_count' => fn ($q) => $q->where('state', 'pending')])
+            ->get(['id', 'title']);
+
+        if ($tasks->isNotEmpty()) {
+            $pendingReviewCount = (int) $tasks->sum('pending_reviews_count');
+
+            $message = 'This stage still has '.$tasks->count().' task(s). '
+                .'Move them to another stage before archiving.';
+
+            if ($pendingReviewCount > 0) {
+                $message .= ' '.$pendingReviewCount.' of these have a pending review that must be resolved first.';
+            }
+
+            return $blocked('has_tasks', $message, [
+                'task_count' => $tasks->count(),
+                'pending_review_count' => $pendingReviewCount,
+                'tasks' => $tasks->map(fn ($task) => [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'has_pending_review' => (int) $task->pending_reviews_count > 0,
+                ])->values(),
+            ]);
+        }
+
         $column->update(['is_archived' => true]);
         // Drop transition edges that reference the archived stage.
         \App\Models\BoardWorkflowTransition::where('board_id', $board->id)
@@ -669,7 +712,9 @@ class KanbanController extends Controller
             })
             ->delete();
 
-        return back()->with('success', 'Status archived');
+        return $request->header('X-Inertia') || $request->expectsJson()
+            ? response()->json(['success' => true, 'message' => 'Stage archived'])
+            : back()->with('success', 'Status archived');
     }
 
     public function reorderWorkflowStages(Request $request, KanbanBoard $board)
@@ -701,18 +746,30 @@ class KanbanController extends Controller
     {
         Gate::authorize('manageStatuses', $board);
 
-        $stages = $board->columns()->orderBy('position')->get()->map(fn (KanbanColumn $column) => [
-            'id' => $column->id,
-            'title' => $column->title,
-            'color' => $column->color,
-            'position' => $column->position,
-            'semantic_category' => $column->semantic_category,
-            'stage_key' => $column->stage_key,
-            'stage_role' => $column->stage_role,
-            'is_default' => $column->is_default,
-            'is_archived' => $column->is_archived,
-            'task_count' => $column->tasks()->count(),
-        ]);
+        $stages = $board->columns()->orderBy('position')->get()->map(function (KanbanColumn $column) {
+            $tasks = $column->tasks()
+                ->withCount(['reviewCycles as pending_reviews_count' => fn ($q) => $q->where('state', 'pending')])
+                ->get(['id', 'title']);
+
+            return [
+                'id' => $column->id,
+                'title' => $column->title,
+                'color' => $column->color,
+                'position' => $column->position,
+                'semantic_category' => $column->semantic_category,
+                'stage_key' => $column->stage_key,
+                'stage_role' => $column->stage_role,
+                'is_default' => $column->is_default,
+                'is_archived' => $column->is_archived,
+                'task_count' => $tasks->count(),
+                'pending_review_count' => (int) $tasks->sum('pending_reviews_count'),
+                'tasks' => $tasks->map(fn ($task) => [
+                    'id' => $task->id,
+                    'title' => $task->title,
+                    'has_pending_review' => (int) $task->pending_reviews_count > 0,
+                ])->values(),
+            ];
+        });
 
         return response()->json([
             'configured' => $this->workflowService->boardIsConfigured($board),
