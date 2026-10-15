@@ -6,6 +6,7 @@ use App\Models\KanbanBoard;
 use App\Models\KanbanColumn;
 use App\Models\KanbanTask;
 use App\Models\User;
+use App\Services\WorkflowService;
 
 class TaskPolicy
 {
@@ -187,6 +188,12 @@ class TaskPolicy
                 return false;
             }
 
+            // Boards with a configured workflow graph constrain contributors to
+            // contributor-allowed edges; legacy boards (no transitions) are unaffected.
+            if (! $this->workflowAllowsTransition($task, $targetColumn)) {
+                return false;
+            }
+
             // Valid production transitions:
             // not_started -> in_progress, in_review, blocked
             // in_progress -> in_review, not_started, blocked
@@ -197,6 +204,24 @@ class TaskPolicy
         }
 
         return true;
+    }
+
+    /**
+     * Whether the board's dynamic workflow graph permits this contributor move.
+     * Boards without configured transitions return true (legacy rules apply).
+     */
+    private function workflowAllowsTransition(KanbanTask $task, ?KanbanColumn $targetColumn): bool
+    {
+        if (! $targetColumn) {
+            return true;
+        }
+
+        $board = $task->board;
+        if (! $board) {
+            return true;
+        }
+
+        return app(WorkflowService::class)->contributorMayTransition($board, $task->column, $targetColumn) !== false;
     }
 
     /**

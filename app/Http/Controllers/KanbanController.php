@@ -36,6 +36,7 @@ class KanbanController extends Controller
     protected \App\Services\TaskDependencyService $dependencyService;
     protected \App\Services\TaskRecurrenceService $recurrenceService;
     protected \App\Services\Authorization\WorkOsPermissionService $permissionService;
+    protected \App\Services\WorkflowService $workflowService;
 
     public function __construct(
         AutomationEngineService $automationEngine,
@@ -43,7 +44,8 @@ class KanbanController extends Controller
         \App\Services\NotificationService $notificationService,
         \App\Services\TaskDependencyService $dependencyService,
         \App\Services\TaskRecurrenceService $recurrenceService,
-        \App\Services\Authorization\WorkOsPermissionService $permissionService
+        \App\Services\Authorization\WorkOsPermissionService $permissionService,
+        \App\Services\WorkflowService $workflowService
     ) {
         $this->automationEngine = $automationEngine;
         $this->crossBoardService = $crossBoardService;
@@ -51,6 +53,7 @@ class KanbanController extends Controller
         $this->dependencyService = $dependencyService;
         $this->recurrenceService = $recurrenceService;
         $this->permissionService = $permissionService;
+        $this->workflowService = $workflowService;
     }
     public function index(Request $request)
     {
@@ -997,6 +1000,14 @@ class KanbanController extends Controller
         if (isset($validated['column_id'])) {
             $status = KanbanColumn::where('board_id', $task->board_id)->findOrFail($validated['column_id']);
             abort_if($status->is_archived && $status->id !== $task->column_id, 422, 'Archived statuses cannot be assigned.');
+            // Column changes made through the general update endpoint obey the
+            // same workflow transition rules as the dedicated movement endpoint.
+            if ((int) $status->id !== (int) $task->column_id) {
+                if ($status->stage_key === null && $this->workflowService->boardIsConfigured($task->board)) {
+                    abort(422, 'This stage is not part of the board workflow.');
+                }
+                Gate::authorize('changeStatus', [$task, $status]);
+            }
             $task->applyWorkflowStatus($status);
         }
         if (isset($validated['group_id'])) {
@@ -1196,6 +1207,13 @@ class KanbanController extends Controller
         if ((int) $status->board_id !== (int) $task->board_id) {
             abort(403, 'Cross-board or cross-workspace movement is not permitted.');
         }
+
+        // Invalid transition: a board with a configured workflow only accepts
+        // movement between its workflow-managed stages.
+        if ($status->stage_key === null && $this->workflowService->boardIsConfigured($task->board)) {
+            abort(422, 'This stage is not part of the board workflow.');
+        }
+
         Gate::authorize('changeStatus', [$task, $status]);
 
         abort_if($status->is_archived && $status->id !== $task->column_id, 422, 'Archived statuses cannot be assigned.');
@@ -1306,6 +1324,9 @@ class KanbanController extends Controller
             $task = $tasks->get($id);
             abort_unless($task && $user->can('reorder', $task), 403, 'Unauthorized to reorder tasks.');
             if ($targetColId !== null) {
+                if ($targetCol && $targetCol->stage_key === null && $this->workflowService->boardIsConfigured($task->board)) {
+                    abort(422, 'This stage is not part of the board workflow.');
+                }
                 abort_unless($targetCol && $user->can('changeStatus', [$task, $targetCol]), 403, 'Unauthorized workflow transition during reorder.');
             }
         }
@@ -1371,6 +1392,14 @@ class KanbanController extends Controller
             'start_time' => 'nullable|string|max:10',
             'column_id' => 'nullable|exists:kanban_columns,id',
         ]);
+
+        if (isset($validated['column_id'])) {
+            abort_unless(
+                KanbanColumn::where('board_id', $task->board_id)->whereKey($validated['column_id'])->exists(),
+                422,
+                'Subitems must live on the same board as their parent task.'
+            );
+        }
 
         // Prevent circular relationship or excessive depth (>3)
         $depth = 0;

@@ -485,7 +485,8 @@ class WorkOsStep1bWorkflowMigrationTest extends TestCase
         );
 
         // Drag into For Revision: no phantom review cycle may be created.
-        $this->actingAs($designer)->patch(route('kanban.tasks.update-column', $task), [
+        // PM actors may enter the revision stage directly (contributors cannot).
+        $this->actingAs($pm)->patch(route('kanban.tasks.update-column', $task), [
             'column_id' => $forRevision->id,
         ])->assertSessionHas('success');
 
