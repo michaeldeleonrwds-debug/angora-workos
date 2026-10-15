@@ -15,6 +15,9 @@ class KanbanColumn extends Model
         'color',
         'position',
         'semantic_category',
+        'stage_key',
+        'stage_role',
+        'exclude_from_metrics',
         'is_default',
         'is_archived',
     ];
@@ -22,6 +25,7 @@ class KanbanColumn extends Model
     protected $casts = [
         'is_default' => 'boolean',
         'is_archived' => 'boolean',
+        'exclude_from_metrics' => 'boolean',
     ];
 
     protected static function booted(): void

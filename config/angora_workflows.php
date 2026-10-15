@@ -32,6 +32,9 @@ return [
                 ['key' => 'ready_to_report', 'title' => 'Ready to Report', 'color' => '#FFCB00', 'semantic' => 'in_review'],
                 ['key' => 'client_under_review', 'title' => 'Client Under Review', 'color' => '#FF7575', 'semantic' => 'in_review'],
                 ['key' => 'complete', 'title' => 'Complete', 'color' => '#00C875', 'semantic' => 'completed'],
+                // Additional branch stage (not part of the ten-column sequence;
+                // position trails Complete to match the migration's resequence order).
+                ['key' => 'for_revision', 'title' => 'For Revision', 'color' => '#E2445C', 'semantic' => 'in_progress'],
             ],
             'transitions' => [
                 // Contributor-permitted moves (assigned work only)
