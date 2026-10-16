@@ -195,27 +195,27 @@ class BoardPolicy
 
     /**
      * Determine whether the user can delete the board.
+     * Permanent/soft deletion is strictly restricted to Super Admin only.
      */
     public function delete(User $user, KanbanBoard $board): bool
     {
-        if (! $user->hasPermission('workos.boards.manage')) {
-            return false;
-        }
+        return $user->isSuperAdmin();
+    }
 
-        if ($board->created_by === $user->id) {
-            return true;
-        }
+    /**
+     * Determine whether the user can archive the board.
+     */
+    public function archive(User $user, KanbanBoard $board): bool
+    {
+        return $this->update($user, $board);
+    }
 
-        $workspace = $board->workspace;
-        if ($workspace) {
-            if ($workspace->owner_id === $user->id) {
-                return true;
-            }
-            $membership = $workspace->members()->where('user_id', $user->id)->first();
-            return $membership && in_array($membership->role, ['owner', 'admin'], true);
-        }
-
-        return false;
+    /**
+     * Determine whether the user can restore an archived board.
+     */
+    public function restore(User $user, KanbanBoard $board): bool
+    {
+        return $this->update($user, $board);
     }
 
     /**

@@ -43,6 +43,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { csrfHeaders } from '@/lib/utils';
 import { User } from '@/pages/kanban/types';
+import { createPortal } from 'react-dom';
+import { UserAvatar } from '@/components/UserAvatar';
 
 const ANGORA_COLORS = [
     { label: 'Default', value: '' },
@@ -391,16 +393,28 @@ export function RichTextCommentEditor({
 
     if (!editor) return null;
 
-    // Calculate mention popup position
+    // Calculate mention popup position with smart flip & edge bounds
     let popupStyle: React.CSSProperties = { display: 'none' };
-    if (mentionState.isOpen && mentionState.clientRect) {
+    if (mentionState.isOpen && mentionState.clientRect && typeof window !== 'undefined') {
         const rect = mentionState.clientRect();
         if (rect) {
+            const viewportHeight = window.innerHeight;
+            const viewportWidth = window.innerWidth;
+            const spaceBelow = viewportHeight - rect.bottom;
+            const spaceAbove = rect.top;
+            const openAbove = spaceBelow < 240 && spaceAbove > spaceBelow;
+
+            const left = Math.min(Math.max(12, rect.left), Math.max(12, viewportWidth - 280));
+            const availableHeight = openAbove ? Math.max(120, spaceAbove - 24) : Math.max(120, spaceBelow - 24);
+
             popupStyle = {
                 position: 'fixed',
-                top: `${rect.bottom + 6}px`,
-                left: `${Math.max(12, rect.left)}px`,
-                zIndex: 9999,
+                ...(openAbove
+                    ? { bottom: `${Math.max(8, viewportHeight - rect.top + 6)}px` }
+                    : { top: `${Math.min(viewportHeight - 120, rect.bottom + 6)}px` }),
+                left: `${left}px`,
+                maxHeight: `${Math.min(224, availableHeight)}px`,
+                zIndex: 99999,
             };
         }
     }
@@ -757,49 +771,42 @@ export function RichTextCommentEditor({
                 </div>
             </div>
 
-            {/* Mention Suggestions Floating Popup */}
-            {mentionState.isOpen && filteredUsers.length > 0 && (
-                <div
-                    style={popupStyle}
-                    className="w-64 max-h-56 overflow-y-auto rounded-xl border border-border bg-popover p-1 shadow-xl animate-in fade-in-50 zoom-in-95"
-                >
-                    <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground border-b border-border/40">
-                        Mention Person
-                    </div>
-                    {filteredUsers.map((u, idx) => (
-                        <button
-                            key={u.id}
-                            type="button"
-                            onClick={() => selectMentionUser(u)}
-                            className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
-                                idx === mentionState.selectedIndex
-                                    ? 'bg-primary/10 text-primary font-bold'
-                                    : 'text-foreground hover:bg-muted'
-                            }`}
-                        >
-                            {u.avatar || u.avatar_url ? (
-                                <img
-                                    src={(u.avatar || u.avatar_url) || undefined}
-                                    alt={u.name}
-                                    className="h-5 w-5 rounded-full object-cover shrink-0 border border-border"
-                                />
-                            ) : (
-                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/20 text-[10px] font-bold text-primary shrink-0">
-                                    {u.name.charAt(0).toUpperCase()}
+            {/* Mention Suggestions Floating Popup (Portaled to document.body so it is never clipped by drawer or editor overflow) */}
+            {mentionState.isOpen && filteredUsers.length > 0 && typeof document !== 'undefined'
+                ? createPortal(
+                    <div
+                        style={popupStyle}
+                        className="w-64 overflow-y-auto rounded-xl border border-white/10 bg-[#1E1E30] text-white p-1 shadow-2xl animate-in fade-in-50 zoom-in-95"
+                    >
+                        <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-white/10">
+                            Mention Person
+                        </div>
+                        {filteredUsers.map((u, idx) => (
+                            <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => selectMentionUser(u)}
+                                className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs transition-colors ${
+                                    idx === mentionState.selectedIndex
+                                        ? 'bg-primary/20 text-white font-bold'
+                                        : 'text-slate-200 hover:bg-white/10'
+                                }`}
+                            >
+                                <UserAvatar user={u} size="xs" />
+                                <div className="flex flex-col min-w-0">
+                                    <span className="truncate">{u.name}</span>
+                                    {u.department && (
+                                        <span className="text-[10px] text-slate-400 truncate font-normal">
+                                            {u.department}
+                                        </span>
+                                    )}
                                 </div>
-                            )}
-                            <div className="flex flex-col min-w-0">
-                                <span className="truncate">{u.name}</span>
-                                {u.department && (
-                                    <span className="text-[10px] text-muted-foreground truncate font-normal">
-                                        {u.department}
-                                    </span>
-                                )}
-                            </div>
-                        </button>
-                    ))}
-                </div>
-            )}
+                            </button>
+                        ))}
+                    </div>,
+                    document.body
+                )
+                : null}
         </div>
     );
 }

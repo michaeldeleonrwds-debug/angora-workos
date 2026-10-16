@@ -114,7 +114,7 @@ class KanbanController extends Controller
 
         $workspaceIds = $workspaces->pluck('id')->toArray();
         $boards = KanbanBoard::whereIn('workspace_id', $workspaceIds)
-            ->select('id', 'workspace_id', 'title', 'description', 'department', 'folder_name', 'visibility', 'is_favorite', 'is_template', 'created_by')
+            ->select('id', 'workspace_id', 'title', 'description', 'department', 'folder_name', 'visibility', 'is_favorite', 'is_template', 'settings', 'archived_at', 'created_by')
             ->orderBy('title')
             ->get()
             ->filter(function ($b) use ($user) {
@@ -478,61 +478,90 @@ class KanbanController extends Controller
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string|max:1000',
+            'department' => 'nullable|string|max:100',
             'folder_name' => 'nullable|string|max:100',
             'visibility' => 'nullable|in:public,private,shareable',
             'is_favorite' => 'nullable|boolean',
             'settings' => 'nullable|array',
         ]);
 
+        if (isset($validated['settings']) && is_array($validated['settings'])) {
+            $existing = $board->settings ?? [];
+            $validated['settings'] = array_merge($existing, $validated['settings']);
+        }
+
         $board->update($validated);
 
-        return back()->with('success', 'Board updated');
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Board updated successfully',
+                'board' => $board,
+            ]);
+        }
+
+        return back()->with('success', 'Board updated successfully');
     }
 
-    public function duplicateBoard(KanbanBoard $board)
+    public function duplicateBoard(Request $request, KanbanBoard $board)
     {
         Gate::authorize('duplicate', $board);
 
+        $validated = $request->validate([
+            'title' => 'nullable|string|max:255',
+            'copy_mode' => 'nullable|in:structure_only,with_columns,with_tasks',
+        ]);
+
+        $copyMode = $validated['copy_mode'] ?? 'structure_only';
+        $title = !empty($validated['title']) ? $validated['title'] : ($board->title . ' (Copy)');
+
         $newBoard = KanbanBoard::create([
             'workspace_id' => $board->workspace_id,
-            'title' => $board->title . ' (Copy)',
+            'title' => $title,
             'description' => $board->description,
             'department' => $board->department,
             'folder_name' => $board->folder_name,
             'visibility' => $board->visibility,
+            'settings' => $board->settings,
             'created_by' => auth()->id(),
         ]);
 
+        $columnMap = [];
         foreach ($board->columns as $col) {
-            KanbanColumn::create([
+            $newCol = KanbanColumn::create([
                 'board_id' => $newBoard->id,
                 'title' => $col->title,
                 'color' => $col->color,
                 'position' => $col->position,
+                'status_semantic' => $col->status_semantic ?? null,
             ]);
+            $columnMap[$col->id] = $newCol->id;
         }
 
+        $groupMap = [];
         foreach ($board->groups as $grp) {
-            BoardGroup::create([
+            $newGrp = BoardGroup::create([
                 'board_id' => $newBoard->id,
                 'title' => $grp->title,
                 'color' => $grp->color,
                 'position' => $grp->position,
             ]);
+            $groupMap[$grp->id] = $newGrp->id;
         }
 
-        foreach ($board->allBoardColumns as $bc) {
-            BoardColumn::create([
-                'board_id' => $newBoard->id,
-                'key' => $bc->key,
-                'title' => $bc->title,
-                'type' => $bc->type,
-                'scope' => $bc->scope ?? 'task',
-                'config' => $bc->config,
-                'position' => $bc->position,
-                'width' => $bc->width,
-                'is_visible' => $bc->is_visible,
-            ]);
+        if ($copyMode === 'with_columns' || $copyMode === 'with_tasks') {
+            foreach ($board->allBoardColumns as $bc) {
+                BoardColumn::create([
+                    'board_id' => $newBoard->id,
+                    'key' => $bc->key,
+                    'title' => $bc->title,
+                    'type' => $bc->type,
+                    'scope' => $bc->scope ?? 'task',
+                    'config' => $bc->config,
+                    'position' => $bc->position,
+                    'width' => $bc->width,
+                    'is_visible' => $bc->is_visible,
+                ]);
+            }
         }
 
         foreach ($board->views as $v) {
@@ -542,24 +571,134 @@ class KanbanController extends Controller
                 'type' => $v->type,
                 'is_default' => $v->is_default,
                 'is_system' => $v->is_system,
-                'settings' => $v->settings,
+                'is_hidden' => $v->is_hidden ?? false,
+                'settings' => ($copyMode === 'structure_only') ? [] : $v->settings,
                 'position' => $v->position,
             ]);
+        }
+
+        // If with_tasks: copy non-client tasks and subtasks safely
+        if ($copyMode === 'with_tasks') {
+            $tasksToCopy = $board->tasks()
+                ->whereNull('parent_id')
+                ->where(function ($q) {
+                    $q->whereNull('custom_values->client_id')
+                      ->whereNull('custom_values->is_client_visible')
+                      ->orWhere('custom_values->is_client_visible', false);
+                })
+                ->get();
+
+            foreach ($tasksToCopy as $task) {
+                $newTask = KanbanTask::create([
+                    'board_id' => $newBoard->id,
+                    'column_id' => $columnMap[$task->column_id] ?? null,
+                    'group_id' => $groupMap[$task->group_id] ?? null,
+                    'title' => $task->title,
+                    'description' => $task->description,
+                    'priority' => $task->priority,
+                    'position' => $task->position,
+                    'due_date' => $task->due_date,
+                    'start_date' => $task->start_date,
+                    'custom_values' => $task->custom_values,
+                    'created_by' => auth()->id(),
+                ]);
+
+                foreach ($task->subitems as $subitem) {
+                    KanbanTask::create([
+                        'board_id' => $newBoard->id,
+                        'parent_id' => $newTask->id,
+                        'column_id' => $columnMap[$subitem->column_id] ?? null,
+                        'group_id' => $groupMap[$subitem->group_id] ?? null,
+                        'title' => $subitem->title,
+                        'description' => $subitem->description,
+                        'priority' => $subitem->priority,
+                        'position' => $subitem->position,
+                        'custom_values' => $subitem->custom_values,
+                        'created_by' => auth()->id(),
+                    ]);
+                }
+            }
         }
 
         return redirect()->route('kanban.index', ['workspace' => $newBoard->workspace_id, 'board' => $newBoard->id])
             ->with('success', 'Board duplicated successfully');
     }
 
-    public function deleteBoard(KanbanBoard $board)
+    public function archiveBoard(Request $request, KanbanBoard $board)
+    {
+        Gate::authorize('archive', $board);
+
+        $board->archived_at = now();
+        $board->save();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => "Board '{$board->title}' archived",
+                'board' => $board,
+            ]);
+        }
+
+        return redirect()->route('kanban.index', ['workspace' => $board->workspace_id])
+            ->with('success', "Board '{$board->title}' archived successfully");
+    }
+
+    public function restoreBoard(Request $request, KanbanBoard $board)
+    {
+        Gate::authorize('restore', $board);
+
+        $board->archived_at = null;
+        $board->save();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => "Board '{$board->title}' restored",
+                'board' => $board,
+            ]);
+        }
+
+        return back()->with('success', "Board '{$board->title}' restored successfully");
+    }
+
+    public function deleteBoard(Request $request, KanbanBoard $board)
     {
         Gate::authorize('delete', $board);
 
         $workspaceId = $board->workspace_id;
-        $board->delete();
+        $title = $board->title;
+
+        if ($request->query('force') === 'true' && auth()->user()?->isSuperAdmin()) {
+            $board->forceDelete();
+        } else {
+            $board->delete();
+        }
 
         return redirect()->route('kanban.index', ['workspace' => $workspaceId])
-            ->with('success', 'Board deleted successfully');
+            ->with('success', "Board '{$title}' deleted successfully");
+    }
+
+    public function getBoardActivities(Request $request, KanbanBoard $board)
+    {
+        Gate::authorize('view', $board);
+
+        $taskIds = $board->tasks()->pluck('id');
+
+        $activities = TaskActivity::whereIn('task_id', $taskIds)
+            ->with(['user:id,name,avatar,avatar_url,email', 'task:id,title'])
+            ->latest()
+            ->take(50)
+            ->get();
+
+        return response()->json([
+            'activities' => $activities,
+            'board' => [
+                'id' => $board->id,
+                'title' => $board->title,
+                'description' => $board->description,
+                'archived_at' => $board->archived_at,
+                'created_at' => $board->created_at,
+                'updated_at' => $board->updated_at,
+            ],
+        ]);
     }
 
     public function addBoardMember(Request $request, KanbanBoard $board)
@@ -2018,6 +2157,7 @@ class KanbanController extends Controller
             'type' => 'sometimes|in:table,kanban,calendar,timeline,gantt,workload,chart,files,gallery',
             'settings' => 'nullable|array',
             'is_default' => 'sometimes|boolean',
+            'is_hidden' => 'sometimes|boolean',
             'position' => 'sometimes|integer|min:0',
         ]);
 
@@ -2042,7 +2182,64 @@ class KanbanController extends Controller
 
         $view->update($validated);
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'View updated successfully',
+                'view' => $view,
+            ]);
+        }
+
         return back()->with('success', 'View updated');
+    }
+
+    public function duplicateView(Request $request, BoardView $view)
+    {
+        $board = $view->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
+        $baseName = $request->input('name') ?: ($view->name . ' (Copy)');
+        $viewName = $baseName;
+        $counter = 1;
+        while (BoardView::where('board_id', $view->board_id)->whereRaw('LOWER(name) = ?', [mb_strtolower($viewName)])->exists()) {
+            $counter++;
+            $viewName = "{$baseName} {$counter}";
+        }
+
+        $newView = BoardView::create([
+            'board_id' => $view->board_id,
+            'name' => $viewName,
+            'type' => $view->type,
+            'settings' => $view->settings,
+            'is_default' => false,
+            'is_system' => false,
+            'is_hidden' => false,
+            'position' => $view->board ? $view->board->views()->count() : 0,
+        ]);
+
+        return back()->with('success', "View '{$newView->name}' duplicated successfully");
+    }
+
+    public function hideView(Request $request, BoardView $view)
+    {
+        $board = $view->board;
+        if ($board) {
+            Gate::authorize('update', $board);
+        }
+
+        $targetHidden = $request->boolean('is_hidden', ! $view->is_hidden);
+        $visibleCount = BoardView::where('board_id', $view->board_id)->where('is_hidden', false)->count();
+
+        if ($targetHidden && $visibleCount <= 1 && ! $view->is_hidden) {
+            return back()->with('error', 'Cannot hide the only visible view on the board');
+        }
+
+        $view->is_hidden = $targetHidden;
+        $view->save();
+
+        $action = $targetHidden ? 'hidden' : 'unhidden';
+        return back()->with('success', "View '{$view->name}' {$action}");
     }
 
     public function deleteView(BoardView $view)
@@ -2062,6 +2259,8 @@ class KanbanController extends Controller
         }
 
         $wasDefault = $view->is_default;
+        $name = $view->name;
+        // Important: Deleting a view only deletes the BoardView model; NEVER tasks or board data!
         $view->delete();
 
         if ($wasDefault) {
@@ -2069,7 +2268,7 @@ class KanbanController extends Controller
             $replacement?->update(['is_default' => true]);
         }
 
-        return back()->with('success', 'View deleted');
+        return back()->with('success', "View '{$name}' deleted");
     }
 
     public function reorderViews(Request $request, KanbanBoard $board)

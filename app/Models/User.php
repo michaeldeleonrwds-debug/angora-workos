@@ -143,12 +143,21 @@ class User extends Authenticatable
 
     public function getAvatarAttribute(?string $value): ?string
     {
-        return $value ?? $this->avatar_url;
+        return $this->avatar_url;
     }
 
     public function getAvatarUrlAttribute(?string $value): ?string
     {
-        return $value ?? $this->attributes['avatar'] ?? null;
+        $raw = $value ?? $this->attributes['avatar'] ?? null;
+        if (! $raw) {
+            return null;
+        }
+
+        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://') || str_starts_with($raw, '/') || str_starts_with($raw, 'data:')) {
+            return $raw;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->url($raw);
     }
 
     public function setAvatarAttribute(?string $value): void

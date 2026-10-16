@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
+import { ProfileAvatarSection } from '@/components/ProfileAvatarSection';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -39,6 +40,8 @@ export default function Profile({ mustVerifyEmail, status }: { mustVerifyEmail: 
 
             <SettingsLayout>
                 <div className="space-y-6">
+                    <ProfileAvatarSection user={auth.user} />
+
                     <HeadingSmall title="Profile information" description="Update your name and email address" />
 
                     <form onSubmit={submit} className="space-y-6">

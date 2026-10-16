@@ -2,7 +2,7 @@ import AppearanceToggleDropdown from '@/components/appearance-dropdown';
 import { NotificationCenterPopover } from '@/components/NotificationCenterPopover';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { showToast } from '@/components/toast';
 import { router } from '@inertiajs/react';
 import {
     AlertCircle,
+    Archive,
     BarChart3,
     Calendar,
     Check,
@@ -23,11 +24,14 @@ import {
     Columns3,
     Copy,
     Download,
+    Eye,
+    EyeOff,
     FileCode,
     FileSpreadsheet,
     Filter,
     Folder,
     GanttChartSquare,
+    History,
     Layers,
     Layout,
     LayoutGrid,
@@ -37,6 +41,7 @@ import {
     Paperclip,
     Pencil,
     Plus,
+    RotateCcw,
     Search,
     Settings,
     SlidersHorizontal,
@@ -51,6 +56,9 @@ import {
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { BoardPermissions, BoardView, isProductionDeadlineHidden, KanbanBoard, User, Workspace } from '../types';
+import BoardSettingsModal from './BoardSettingsModal';
+import ViewSettingsModal from './ViewSettingsModal';
+import BoardActivityModal from './BoardActivityModal';
 
 interface BoardUnifiedHeaderProps {
     workspaces: Workspace[];
@@ -104,6 +112,23 @@ export default function BoardUnifiedHeader({
     const [isCreateBoardOpen, setIsCreateBoardOpen] = useState(false);
     const [isAddViewModalOpen, setIsAddViewModalOpen] = useState(false);
 
+    // Board Management States
+    const [isBoardSettingsOpen, setIsBoardSettingsOpen] = useState(false);
+    const [isBoardActivityOpen, setIsBoardActivityOpen] = useState(false);
+    const [isRenameBoardOpen, setIsRenameBoardOpen] = useState(false);
+    const [renameBoardTitle, setRenameBoardTitle] = useState('');
+    const [isEditBoardDescOpen, setIsEditBoardDescOpen] = useState(false);
+    const [editBoardDesc, setEditBoardDesc] = useState('');
+    const [isDuplicateBoardModalOpen, setIsDuplicateBoardModalOpen] = useState(false);
+    const [duplicateTitle, setDuplicateTitle] = useState('');
+    const [duplicateCopyMode, setDuplicateCopyMode] = useState<'structure_only' | 'with_columns' | 'with_tasks'>('structure_only');
+    const [isArchiveBoardConfirmOpen, setIsArchiveBoardConfirmOpen] = useState(false);
+    const [isDeleteBoardConfirmOpen, setIsDeleteBoardConfirmOpen] = useState(false);
+
+    // View Management States
+    const [isViewSettingsModalOpen, setIsViewSettingsModalOpen] = useState(false);
+    const [selectedViewForSettings, setSelectedViewForSettings] = useState<BoardView | null>(null);
+
     // Form States
     const [workspaceName, setWorkspaceName] = useState('');
     const [workspaceDesc, setWorkspaceDesc] = useState('');
@@ -147,6 +172,9 @@ export default function BoardUnifiedHeader({
                   { id: 7, board_id: activeBoard.id, name: 'Files', type: 'files', is_default: false, is_system: true, position: 6 },
                   { id: 8, board_id: activeBoard.id, name: 'Gallery', type: 'gallery', is_default: false, is_system: true, position: 7 },
               ];
+
+    const visibleViews = views.filter((v) => !v.is_hidden);
+    const hiddenViews = views.filter((v) => v.is_hidden);
 
     const canManageViews = permissions?.canManageColumns !== false;
     const isViewDeletable = (v: BoardView) => !v.is_system && views.length > 1;
@@ -252,16 +280,119 @@ export default function BoardUnifiedHeader({
         router.post(`/kanban/boards/${boardId}/favorite`);
     };
 
-    const handleDuplicateBoard = (bId: number, e: React.MouseEvent) => {
-        e.stopPropagation();
-        router.post(`/kanban/boards/${bId}/duplicate`);
+    const handleOpenRenameBoard = () => {
+        setRenameBoardTitle(activeBoard.title);
+        setIsRenameBoardOpen(true);
     };
 
-    const handleDeleteBoard = (bId: number, e: React.MouseEvent) => {
-        e.stopPropagation();
-        if (confirm('Are you sure you want to delete this board? All tasks will be permanently removed.')) {
-            router.delete(`/kanban/boards/${bId}`);
-        }
+    const handleRenameBoard = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!renameBoardTitle.trim()) return;
+        router.patch(
+            `/kanban/boards/${activeBoard.id}`,
+            { title: renameBoardTitle.trim() },
+            {
+                onSuccess: () => {
+                    setIsRenameBoardOpen(false);
+                    showToast({ title: 'Board renamed successfully', variant: 'success' });
+                },
+                onError: () => {
+                    showToast({ title: 'Could not rename board', variant: 'error' });
+                },
+            },
+        );
+    };
+
+    const handleOpenEditBoardDesc = () => {
+        setEditBoardDesc(activeBoard.description || '');
+        setIsEditBoardDescOpen(true);
+    };
+
+    const handleEditBoardDesc = (e: React.FormEvent) => {
+        e.preventDefault();
+        router.patch(
+            `/kanban/boards/${activeBoard.id}`,
+            { description: editBoardDesc.trim() || null },
+            {
+                onSuccess: () => {
+                    setIsEditBoardDescOpen(false);
+                    showToast({ title: 'Board description updated', variant: 'success' });
+                },
+                onError: () => {
+                    showToast({ title: 'Could not update board description', variant: 'error' });
+                },
+            },
+        );
+    };
+
+    const handleOpenDuplicateBoard = (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        setDuplicateTitle(`${activeBoard.title} (Copy)`);
+        setDuplicateCopyMode('structure_only');
+        setIsDuplicateBoardModalOpen(true);
+    };
+
+    const handleDuplicateBoardSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        router.post(
+            `/kanban/boards/${activeBoard.id}/duplicate`,
+            {
+                title: duplicateTitle.trim() || undefined,
+                copy_mode: duplicateCopyMode,
+            },
+            {
+                onSuccess: () => {
+                    setIsDuplicateBoardModalOpen(false);
+                    showToast({ title: 'Board duplicated successfully', variant: 'success' });
+                },
+                onError: () => {
+                    showToast({ title: 'Could not duplicate board', variant: 'error' });
+                },
+            },
+        );
+    };
+
+    const handleArchiveBoard = () => {
+        router.post(
+            `/kanban/boards/${activeBoard.id}/archive`,
+            {},
+            {
+                onSuccess: () => {
+                    setIsArchiveBoardConfirmOpen(false);
+                    showToast({ title: 'Board archived successfully', variant: 'success' });
+                },
+                onError: () => {
+                    showToast({ title: 'Could not archive board', variant: 'error' });
+                },
+            },
+        );
+    };
+
+    const handleRestoreBoard = () => {
+        router.post(
+            `/kanban/boards/${activeBoard.id}/restore`,
+            {},
+            {
+                onSuccess: () => {
+                    showToast({ title: 'Board restored successfully', variant: 'success' });
+                },
+                onError: () => {
+                    showToast({ title: 'Could not restore board', variant: 'error' });
+                },
+            },
+        );
+    };
+
+    const handleDeleteBoardConfirm = () => {
+        router.delete(`/kanban/boards/${activeBoard.id}`, {
+            onSuccess: () => {
+                setIsDeleteBoardConfirmOpen(false);
+                showToast({ title: 'Board deleted successfully', variant: 'success' });
+            },
+            onError: () => {
+                showToast({ title: 'Could not delete board', variant: 'error' });
+            },
+        });
     };
 
     const handleCreateWorkspace = (e: React.FormEvent) => {
@@ -445,6 +576,47 @@ export default function BoardUnifiedHeader({
         );
     };
 
+    const handleDuplicateView = (view: BoardView, e: React.MouseEvent) => {
+        e.stopPropagation();
+        router.post(
+            `/kanban/views/${view.id}/duplicate`,
+            {},
+            {
+                onSuccess: () => {
+                    showToast({ title: `View "${view.name}" duplicated`, variant: 'success' });
+                },
+                onError: () => {
+                    showToast({ title: 'Could not duplicate view', variant: 'error' });
+                },
+            },
+        );
+    };
+
+    const handleToggleHideView = (view: BoardView, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        router.patch(
+            `/kanban/views/${view.id}/hide`,
+            {},
+            {
+                onSuccess: () => {
+                    showToast({
+                        title: view.is_hidden ? `View "${view.name}" unhidden` : `View "${view.name}" hidden`,
+                        variant: 'success',
+                    });
+                },
+                onError: () => {
+                    showToast({ title: 'Could not change view visibility', variant: 'error' });
+                },
+            },
+        );
+    };
+
+    const handleOpenViewSettings = (view: BoardView, e: React.MouseEvent) => {
+        e.stopPropagation();
+        setSelectedViewForSettings(view);
+        setIsViewSettingsModalOpen(true);
+    };
+
     const getViewMenu = (v: BoardView) => (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -457,7 +629,7 @@ export default function BoardUnifiedHeader({
                     <MoreHorizontal className="h-3.5 w-3.5" />
                 </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-44 rounded-xl p-1 text-xs shadow-lg">
+            <DropdownMenuContent align="start" className="w-48 rounded-xl p-1 text-xs shadow-lg">
                 {canManageViews && (
                     <>
                         <DropdownMenuItem
@@ -466,6 +638,20 @@ export default function BoardUnifiedHeader({
                         >
                             <Pencil className="h-3.5 w-3.5" />
                             Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={(e) => handleDuplicateView(v, e)}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium"
+                        >
+                            <Copy className="h-3.5 w-3.5" />
+                            Duplicate View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                            onClick={(e) => handleOpenViewSettings(v, e)}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium"
+                        >
+                            <Settings className="h-3.5 w-3.5" />
+                            View Settings
                         </DropdownMenuItem>
                         {isViewReorderable(v) && (
                             <>
@@ -496,6 +682,23 @@ export default function BoardUnifiedHeader({
                                 Set as Default
                             </DropdownMenuItem>
                         )}
+                        <DropdownMenuItem
+                            disabled={visibleViews.length <= 1 && !v.is_hidden}
+                            onClick={(e) => handleToggleHideView(v, e)}
+                            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium"
+                        >
+                            {v.is_hidden ? (
+                                <>
+                                    <Eye className="h-3.5 w-3.5" />
+                                    Unhide View
+                                </>
+                            ) : (
+                                <>
+                                    <EyeOff className="h-3.5 w-3.5" />
+                                    Hide View
+                                </>
+                            )}
+                        </DropdownMenuItem>
                         {isViewDeletable(v) && (
                             <>
                                 <DropdownMenuSeparator />
@@ -504,7 +707,7 @@ export default function BoardUnifiedHeader({
                                     className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium text-rose-600 focus:text-rose-600 dark:text-rose-400"
                                 >
                                     <Trash2 className="h-3.5 w-3.5" />
-                                    Delete
+                                    Delete View
                                 </DropdownMenuItem>
                             </>
                         )}
@@ -512,7 +715,7 @@ export default function BoardUnifiedHeader({
                 )}
                 {v.is_system && (
                     <div className="px-2 py-1.5 text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">
-                        System view — rename only
+                        System view
                     </div>
                 )}
             </DropdownMenuContent>
@@ -649,16 +852,24 @@ export default function BoardUnifiedHeader({
                                             <button
                                                 type="button"
                                                 title="Duplicate"
-                                                onClick={(e) => handleDuplicateBoard(b.id, e)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    router.post(`/kanban/boards/${b.id}/duplicate`);
+                                                }}
                                                 className="p-0.5 text-slate-400 opacity-0 group-hover/b:opacity-100 hover:text-foreground"
                                             >
                                                 <Copy className="h-3 w-3" />
                                             </button>
-                                            {boards.length > 1 && (
+                                            {permissions?.canDeleteBoard && boards.length > 1 && (
                                                 <button
                                                     type="button"
                                                     title="Delete"
-                                                    onClick={(e) => handleDeleteBoard(b.id, e)}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (confirm(`Are you sure you want to delete board "${b.title}"?`)) {
+                                                            router.delete(`/kanban/boards/${b.id}`);
+                                                        }
+                                                    }}
                                                     className="p-0.5 text-slate-400 opacity-0 group-hover/b:opacity-100 hover:text-rose-500"
                                                 >
                                                     <Trash2 className="h-3 w-3" />
@@ -1042,55 +1253,79 @@ export default function BoardUnifiedHeader({
                                 <MoreHorizontal className="h-4 w-4" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 rounded-xl p-1 text-xs shadow-lg">
-                            {permissions?.canManageGroups !== false && (
-                                <DropdownMenuItem onClick={onOpenNewGroup} className="sm:hidden">
-                                    <Plus className="mr-2 h-3.5 w-3.5" />
-                                    <span>Add Group</span>
+                        <DropdownMenuContent align="end" className="w-52 rounded-xl p-1 text-xs shadow-lg">
+                            {permissions?.canManageBoard !== false && (
+                                <>
+                                    <DropdownMenuItem onClick={handleOpenRenameBoard} className="flex cursor-pointer items-center gap-2">
+                                        <Pencil className="h-3.5 w-3.5" />
+                                        <span>Rename Board</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={handleOpenEditBoardDesc} className="flex cursor-pointer items-center gap-2">
+                                        <FileCode className="h-3.5 w-3.5" />
+                                        <span>Edit Description</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsBoardSettingsOpen(true)} className="flex cursor-pointer items-center gap-2">
+                                        <Settings className="h-3.5 w-3.5" />
+                                        <span>Board Settings</span>
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                            {permissions?.canDuplicateBoard !== false && (
+                                <DropdownMenuItem onClick={() => handleOpenDuplicateBoard()} className="flex cursor-pointer items-center gap-2">
+                                    <Copy className="h-3.5 w-3.5" />
+                                    <span>Duplicate Board</span>
                                 </DropdownMenuItem>
                             )}
-                            {permissions?.canManageColumns !== false && (
-                                <DropdownMenuItem onClick={onOpenNewColumn} className="md:hidden">
-                                    <SlidersHorizontal className="mr-2 h-3.5 w-3.5" />
-                                    <span>Add Column</span>
+                            <DropdownMenuItem onClick={() => setIsBoardActivityOpen(true)} className="flex cursor-pointer items-center gap-2">
+                                <History className="h-3.5 w-3.5 text-blue-500" />
+                                <span>Board Activity Log</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleToggleBoardFavorite(activeBoard.id)} className="flex cursor-pointer items-center gap-2">
+                                <Star className={`h-3.5 w-3.5 ${activeBoard.is_favorite ? 'fill-amber-400 text-amber-400' : 'text-amber-500'}`} />
+                                <span>{activeBoard.is_favorite ? 'Remove Favorite' : 'Mark Favorite'}</span>
+                            </DropdownMenuItem>
+                            {permissions?.canManageBoard !== false && onOpenWorkflow && (
+                                <DropdownMenuItem onClick={onOpenWorkflow} className="flex cursor-pointer items-center gap-2">
+                                    <Workflow className="h-3.5 w-3.5 text-teal-600" />
+                                    <span>Workflow Settings</span>
                                 </DropdownMenuItem>
                             )}
                             {permissions?.canManageAutomations !== false && onOpenAutomate && (
-                                <DropdownMenuItem onClick={onOpenAutomate} className="xl:hidden">
-                                    <Zap className="mr-2 h-3.5 w-3.5 text-purple-500" />
+                                <DropdownMenuItem onClick={onOpenAutomate} className="xl:hidden flex cursor-pointer items-center gap-2">
+                                    <Zap className="h-3.5 w-3.5 text-purple-500" />
                                     <span>Automations</span>
                                 </DropdownMenuItem>
                             )}
                             {permissions?.canManageBlueprints !== false && onOpenBlueprints && (
-                                <DropdownMenuItem onClick={onOpenBlueprints} className="xl:hidden">
-                                    <Layers className="mr-2 h-3.5 w-3.5 text-indigo-500" />
+                                <DropdownMenuItem onClick={onOpenBlueprints} className="xl:hidden flex cursor-pointer items-center gap-2">
+                                    <Layers className="h-3.5 w-3.5 text-indigo-500" />
                                     <span>Blueprints</span>
                                 </DropdownMenuItem>
                             )}
-                            {permissions?.canManageBoard !== false && onOpenWorkflow && (
-                                <DropdownMenuItem onClick={onOpenWorkflow}>
-                                    <Workflow className="mr-2 h-3.5 w-3.5 text-teal-600" />
-                                    <span>Workflow Settings</span>
-                                </DropdownMenuItem>
+                            {permissions?.canArchiveBoard !== false && (
+                                <>
+                                    <DropdownMenuSeparator className="my-1" />
+                                    {activeBoard.is_archived ? (
+                                        <DropdownMenuItem onClick={handleRestoreBoard} className="flex cursor-pointer items-center gap-2 text-emerald-600 focus:text-emerald-600">
+                                            <RotateCcw className="h-3.5 w-3.5" />
+                                            <span>Restore Board</span>
+                                        </DropdownMenuItem>
+                                    ) : (
+                                        <DropdownMenuItem onClick={() => setIsArchiveBoardConfirmOpen(true)} className="flex cursor-pointer items-center gap-2 text-amber-600 focus:text-amber-600">
+                                            <Archive className="h-3.5 w-3.5" />
+                                            <span>Archive Board</span>
+                                        </DropdownMenuItem>
+                                    )}
+                                </>
                             )}
-                            {permissions?.canManageBoard !== false && (
-                                <DropdownMenuItem onClick={() => handleDuplicateBoard(activeBoard.id, {} as any)}>
-                                    <Copy className="mr-2 h-3.5 w-3.5" />
-                                    <span>Duplicate Board</span>
-                                </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem onClick={() => handleToggleBoardFavorite(activeBoard.id)}>
-                                <Star className="mr-2 h-3.5 w-3.5 text-amber-500" />
-                                <span>{activeBoard.is_favorite ? 'Remove Favorite' : 'Mark Favorite'}</span>
-                            </DropdownMenuItem>
-                            {permissions?.canManageBoard !== false && boards.length > 1 && (
+                            {permissions?.canDeleteBoard && (
                                 <>
                                     <DropdownMenuSeparator className="my-1" />
                                     <DropdownMenuItem
-                                        onClick={() => handleDeleteBoard(activeBoard.id, {} as any)}
-                                        className="text-rose-600 focus:text-rose-600 font-semibold"
+                                        onClick={() => setIsDeleteBoardConfirmOpen(true)}
+                                        className="flex cursor-pointer items-center gap-2 text-rose-600 focus:text-rose-600 font-semibold"
                                     >
-                                        <Trash2 className="mr-2 h-3.5 w-3.5" />
+                                        <Trash2 className="h-3.5 w-3.5" />
                                         <span>Delete Board</span>
                                     </DropdownMenuItem>
                                 </>
@@ -1106,7 +1341,7 @@ export default function BoardUnifiedHeader({
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-[#ECECF0] bg-[#F8F9F7]/95 px-4 backdrop-blur-md transition-colors sm:px-6 dark:border-[#28283E] dark:bg-[#161624]/95">
                 {/* Left: View Tabs (ordered by saved position, selected by unique view ID) */}
                 <div className="flex items-center gap-1 overflow-x-auto scrollbar-none py-1">
-                    {views.map((v) => {
+                    {visibleViews.map((v) => {
                         const isActive = activeViewId === v.id;
                         return (
                             <div key={v.id} className="group/tab relative flex items-center">
@@ -1129,6 +1364,47 @@ export default function BoardUnifiedHeader({
                             </div>
                         );
                     })}
+
+                    {/* Hidden Views Dropdown */}
+                    {hiddenViews.length > 0 && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <button
+                                    className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-2 py-1 text-xs font-semibold whitespace-nowrap text-muted-foreground transition-all hover:bg-muted/60 hover:text-foreground"
+                                    title="Hidden views"
+                                >
+                                    <EyeOff className="h-3 w-3" />
+                                    <span>Hidden ({hiddenViews.length})</span>
+                                    <ChevronDown className="h-3 w-3 opacity-60" />
+                                </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-56 rounded-xl p-1 text-xs shadow-lg">
+                                <div className="px-2 py-1 text-[10px] font-bold tracking-wider text-muted-foreground uppercase">
+                                    Hidden Views
+                                </div>
+                                {hiddenViews.map((hv) => (
+                                    <div key={hv.id} className="flex items-center justify-between gap-1 rounded-lg px-2 py-1.5 hover:bg-muted/60">
+                                        <button
+                                            type="button"
+                                            onClick={() => onViewSelect(hv.id)}
+                                            className="flex items-center gap-2 truncate font-medium text-foreground hover:text-primary text-left flex-1"
+                                        >
+                                            {getViewIcon(hv.type)}
+                                            <span className="truncate">{hv.name}</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => handleToggleHideView(hv, e)}
+                                            className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/10"
+                                            title="Unhide view"
+                                        >
+                                            Unhide
+                                        </button>
+                                    </div>
+                                ))}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
 
                     {/* Add View */}
                     {canManageViews && (
@@ -1533,6 +1809,240 @@ export default function BoardUnifiedHeader({
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* Rename Board Modal */}
+            <Dialog open={isRenameBoardOpen} onOpenChange={setIsRenameBoardOpen}>
+                <DialogContent className="rounded-2xl sm:max-w-md">
+                    <form onSubmit={handleRenameBoard}>
+                        <DialogHeader>
+                            <DialogTitle>Rename Board</DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground">
+                                Update the display title for this board.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4 text-xs">
+                            <Label htmlFor="rename-board-input">Board Title</Label>
+                            <Input
+                                id="rename-board-input"
+                                value={renameBoardTitle}
+                                onChange={(e) => setRenameBoardTitle(e.target.value)}
+                                required
+                                className="mt-1.5 h-9 rounded-xl"
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsRenameBoardOpen(false)} className="h-9 rounded-xl text-xs">
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={!renameBoardTitle.trim()} className="h-9 rounded-xl text-xs">
+                                Rename Board
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Board Description Modal */}
+            <Dialog open={isEditBoardDescOpen} onOpenChange={setIsEditBoardDescOpen}>
+                <DialogContent className="rounded-2xl sm:max-w-md">
+                    <form onSubmit={handleEditBoardDesc}>
+                        <DialogHeader>
+                            <DialogTitle>Edit Board Description</DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground">
+                                Add context or team instructions for this board.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="py-4 text-xs">
+                            <Label htmlFor="edit-board-desc-input">Description</Label>
+                            <Input
+                                id="edit-board-desc-input"
+                                value={editBoardDesc}
+                                onChange={(e) => setEditBoardDesc(e.target.value)}
+                                placeholder="e.g. Primary production pipeline for sprint deliveries"
+                                className="mt-1.5 h-9 rounded-xl"
+                            />
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsEditBoardDescOpen(false)} className="h-9 rounded-xl text-xs">
+                                Cancel
+                            </Button>
+                            <Button type="submit" className="h-9 rounded-xl text-xs">
+                                Save Description
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Duplicate Board Modal */}
+            <Dialog open={isDuplicateBoardModalOpen} onOpenChange={setIsDuplicateBoardModalOpen}>
+                <DialogContent className="rounded-2xl sm:max-w-md">
+                    <form onSubmit={handleDuplicateBoardSubmit}>
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <Copy className="h-4 w-4 text-primary" />
+                                <span>Duplicate Board</span>
+                            </DialogTitle>
+                            <DialogDescription className="text-xs text-muted-foreground">
+                                Create an isolated copy of this board with your preferred options.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4 text-xs">
+                            <div>
+                                <Label htmlFor="duplicate-board-title">New Board Title</Label>
+                                <Input
+                                    id="duplicate-board-title"
+                                    value={duplicateTitle}
+                                    onChange={(e) => setDuplicateTitle(e.target.value)}
+                                    required
+                                    className="mt-1.5 h-9 rounded-xl"
+                                />
+                            </div>
+                            <div>
+                                <Label className="font-semibold text-foreground">Duplication Mode</Label>
+                                <div className="mt-2 space-y-2">
+                                    {[
+                                        {
+                                            id: 'structure_only',
+                                            label: 'Board structure only',
+                                            desc: 'Copies workflow stages, groups, view configurations, and board settings.',
+                                        },
+                                        {
+                                            id: 'with_columns',
+                                            label: 'Structure & custom columns',
+                                            desc: 'Copies stages, groups, views, and all custom column schema definitions.',
+                                        },
+                                        {
+                                            id: 'with_tasks',
+                                            label: 'Structure, columns & tasks',
+                                            desc: 'Copies full board structure, custom columns, and production tasks (safe client isolation preserved).',
+                                        },
+                                    ].map((opt) => (
+                                        <div
+                                            key={opt.id}
+                                            onClick={() => setDuplicateCopyMode(opt.id as any)}
+                                            className={`cursor-pointer rounded-xl border p-2.5 transition-all ${
+                                                duplicateCopyMode === opt.id
+                                                    ? 'border-primary bg-primary/10 shadow-2xs'
+                                                    : 'border-border/70 hover:border-border bg-card'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-bold text-foreground">{opt.label}</span>
+                                                <span
+                                                    className={`h-3.5 w-3.5 rounded-full border flex items-center justify-center ${
+                                                        duplicateCopyMode === opt.id
+                                                            ? 'border-primary bg-primary'
+                                                            : 'border-muted-foreground/40'
+                                                    }`}
+                                                >
+                                                    {duplicateCopyMode === opt.id && (
+                                                        <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                                                    )}
+                                                </span>
+                                            </div>
+                                            <p className="mt-1 text-[11px] text-muted-foreground">{opt.desc}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsDuplicateBoardModalOpen(false)} className="h-9 rounded-xl text-xs">
+                                Cancel
+                            </Button>
+                            <Button type="submit" disabled={!duplicateTitle.trim()} className="h-9 rounded-xl text-xs">
+                                Duplicate Board
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+
+            {/* Archive Board Confirmation Modal */}
+            <Dialog open={isArchiveBoardConfirmOpen} onOpenChange={setIsArchiveBoardConfirmOpen}>
+                <DialogContent className="rounded-2xl sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                            <Archive className="h-4 w-4" />
+                            <span>Archive Board</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-muted-foreground">
+                            Are you sure you want to archive <strong className="text-foreground">"{activeBoard.title}"</strong>? The board will be hidden from active lists, but all tasks, attachments, discussions, and review cycles are completely preserved and can be restored at any time.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4">
+                        <Button type="button" variant="outline" onClick={() => setIsArchiveBoardConfirmOpen(false)} className="h-9 rounded-xl text-xs">
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleArchiveBoard}
+                            className="h-9 rounded-xl bg-amber-600 text-xs text-white hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600"
+                        >
+                            Archive Board
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Board Confirmation Modal (Super Admin only) */}
+            <Dialog open={isDeleteBoardConfirmOpen} onOpenChange={setIsDeleteBoardConfirmOpen}>
+                <DialogContent className="rounded-2xl sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete Board</span>
+                        </DialogTitle>
+                        <DialogDescription className="text-xs text-muted-foreground">
+                            Are you sure you want to delete <strong className="text-foreground">"{activeBoard.title}"</strong>? This board will be safely soft-deleted and can be recovered if necessary. Only Super Administrators can perform this action.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4">
+                        <Button type="button" variant="outline" onClick={() => setIsDeleteBoardConfirmOpen(false)} className="h-9 rounded-xl text-xs">
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleDeleteBoardConfirm}
+                            className="h-9 rounded-xl bg-rose-600 text-xs text-white hover:bg-rose-700 dark:bg-rose-500 dark:hover:bg-rose-600"
+                        >
+                            Delete Board
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Board Settings Modal / Drawer */}
+            <BoardSettingsModal
+                board={activeBoard}
+                workspaces={workspaces}
+                users={users}
+                isOpen={isBoardSettingsOpen}
+                onClose={() => setIsBoardSettingsOpen(false)}
+                permissions={permissions}
+                onOpenWorkflow={onOpenWorkflow}
+                onOpenAutomate={onOpenAutomate}
+            />
+
+            {/* View Settings Modal */}
+            <ViewSettingsModal
+                view={selectedViewForSettings}
+                boardColumns={activeBoard.board_columns || activeBoard.boardColumns || []}
+                isOpen={isViewSettingsModalOpen}
+                onClose={() => {
+                    setIsViewSettingsModalOpen(false);
+                    setSelectedViewForSettings(null);
+                }}
+                canManage={canManageViews}
+            />
+
+            {/* Board Activity Modal */}
+            <BoardActivityModal
+                board={activeBoard}
+                isOpen={isBoardActivityOpen}
+                onClose={() => setIsBoardActivityOpen(false)}
+            />
         </div>
     );
 }

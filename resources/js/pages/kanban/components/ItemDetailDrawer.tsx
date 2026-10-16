@@ -46,6 +46,7 @@ import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
 import EmployeeTaskPanel from './EmployeeTaskPanel';
 import { RichTextCommentEditor } from '@/components/RichTextCommentEditor';
+import { UserAvatar } from '@/components/UserAvatar';
 
 interface ItemDetailDrawerProps {
     task: Task | null;
@@ -666,7 +667,19 @@ export default function ItemDetailDrawer({
 
     const [titleInput, setTitleInput] = useState(task.title);
     const [commentText, setCommentText] = useState('');
-    const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
+    const [expandedCommentIds, setExpandedCommentIds] = useState<Set<number>>(() => new Set<number>());
+
+    const toggleThread = (commentId: number) => {
+        setExpandedCommentIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(commentId)) {
+                next.delete(commentId);
+            } else {
+                next.add(commentId);
+            }
+            return next;
+        });
+    };
     const [replyText, setReplyText] = useState('');
     const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
     const [isUploading, setIsUploading] = useState(false);
@@ -735,7 +748,7 @@ export default function ItemDetailDrawer({
         if (hasHtml) {
             return (
                 <div
-                    className="rich-comment-body text-sm leading-relaxed text-foreground [&_p]:my-1.5 [&_h2]:text-base [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l-3 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:font-mono [&_code]:text-xs [&_pre]:bg-muted/80 [&_pre]:p-3 [&_pre]:rounded-xl [&_pre]:font-mono [&_pre]:text-xs [&_pre]:my-2 [&_img]:rounded-xl [&_img]:max-h-72 [&_img]:my-2.5 [&_img]:cursor-pointer [&_a]:text-primary [&_a]:underline"
+                    className="rich-comment-body text-sm leading-relaxed text-foreground [&_p]:my-1.5 [&_h2]:text-base [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l-3 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:font-mono [&_code]:text-xs [&_pre]:bg-muted/80 [&_pre]:p-3 [&_pre]:rounded-xl [&_pre]:font-mono [&_pre]:text-xs [&_pre]:my-2 [&_img]:rounded-xl [&_img]:max-h-72 [&_img]:my-2.5 [&_img]:cursor-pointer [&_a]:text-primary [&_a]:underline [&_[data-type='mention']]:inline-flex [&_[data-type='mention']]:items-center [&_[data-type='mention']]:gap-0.5 [&_[data-type='mention']]:rounded-md [&_[data-type='mention']]:bg-[#D8F779]/15 [&_[data-type='mention']]:text-[#D8F779] [&_[data-type='mention']]:px-1.5 [&_[data-type='mention']]:py-0.5 [&_[data-type='mention']]:font-semibold [&_[data-type='mention']]:text-xs [&_[data-type='mention']]:cursor-pointer [&_[data-type='mention']]:hover:bg-[#D8F779]/25 [&_[data-type='mention']]:transition-colors [&_[data-type='mention']]:border [&_[data-type='mention']]:border-[#D8F779]/30"
                     dangerouslySetInnerHTML={{ __html: text }}
                     onClick={(e) => {
                         const target = e.target as HTMLElement;
@@ -870,6 +883,7 @@ export default function ItemDetailDrawer({
     };
 
     // Comments & Replies
+    const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
     const [isPostingComment, setIsPostingComment] = useState(false);
 
     const handleSendRichComment = async (html: string) => {
@@ -905,7 +919,7 @@ export default function ItemDetailDrawer({
                     {
                         preserveScroll: true,
                         onSuccess: () => {
-                            setReplyingToCommentId(null);
+                            setExpandedCommentIds((prev) => new Set([...prev, parentId]));
                             resolve();
                         },
                         onError: (err) => reject(err),
@@ -916,6 +930,16 @@ export default function ItemDetailDrawer({
             console.error('Error posting reply:', e);
         }
     };
+
+    useEffect(() => {
+        if (!highlightedTargetId) return;
+        for (const c of comments) {
+            if (c.id === highlightedTargetId || c.replies?.some((r: any) => r.id === highlightedTargetId)) {
+                setExpandedCommentIds((prev) => new Set([...prev, c.id]));
+                break;
+            }
+        }
+    }, [highlightedTargetId, comments]);
 
     const handleSendComment = (e: React.FormEvent) => {
         e.preventDefault();

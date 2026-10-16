@@ -100,6 +100,7 @@ export interface BoardView {
     type: 'table' | 'kanban' | 'calendar' | 'timeline' | 'gantt' | 'workload' | 'chart' | 'files' | 'gallery';
     is_default: boolean;
     is_system?: boolean;
+    is_hidden?: boolean;
     settings?: Record<string, any>;
     position: number;
 }
@@ -394,6 +395,8 @@ export interface KanbanBoard {
     visibility: 'public' | 'private' | 'shareable';
     is_favorite: boolean;
     is_template: boolean;
+    is_archived?: boolean;
+    archived_at?: string | null;
     settings?: any;
     created_by: number;
     columns: KanbanColumn[];
@@ -432,6 +435,9 @@ export interface BoardPermissions {
     canManageSubtasks?: boolean;
     canApproveReview: boolean;
     canExport: boolean;
+    canDeleteBoard?: boolean;
+    canArchiveBoard?: boolean;
+    canDuplicateBoard?: boolean;
 }
 
 export interface KanbanPageProps {

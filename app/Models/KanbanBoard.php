@@ -4,10 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class KanbanBoard extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'workspace_id',
@@ -19,6 +20,7 @@ class KanbanBoard extends Model
         'is_favorite',
         'is_template',
         'settings',
+        'archived_at',
         'created_by',
     ];
 
@@ -26,7 +28,27 @@ class KanbanBoard extends Model
         'is_favorite' => 'boolean',
         'is_template' => 'boolean',
         'settings' => 'array',
+        'archived_at' => 'datetime',
     ];
+
+    protected $appends = [
+        'is_archived',
+    ];
+
+    public function getIsArchivedAttribute(): bool
+    {
+        return $this->archived_at !== null;
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereNull('archived_at');
+    }
+
+    public function scopeArchived($query)
+    {
+        return $query->whereNotNull('archived_at');
+    }
 
     public function workspace()
     {

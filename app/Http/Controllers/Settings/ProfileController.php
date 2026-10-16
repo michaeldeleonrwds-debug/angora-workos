@@ -60,4 +60,79 @@ class ProfileController extends Controller
 
         return redirect('/');
     }
+
+    /**
+     * Upload or update the user's profile avatar.
+     */
+    public function updateAvatar(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'avatar' => ['required', 'file', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
+        ]);
+
+        $file = $request->file('avatar');
+
+        // Verify it is a valid image via getimagesize
+        $imageInfo = @getimagesize($file->getRealPath());
+        if ($imageInfo === false) {
+            return back()->withErrors(['avatar' => 'The uploaded file is not a valid image.']);
+        }
+
+        $user = $request->user();
+
+        // Delete old avatar if stored locally
+        $this->deleteStoredAvatar($user);
+
+        // Store new file in public disk under avatars folder
+        $path = $file->store('avatars', 'public');
+
+        $user->avatar = $path;
+        $user->avatar_url = $path;
+        $user->save();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Avatar updated successfully',
+                'avatar_url' => $user->avatar_url,
+            ]);
+        }
+
+        return back()->with('status', 'avatar-updated');
+    }
+
+    /**
+     * Remove the user's profile avatar.
+     */
+    public function destroyAvatar(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
+    {
+        $user = $request->user();
+
+        $this->deleteStoredAvatar($user);
+
+        $user->avatar = null;
+        $user->avatar_url = null;
+        $user->save();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Avatar removed successfully',
+            ]);
+        }
+
+        return back()->with('status', 'avatar-deleted');
+    }
+
+    /**
+     * Helper to safely remove stored avatar from public disk.
+     */
+    protected function deleteStoredAvatar($user): void
+    {
+        $rawPath = $user->getRawOriginal('avatar') ?? $user->getRawOriginal('avatar_url');
+        if ($rawPath && !str_starts_with($rawPath, 'http://') && !str_starts_with($rawPath, 'https://') && !str_starts_with($rawPath, 'data:')) {
+            $cleanPath = preg_replace('#^/?storage/#', '', $rawPath);
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($cleanPath);
+            }
+        }
+    }
 }

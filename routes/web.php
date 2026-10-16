@@ -38,6 +38,9 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/kanban/boards', [KanbanController::class, 'storeBoard'])->name('kanban.boards.store');
     Route::patch('/kanban/boards/{board}', [KanbanController::class, 'updateBoard'])->name('kanban.boards.update');
     Route::post('/kanban/boards/{board}/duplicate', [KanbanController::class, 'duplicateBoard'])->name('kanban.boards.duplicate');
+    Route::post('/kanban/boards/{board}/archive', [KanbanController::class, 'archiveBoard'])->name('kanban.boards.archive');
+    Route::post('/kanban/boards/{board}/restore', [KanbanController::class, 'restoreBoard'])->name('kanban.boards.restore');
+    Route::get('/kanban/boards/{board}/activities', [KanbanController::class, 'getBoardActivities'])->name('kanban.boards.activities');
     Route::delete('/kanban/boards/{board}', [KanbanController::class, 'deleteBoard'])->name('kanban.boards.delete');
     Route::post('/kanban/boards/{board}/favorite', [KanbanController::class, 'toggleBoardFavorite'])->name('kanban.boards.favorite');
     Route::post('/kanban/boards/{board}/members', [KanbanController::class, 'addBoardMember'])->name('kanban.boards.members.store');
@@ -97,6 +100,8 @@ Route::middleware(['auth'])->group(function () {
     // Views Management
     Route::post('/kanban/boards/{board}/views', [KanbanController::class, 'storeView'])->name('kanban.views.store');
     Route::patch('/kanban/views/{view}', [KanbanController::class, 'updateView'])->name('kanban.views.update');
+    Route::post('/kanban/views/{view}/duplicate', [KanbanController::class, 'duplicateView'])->name('kanban.views.duplicate');
+    Route::patch('/kanban/views/{view}/hide', [KanbanController::class, 'hideView'])->name('kanban.views.hide');
     Route::delete('/kanban/views/{view}', [KanbanController::class, 'deleteView'])->name('kanban.views.delete');
     Route::post('/kanban/boards/{board}/views/reorder', [KanbanController::class, 'reorderViews'])->name('kanban.views.reorder');
 

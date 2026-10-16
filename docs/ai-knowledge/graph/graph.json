@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T15:15:13.617Z",
+  "generated_at": "2026-10-16T15:53:22.435Z",
   "stats": {
-    "total_nodes": 606,
-    "total_edges": 1218,
+    "total_nodes": 619,
+    "total_edges": 1266,
     "clusters": 7
   },
   "nodes": [
@@ -176,6 +176,36 @@
       "uri": "/kanban/boards/{board}/duplicate",
       "name": "kanban.boards.duplicate",
       "action": "duplicateBoard"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/archive",
+      "label": "POST /kanban/boards/{board}/archive",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/archive",
+      "name": "kanban.boards.archive",
+      "action": "archiveBoard"
+    },
+    {
+      "id": "route:POST:/kanban/boards/{board}/restore",
+      "label": "POST /kanban/boards/{board}/restore",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/boards/{board}/restore",
+      "name": "kanban.boards.restore",
+      "action": "restoreBoard"
+    },
+    {
+      "id": "route:GET:/kanban/boards/{board}/activities",
+      "label": "GET /kanban/boards/{board}/activities",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/boards/{board}/activities",
+      "name": "kanban.boards.activities",
+      "action": "getBoardActivities"
     },
     {
       "id": "route:DELETE:/kanban/boards/{board}",
@@ -592,6 +622,26 @@
       "uri": "/kanban/views/{view}",
       "name": "kanban.views.update",
       "action": "updateView"
+    },
+    {
+      "id": "route:POST:/kanban/views/{view}/duplicate",
+      "label": "POST /kanban/views/{view}/duplicate",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/views/{view}/duplicate",
+      "name": "kanban.views.duplicate",
+      "action": "duplicateView"
+    },
+    {
+      "id": "route:PATCH:/kanban/views/{view}/hide",
+      "label": "PATCH /kanban/views/{view}/hide",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/views/{view}/hide",
+      "name": "kanban.views.hide",
+      "action": "hideView"
     },
     {
       "id": "route:DELETE:/kanban/views/{view}",
@@ -2880,6 +2930,22 @@
       "policy": "BoardPolicy"
     },
     {
+      "id": "policy_ability:BoardPolicy::archive",
+      "label": "BoardPolicy::archive",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "archive",
+      "policy": "BoardPolicy"
+    },
+    {
+      "id": "policy_ability:BoardPolicy::restore",
+      "label": "BoardPolicy::restore",
+      "type": "policy_ability",
+      "file": "app/Policies/BoardPolicy.php",
+      "ability": "restore",
+      "policy": "BoardPolicy"
+    },
+    {
       "id": "policy_ability:BoardPolicy::duplicate",
       "label": "BoardPolicy::duplicate",
       "type": "policy_ability",
@@ -3784,10 +3850,22 @@
       "file": "resources/js/pages/kanban/components/AutomationCenterModal.tsx"
     },
     {
+      "id": "component:BoardActivityModal",
+      "label": "BoardActivityModal",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/BoardActivityModal.tsx"
+    },
+    {
       "id": "component:BoardHeader",
       "label": "BoardHeader",
       "type": "component",
       "file": "resources/js/pages/kanban/components/BoardHeader.tsx"
+    },
+    {
+      "id": "component:BoardSettingsModal",
+      "label": "BoardSettingsModal",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/BoardSettingsModal.tsx"
     },
     {
       "id": "component:BoardUnifiedHeader",
@@ -3896,6 +3974,12 @@
       "label": "TimelineGanttView",
       "type": "component",
       "file": "resources/js/pages/kanban/components/TimelineGanttView.tsx"
+    },
+    {
+      "id": "component:ViewSettingsModal",
+      "label": "ViewSettingsModal",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/ViewSettingsModal.tsx"
     },
     {
       "id": "component:WorkflowBlueprintModal",
@@ -4072,6 +4156,12 @@
       "file": "resources/js/components/NotificationPreferencesModal.tsx"
     },
     {
+      "id": "component:ProfileAvatarSection",
+      "label": "ProfileAvatarSection",
+      "type": "component",
+      "file": "resources/js/components/ProfileAvatarSection.tsx"
+    },
+    {
       "id": "component:RichTextCommentEditor",
       "label": "RichTextCommentEditor",
       "type": "component",
@@ -4246,6 +4336,12 @@
       "file": "resources/js/components/user-menu-content.tsx"
     },
     {
+      "id": "component:UserAvatar",
+      "label": "UserAvatar",
+      "type": "component",
+      "file": "resources/js/components/UserAvatar.tsx"
+    },
+    {
       "id": "test:AdvancedFormsWorkdocsAndTemplatesTest",
       "label": "AdvancedFormsWorkdocsAndTemplatesTest",
       "type": "test",
@@ -4262,6 +4358,12 @@
       "label": "AngoraAiAndDeveloperApiTest",
       "type": "test",
       "file": "tests/Feature/AngoraAiAndDeveloperApiTest.php"
+    },
+    {
+      "id": "test:BoardAndViewManagementTest",
+      "label": "BoardAndViewManagementTest",
+      "type": "test",
+      "file": "tests/Feature/BoardAndViewManagementTest.php"
     },
     {
       "id": "test:ClientPortalWorkflowTest",
@@ -4644,6 +4746,24 @@
       "action": "duplicateBoard"
     },
     {
+      "source": "route:POST:/kanban/boards/{board}/archive",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "archiveBoard"
+    },
+    {
+      "source": "route:POST:/kanban/boards/{board}/restore",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "restoreBoard"
+    },
+    {
+      "source": "route:GET:/kanban/boards/{board}/activities",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "getBoardActivities"
+    },
+    {
       "source": "route:DELETE:/kanban/boards/{board}",
       "target": "controller:KanbanController",
       "relationship": "routes_to",
@@ -4888,6 +5008,18 @@
       "target": "controller:KanbanController",
       "relationship": "routes_to",
       "action": "updateView"
+    },
+    {
+      "source": "route:POST:/kanban/views/{view}/duplicate",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "duplicateView"
+    },
+    {
+      "source": "route:PATCH:/kanban/views/{view}/hide",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "hideView"
     },
     {
       "source": "route:DELETE:/kanban/views/{view}",
@@ -6355,7 +6487,25 @@
       "source": "controller:KanbanController",
       "target": "$board",
       "relationship": "authorizes_with",
+      "ability": "archive"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "$board",
+      "relationship": "authorizes_with",
+      "ability": "restore"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "$board",
+      "relationship": "authorizes_with",
       "ability": "delete"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "$board",
+      "relationship": "authorizes_with",
+      "ability": "view"
     },
     {
       "source": "controller:KanbanController",
@@ -6581,6 +6731,18 @@
     },
     {
       "source": "controller:KanbanController",
+      "target": "$board",
+      "relationship": "authorizes_with",
+      "ability": "update"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "$board",
+      "relationship": "authorizes_with",
+      "ability": "update"
+    },
+    {
+      "source": "controller:KanbanController",
       "target": "$task",
       "relationship": "authorizes_with",
       "ability": "view"
@@ -6774,6 +6936,11 @@
     {
       "source": "controller:KanbanController",
       "target": "model:KanbanColumn",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "model:TaskActivity",
       "relationship": "queries_model"
     },
     {
@@ -8215,6 +8382,18 @@
     },
     {
       "source": "policy:BoardPolicy",
+      "target": "policy_ability:BoardPolicy::archive",
+      "relationship": "defines_ability",
+      "ability": "archive"
+    },
+    {
+      "source": "policy:BoardPolicy",
+      "target": "policy_ability:BoardPolicy::restore",
+      "relationship": "defines_ability",
+      "ability": "restore"
+    },
+    {
+      "source": "policy:BoardPolicy",
       "target": "policy_ability:BoardPolicy::duplicate",
       "relationship": "defines_ability",
       "ability": "duplicate"
@@ -8908,6 +9087,31 @@
       "relationship": "imports"
     },
     {
+      "source": "component:BoardActivityModal",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardActivityModal",
+      "target": "component:dialog",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardActivityModal",
+      "target": "component:utils",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardActivityModal",
+      "target": "component:UserAvatar",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardActivityModal",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
       "source": "component:BoardHeader",
       "target": "component:button",
       "relationship": "imports"
@@ -8929,6 +9133,51 @@
     },
     {
       "source": "component:BoardHeader",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardSettingsModal",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardSettingsModal",
+      "target": "component:dialog",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardSettingsModal",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardSettingsModal",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardSettingsModal",
+      "target": "component:select",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardSettingsModal",
+      "target": "component:textarea",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardSettingsModal",
+      "target": "component:toast",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardSettingsModal",
+      "target": "component:UserAvatar",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardSettingsModal",
       "target": "component:types",
       "relationship": "imports"
     },
@@ -8990,6 +9239,21 @@
     {
       "source": "component:BoardUnifiedHeader",
       "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardUnifiedHeader",
+      "target": "component:BoardSettingsModal",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardUnifiedHeader",
+      "target": "component:ViewSettingsModal",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardUnifiedHeader",
+      "target": "component:BoardActivityModal",
       "relationship": "imports"
     },
     {
@@ -9227,6 +9491,11 @@
       "relationship": "imports"
     },
     {
+      "source": "component:ItemDetailDrawer",
+      "target": "component:UserAvatar",
+      "relationship": "imports"
+    },
+    {
       "source": "component:KanbanBoardView",
       "target": "component:badge",
       "relationship": "imports"
@@ -9434,6 +9703,41 @@
     },
     {
       "source": "component:TimelineGanttView",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ViewSettingsModal",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ViewSettingsModal",
+      "target": "component:dialog",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ViewSettingsModal",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ViewSettingsModal",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ViewSettingsModal",
+      "target": "component:select",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ViewSettingsModal",
+      "target": "component:toast",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ViewSettingsModal",
       "target": "component:types",
       "relationship": "imports"
     },
@@ -9813,6 +10117,11 @@
     {
       "source": "component:profile",
       "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:profile",
+      "target": "component:ProfileAvatarSection",
       "relationship": "imports"
     },
     {
@@ -10242,6 +10551,26 @@
       "relationship": "imports"
     },
     {
+      "source": "component:ProfileAvatarSection",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ProfileAvatarSection",
+      "target": "component:dialog",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ProfileAvatarSection",
+      "target": "component:UserAvatar",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ProfileAvatarSection",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
       "source": "component:RichTextCommentEditor",
       "target": "component:button",
       "relationship": "imports"
@@ -10269,6 +10598,11 @@
     {
       "source": "component:RichTextCommentEditor",
       "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:RichTextCommentEditor",
+      "target": "component:UserAvatar",
       "relationship": "imports"
     },
     {
@@ -10468,6 +10802,21 @@
       "uri": "/users"
     },
     {
+      "source": "component:UserAvatar",
+      "target": "component:avatar",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:UserAvatar",
+      "target": "component:use-initials",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:UserAvatar",
+      "target": "component:utils",
+      "relationship": "imports"
+    },
+    {
       "source": "test:AdvancedFormsWorkdocsAndTemplatesTest",
       "target": "service:FormProcessorService",
       "relationship": "tests"
@@ -10499,6 +10848,12 @@
       "source": "test:AngoraAiAndDeveloperApiTest",
       "target": "service:WebhookService",
       "relationship": "tests"
+    },
+    {
+      "source": "test:BoardAndViewManagementTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
     },
     {
       "source": "test:ClientPortalWorkflowTest",
