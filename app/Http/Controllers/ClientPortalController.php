@@ -74,6 +74,11 @@ class ClientPortalController extends Controller
         return $this->dashboard($request, 'reviews');
     }
 
+    public function notificationsTab(Request $request)
+    {
+        return $this->dashboard($request, 'notifications');
+    }
+
     public function dashboard(Request $request = null, string $tab = 'overview')
     {
         $request = $request ?? request();
@@ -336,12 +341,22 @@ class ClientPortalController extends Controller
             ],
         ];
 
+        $clientNotifications = SystemNotification::with('actor:id,name,email,avatar,avatar_url')
+            ->where('user_id', auth()->id())
+            ->latest()
+            ->paginate(50);
+
+        $unreadNotificationsCount = SystemNotification::where('user_id', auth()->id())
+            ->where('is_read', false)
+            ->count();
+
         $stats = [
             'total_items' => count($clientSafeTasks),
             'awaiting_review' => count($colTasksMap[$awaitingColId]),
             'needs_revision' => count($colTasksMap[$revisionColId]),
             'approved' => count($colTasksMap[$approvedColId]),
             'total_projects' => $clientSafeProjects->count(),
+            'unread_notifications' => $unreadNotificationsCount,
         ];
 
         $permissions = [
@@ -383,6 +398,7 @@ class ClientPortalController extends Controller
             'deliverables' => $pendingDeliverables,
             'tasks' => $clientSafeTasks,
             'users' => User::select('id', 'name', 'email', 'avatar', 'avatar_url')->get(),
+            'notifications' => $clientNotifications,
         ]);
     }
 

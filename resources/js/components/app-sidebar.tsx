@@ -71,9 +71,10 @@ export function AppSidebar() {
         },
         {
             title: 'Notifications',
-            url: '/notifications',
+            url: '/client-portal/notifications',
             icon: Bell,
             color: '#00c875',
+            badge: (page.props as any).unreadNotificationsCount > 0 ? String((page.props as any).unreadNotificationsCount) : undefined,
         },
         {
             title: 'Account / Settings',
@@ -96,8 +97,8 @@ export function AppSidebar() {
         if (itemUrl === '/client-portal/reviews') {
             return page.url === '/client-portal/reviews' || page.url.includes('tab=reviews');
         }
-        if (itemUrl === '/notifications') {
-            return page.url.startsWith('/notifications');
+        if (itemUrl === '/client-portal/notifications' || itemUrl === '/notifications') {
+            return page.url === '/client-portal/notifications' || page.url.includes('tab=notifications') || page.url.startsWith('/notifications');
         }
         if (itemUrl === '/settings/profile') {
             return page.url.startsWith('/settings');
@@ -240,12 +241,24 @@ export function AppSidebar() {
                                                 : 'text-slate-300/90 hover:bg-white/[0.07] hover:text-white'
                                         }`}
                                     >
-                                        <item.icon
-                                            className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover/item:scale-105 ${
-                                                isActive ? 'text-white' : 'text-slate-400 group-hover/item:text-white'
-                                            }`}
-                                        />
+                                        <div className="relative flex items-center justify-center">
+                                            <item.icon
+                                                className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover/item:scale-105 ${
+                                                    isActive ? 'text-white' : 'text-slate-400 group-hover/item:text-white'
+                                                }`}
+                                            />
+                                            {item.badge && (
+                                                <span className="absolute -top-1.5 -right-2 hidden h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#00c875] px-1 text-[9px] font-bold text-white shadow-xs group-data-[collapsible=icon]:flex">
+                                                    {item.badge}
+                                                </span>
+                                            )}
+                                        </div>
                                         <span className="truncate font-medium group-data-[collapsible=icon]:hidden">{item.title}</span>
+                                        {item.badge && (
+                                            <span className="ml-auto rounded-full bg-[#00c875] px-1.5 py-0.5 text-[10px] font-bold text-white group-data-[collapsible=icon]:hidden">
+                                                {item.badge}
+                                            </span>
+                                        )}
                                     </Link>
                                 );
 
@@ -258,7 +271,7 @@ export function AppSidebar() {
                                                 align="center"
                                                 className="z-50 rounded-lg border border-[#353550] bg-[#1E1E30] px-3 py-1.5 text-xs text-white shadow-xl"
                                             >
-                                                <span className="font-semibold">{item.title}</span>
+                                                <span className="font-semibold">{item.title}{item.badge ? ` (${item.badge})` : ''}</span>
                                             </TooltipContent>
                                         </Tooltip>
                                     );

@@ -1,33 +1,43 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { getEcho } from '@/echo';
 import AppLayout from '@/layouts/app-layout';
 import ItemDetailDrawer from '@/pages/kanban/components/ItemDetailDrawer';
 import KanbanBoardView from '@/pages/kanban/components/KanbanBoardView';
 import { BoardPermissions, KanbanBoard, Task, User } from '@/pages/kanban/types';
 import { type BreadcrumbItem } from '@/types';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowRight,
+    Bell,
+    BellOff,
     Calendar,
+    Check,
+    CheckCheck,
     CheckCircle2,
     CheckSquare,
     Clock,
     Download,
     ExternalLink,
+    FileCheck,
     FileText,
+    Filter,
     FolderKanban,
+    Inbox,
     Kanban,
     Layers,
     MessageCircle,
+    MessageSquare,
     Paperclip,
     RotateCcw,
     ShieldAlert,
     ShieldCheck,
     Sparkles,
+    Trash2,
     User as UserIcon,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 const breadcrumbs: BreadcrumbItem[] = [
     {
@@ -68,6 +78,26 @@ interface ClientProject {
     approved_count: number;
 }
 
+export interface ClientNotificationItem {
+    id: number;
+    actor_id?: number | null;
+    title: string;
+    message: string;
+    type?: 'info' | 'success' | 'warning' | 'danger' | string;
+    category?: string;
+    link?: string | null;
+    metadata?: any;
+    is_read: boolean;
+    created_at: string;
+    actor?: {
+        id: number;
+        name: string;
+        email: string;
+        avatar?: string;
+        avatar_url?: string;
+    } | null;
+}
+
 interface ClientPortalDashboardProps {
     client: {
         id: number;
@@ -81,14 +111,46 @@ interface ClientPortalDashboardProps {
         needs_revision: number;
         approved: number;
         total_projects: number;
+        unread_notifications?: number;
     };
-    activeTab?: 'overview' | 'projects' | 'board' | 'reviews';
+    activeTab?: 'overview' | 'projects' | 'board' | 'reviews' | 'notifications';
     board?: KanbanBoard;
     permissions?: BoardPermissions;
     projects?: ClientProject[];
     deliverables?: any[];
     tasks?: any[];
     users?: User[];
+    notifications?: {
+        data: ClientNotificationItem[];
+        total?: number;
+        current_page?: number;
+        last_page?: number;
+    };
+}
+
+function formatNotificationTime(dateString?: string) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+        if (diffSeconds < 60) return 'Just now';
+        const diffMinutes = Math.floor(diffSeconds / 60);
+        if (diffMinutes < 60) return `${diffMinutes}m ago`;
+        const diffHours = Math.floor(diffMinutes / 60);
+        if (diffHours < 24) return `${diffHours}h ago`;
+        const diffDays = Math.floor(diffHours / 24);
+        if (diffDays < 7) return `${diffDays}d ago`;
+
+        return date.toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
+        });
+    } catch {
+        return dateString;
+    }
 }
 
 export default function ClientPortalDashboard({
@@ -99,6 +161,7 @@ export default function ClientPortalDashboard({
         needs_revision: 0,
         approved: 0,
         total_projects: 0,
+        unread_notifications: 0,
     },
     activeTab = 'overview',
     board,
@@ -107,6 +170,7 @@ export default function ClientPortalDashboard({
     deliverables = [],
     tasks = [],
     users = [],
+    notifications,
 }: ClientPortalDashboardProps) {
     const defaultPermissions: BoardPermissions = {
         canView: true,
@@ -137,9 +201,180 @@ export default function ClientPortalDashboard({
     const currentUser = auth?.user;
     const firstName = client?.name?.split(' ')[0] || currentUser?.name?.split(' ')[0] || 'Client';
 
-    const [currentTab, setCurrentTab] = useState<'overview' | 'board' | 'projects' | 'reviews'>(
-        activeTab === 'projects' || activeTab === 'board' || activeTab === 'reviews' ? activeTab : 'overview'
+    const [currentTab, setCurrentTab] = useState<'overview' | 'board' | 'projects' | 'reviews' | 'notifications'>(
+        activeTab === 'projects' || activeTab === 'board' || activeTab === 'reviews' || activeTab === 'notifications'
+            ? activeTab
+            : 'overview'
     );
+
+    const handleTabChange = (tab: 'overview' | 'board' | 'projects' | 'reviews' | 'notifications') => {
+        setCurrentTab(tab);
+        if (typeof window !== 'undefined') {
+            const pathMap: Record<string, string> = {
+                overview: '/client-portal',
+                board: '/client-portal/board',
+                projects: '/client-portal/projects',
+                reviews: '/client-portal/reviews',
+                notifications: '/client-portal/notifications',
+            };
+            window.history.pushState({}, '', pathMap[tab] || '/client-portal');
+        }
+    };
+
+    // Client Notifications State
+    const [notificationList, setNotificationList] = useState<ClientNotificationItem[]>(
+        notifications?.data || []
+    );
+    const [unreadNotifCount, setUnreadNotifCount] = useState<number>(
+        stats.unread_notifications ?? (notifications?.data ? notifications.data.filter((n) => !n.is_read).length : 0)
+    );
+    const [notificationFilter, setNotificationFilter] = useState<'all' | 'unread' | 'reviews' | 'comments' | 'system'>('all');
+    const [markingAll, setMarkingAll] = useState(false);
+
+    // Sync notification list if prop updates
+    useEffect(() => {
+        if (notifications?.data) {
+            setNotificationList(notifications.data);
+            setUnreadNotifCount(notifications.data.filter((n) => !n.is_read).length);
+        }
+    }, [notifications?.data]);
+
+    // Listen for real-time notifications via Reverb
+    useEffect(() => {
+        if (!currentUser?.id) return;
+
+        const echoInstance = getEcho();
+        if (!echoInstance) return;
+
+        const channel = echoInstance.private(`users.${currentUser.id}`);
+        channel.listen('.notification.created', (event: any) => {
+            const newItem: ClientNotificationItem = {
+                id: event.id,
+                actor_id: event.actor_id ?? null,
+                title: event.title || 'Angora Work OS',
+                message: event.message || '',
+                type: event.type ?? 'info',
+                category: event.category ?? 'system',
+                link: event.link ?? null,
+                is_read: false,
+                created_at: event.created_at ?? new Date().toISOString(),
+                actor: event.actor ?? null,
+            };
+
+            setNotificationList((prev) => [newItem, ...prev.filter((n) => n.id !== event.id)]);
+            setUnreadNotifCount((prev) => prev + 1);
+        });
+
+        return () => {
+            channel.stopListening('.notification.created');
+        };
+    }, [currentUser?.id]);
+
+    const handleMarkAsRead = async (notifId: number, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        try {
+            setNotificationList((prev) =>
+                prev.map((n) => (n.id === notifId ? { ...n, is_read: true } : n))
+            );
+            setUnreadNotifCount((prev) => Math.max(0, prev - 1));
+
+            await fetch(`/notifications/${notifId}/read`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN':
+                        (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                },
+            });
+        } catch (err) {
+            console.error('Failed to mark notification as read:', err);
+        }
+    };
+
+    const handleMarkAllAsRead = async () => {
+        try {
+            setMarkingAll(true);
+            setNotificationList((prev) => prev.map((n) => ({ ...n, is_read: true })));
+            setUnreadNotifCount(0);
+
+            await fetch('/notifications/mark-all-read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN':
+                        (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                },
+            });
+        } catch (err) {
+            console.error('Failed to mark all notifications as read:', err);
+        } finally {
+            setMarkingAll(false);
+        }
+    };
+
+    const handleDeleteNotification = async (notifId: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        try {
+            const target = notificationList.find((n) => n.id === notifId);
+            setNotificationList((prev) => prev.filter((n) => n.id !== notifId));
+            if (target && !target.is_read) {
+                setUnreadNotifCount((prev) => Math.max(0, prev - 1));
+            }
+
+            await fetch(`/notifications/${notifId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN':
+                        (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                },
+            });
+        } catch (err) {
+            console.error('Failed to delete notification:', err);
+        }
+    };
+
+    const handleNotificationClick = async (notif: ClientNotificationItem) => {
+        if (!notif.is_read) {
+            handleMarkAsRead(notif.id);
+        }
+
+        if (!notif.link) return;
+
+        // If link targets reviews tab
+        if (notif.link.includes('/client-portal/reviews') || notif.link.includes('tab=reviews')) {
+            handleTabChange('reviews');
+            return;
+        }
+
+        // If link targets projects tab
+        if (notif.link.includes('/client-portal/projects') || notif.link.includes('tab=projects')) {
+            handleTabChange('projects');
+            return;
+        }
+
+        // If link points to task item, try opening drawer
+        const match = notif.link.match(/[?&](?:item|task_id)=([0-9]+)/);
+        if (match && match[1]) {
+            const taskId = Number(match[1]);
+            const foundTask = (tasks as Task[]).find((t) => t.id === taskId);
+            if (foundTask) {
+                handleTabChange('board');
+                handleOpenTask(foundTask);
+                return;
+            }
+        }
+
+        router.visit(notif.link);
+    };
+
+    const filteredNotifications = notificationList.filter((notif) => {
+        if (notificationFilter === 'unread') return !notif.is_read;
+        if (notificationFilter === 'reviews') return notif.category === 'reviews' || notif.category === 'deliverables';
+        if (notificationFilter === 'comments') return notif.category === 'mentions' || notif.category === 'comments';
+        if (notificationFilter === 'system') return notif.category === 'system' || notif.category === 'deadlines';
+        return true;
+    });
 
     const initialTaskFromUrl = () => {
         if (typeof window !== 'undefined') {
@@ -353,9 +588,9 @@ export default function ClientPortalDashboard({
                 </div>
 
                 {/* Tab Navigation */}
-                <div className="flex items-center gap-2 border-b border-[#ECECF0] pb-px dark:border-[#28283E] text-xs font-bold">
+                <div className="flex items-center gap-2 border-b border-[#ECECF0] pb-px dark:border-[#28283E] text-xs font-bold overflow-x-auto">
                     <button
-                        onClick={() => setCurrentTab('overview')}
+                        onClick={() => handleTabChange('overview')}
                         className={`flex items-center gap-1.5 border-b-2 px-3 pb-3 transition-colors ${
                             currentTab === 'overview'
                                 ? 'border-[#0073ea] text-[#0073ea]'
@@ -367,7 +602,7 @@ export default function ClientPortalDashboard({
                     </button>
 
                     <button
-                        onClick={() => setCurrentTab('board')}
+                        onClick={() => handleTabChange('board')}
                         className={`flex items-center gap-1.5 border-b-2 px-3 pb-3 transition-colors ${
                             currentTab === 'board'
                                 ? 'border-[#0073ea] text-[#0073ea]'
@@ -382,7 +617,7 @@ export default function ClientPortalDashboard({
                     </button>
 
                     <button
-                        onClick={() => setCurrentTab('projects')}
+                        onClick={() => handleTabChange('projects')}
                         className={`flex items-center gap-1.5 border-b-2 px-3 pb-3 transition-colors ${
                             currentTab === 'projects'
                                 ? 'border-[#0073ea] text-[#0073ea]'
@@ -394,7 +629,7 @@ export default function ClientPortalDashboard({
                     </button>
 
                     <button
-                        onClick={() => setCurrentTab('reviews')}
+                        onClick={() => handleTabChange('reviews')}
                         className={`flex items-center gap-1.5 border-b-2 px-3 pb-3 transition-colors ${
                             currentTab === 'reviews'
                                 ? 'border-[#0073ea] text-[#0073ea]'
@@ -403,6 +638,23 @@ export default function ClientPortalDashboard({
                     >
                         <ShieldCheck className="h-4 w-4" />
                         <span>Reviews & Approvals ({stats.awaiting_review})</span>
+                    </button>
+
+                    <button
+                        onClick={() => handleTabChange('notifications')}
+                        className={`flex items-center gap-1.5 border-b-2 px-3 pb-3 transition-colors ${
+                            currentTab === 'notifications'
+                                ? 'border-[#0073ea] text-[#0073ea]'
+                                : 'border-transparent text-[#777785] hover:text-[#191927] dark:hover:text-white'
+                        }`}
+                    >
+                        <Bell className="h-4 w-4" />
+                        <span>Notifications</span>
+                        {unreadNotifCount > 0 && (
+                            <span className="flex items-center justify-center rounded-full bg-[#00c875] px-1.5 py-0.2 text-[10px] font-bold text-white leading-tight">
+                                {unreadNotifCount}
+                            </span>
+                        )}
                     </button>
                 </div>
 
@@ -693,6 +945,233 @@ export default function ClientPortalDashboard({
                                 ))}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* Tab 5: NOTIFICATIONS & ACTIVITY */}
+                {currentTab === 'notifications' && (
+                    <div className="space-y-6">
+                        <div className="rounded-2xl border border-[#ECECF0] bg-white p-6 shadow-xs dark:border-[#28283E] dark:bg-[#1E1E2F]">
+                            {/* Header */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[#ECECF0] dark:border-[#28283E]">
+                                <div>
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0073ea]/10 text-[#0073ea] dark:bg-[#0073ea]/20 dark:text-[#579bfc]">
+                                            <Bell className="h-5 w-5" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-base font-bold text-foreground">Notifications & Activity</h3>
+                                            <p className="text-xs text-muted-foreground">
+                                                Review deliverables, feedback requests, designer comments, and deadline alerts.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={unreadNotifCount === 0 || markingAll}
+                                        onClick={handleMarkAllAsRead}
+                                        className="h-8 rounded-xl border-[#ECECF0] text-xs font-semibold gap-1.5 dark:border-[#28283E] dark:bg-[#151522] dark:hover:bg-[#252538]"
+                                    >
+                                        <CheckCheck className="h-3.5 w-3.5 text-[#00c875]" />
+                                        <span>Mark all read</span>
+                                    </Button>
+                                </div>
+                            </div>
+
+                            {/* Filter Chips */}
+                            <div className="flex items-center gap-1.5 pt-4 pb-2 overflow-x-auto">
+                                <button
+                                    onClick={() => setNotificationFilter('all')}
+                                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                                        notificationFilter === 'all'
+                                            ? 'bg-[#0073ea] text-white shadow-xs'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-[#28283E] dark:text-slate-300 dark:hover:bg-[#353550]'
+                                    }`}
+                                >
+                                    All ({notificationList.length})
+                                </button>
+
+                                <button
+                                    onClick={() => setNotificationFilter('unread')}
+                                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                                        notificationFilter === 'unread'
+                                            ? 'bg-[#0073ea] text-white shadow-xs'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-[#28283E] dark:text-slate-300 dark:hover:bg-[#353550]'
+                                    }`}
+                                >
+                                    Unread ({unreadNotifCount})
+                                </button>
+
+                                <button
+                                    onClick={() => setNotificationFilter('reviews')}
+                                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                                        notificationFilter === 'reviews'
+                                            ? 'bg-[#0073ea] text-white shadow-xs'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-[#28283E] dark:text-slate-300 dark:hover:bg-[#353550]'
+                                    }`}
+                                >
+                                    Reviews & Approvals
+                                </button>
+
+                                <button
+                                    onClick={() => setNotificationFilter('comments')}
+                                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                                        notificationFilter === 'comments'
+                                            ? 'bg-[#0073ea] text-white shadow-xs'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-[#28283E] dark:text-slate-300 dark:hover:bg-[#353550]'
+                                    }`}
+                                >
+                                    Comments & Mentions
+                                </button>
+
+                                <button
+                                    onClick={() => setNotificationFilter('system')}
+                                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+                                        notificationFilter === 'system'
+                                            ? 'bg-[#0073ea] text-white shadow-xs'
+                                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-[#28283E] dark:text-slate-300 dark:hover:bg-[#353550]'
+                                    }`}
+                                >
+                                    System & Deadlines
+                                </button>
+                            </div>
+
+                            {/* Notifications List */}
+                            <div className="mt-3 divide-y divide-[#ECECF0] dark:divide-[#28283E]">
+                                {filteredNotifications.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-16 text-center">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-slate-400 dark:bg-[#28283E] dark:text-slate-500">
+                                            <BellOff className="h-6 w-6" />
+                                        </div>
+                                        <h4 className="mt-3 text-sm font-bold text-foreground">
+                                            {notificationFilter === 'unread' ? 'All caught up!' : 'No notifications found'}
+                                        </h4>
+                                        <p className="mt-1 text-xs text-muted-foreground max-w-sm">
+                                            {notificationFilter === 'unread'
+                                                ? 'You have reviewed all pending notifications and deliverable updates.'
+                                                : 'When tasks are assigned, deliverables submitted, or comments added, they will appear here.'}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    filteredNotifications.map((notif) => {
+                                        const isReview = notif.category === 'reviews' || notif.category === 'deliverables';
+                                        const isComment = notif.category === 'mentions' || notif.category === 'comments';
+
+                                        return (
+                                            <div
+                                                key={notif.id}
+                                                onClick={() => handleNotificationClick(notif)}
+                                                className={`group flex items-start gap-4 p-4 transition-all cursor-pointer rounded-xl ${
+                                                    !notif.is_read
+                                                        ? 'bg-blue-50/40 hover:bg-blue-50/70 dark:bg-blue-950/20 dark:hover:bg-blue-950/30'
+                                                        : 'hover:bg-slate-50/80 dark:hover:bg-[#252538]/50'
+                                                }`}
+                                            >
+                                                {/* Left Icon or Avatar */}
+                                                <div className="relative mt-0.5 shrink-0">
+                                                    {notif.actor?.avatar ? (
+                                                        <img
+                                                            src={notif.actor.avatar}
+                                                            alt={notif.actor.name}
+                                                            className="h-9 w-9 rounded-full object-cover ring-2 ring-background"
+                                                        />
+                                                    ) : (
+                                                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700 dark:bg-[#2e2e44] dark:text-slate-200">
+                                                            {notif.actor?.name ? notif.actor.name.charAt(0).toUpperCase() : 'A'}
+                                                        </div>
+                                                    )}
+                                                    <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white shadow-2xs dark:bg-[#1E1E2F]">
+                                                        {isReview ? (
+                                                            <ShieldCheck className="h-2.5 w-2.5 text-[#0073ea]" />
+                                                        ) : isComment ? (
+                                                            <MessageSquare className="h-2.5 w-2.5 text-[#fdab3d]" />
+                                                        ) : (
+                                                            <Bell className="h-2.5 w-2.5 text-[#00c875]" />
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                {/* Notification Content */}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-2">
+                                                        <h4
+                                                            className={`text-xs font-bold ${
+                                                                !notif.is_read
+                                                                    ? 'text-[#0073ea] dark:text-[#579bfc]'
+                                                                    : 'text-foreground'
+                                                            }`}
+                                                        >
+                                                            {notif.title}
+                                                        </h4>
+                                                        {!notif.is_read && (
+                                                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#0073ea]" />
+                                                        )}
+                                                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-semibold text-slate-500 uppercase tracking-wider dark:bg-[#28283E] dark:text-slate-400">
+                                                            {notif.category || 'General'}
+                                                        </span>
+                                                    </div>
+
+                                                    <p className="mt-1 text-xs text-foreground/80 leading-relaxed">
+                                                        {notif.message}
+                                                    </p>
+
+                                                    <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+                                                        <span>{formatNotificationTime(notif.created_at)}</span>
+                                                        {notif.actor?.name && (
+                                                            <>
+                                                                <span>•</span>
+                                                                <span>From {notif.actor.name}</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Quick Action Buttons */}
+                                                <div className="flex items-center gap-1.5 shrink-0 self-center">
+                                                    {notif.link && (
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleNotificationClick(notif);
+                                                            }}
+                                                            className="h-7 rounded-lg bg-[#0073ea] px-2.5 text-[11px] font-semibold text-white hover:bg-[#0060c0]"
+                                                        >
+                                                            <span>View</span>
+                                                            <ArrowRight className="h-3 w-3 ml-1" />
+                                                        </Button>
+                                                    )}
+
+                                                    {!notif.is_read && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => handleMarkAsRead(notif.id, e)}
+                                                            title="Mark as read"
+                                                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECECF0] text-slate-500 hover:border-[#0073ea] hover:text-[#0073ea] dark:border-[#28283E] dark:text-slate-400 dark:hover:text-white"
+                                                        >
+                                                            <Check className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => handleDeleteNotification(notif.id, e)}
+                                                        title="Delete notification"
+                                                        className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#ECECF0] text-slate-500 hover:border-rose-400 hover:text-rose-500 dark:border-[#28283E] dark:text-slate-400 dark:hover:text-rose-400"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

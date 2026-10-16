@@ -479,4 +479,73 @@ class ClientPortalWorkflowTest extends TestCase
             'review_type' => 'client',
         ]);
     }
+
+    /**
+     * Test 7: Client can view notifications tab in client portal.
+     */
+    public function test_client_can_view_notifications_tab(): void
+    {
+        $this->actingAs($this->clientUser);
+
+        // Seed a notification for the client
+        \App\Models\SystemNotification::create([
+            'user_id' => $this->clientUser->id,
+            'actor_id' => $this->pm->id,
+            'title' => 'Deliverable Submitted for Review',
+            'message' => 'New logo draft v2 is ready for review.',
+            'type' => 'info',
+            'category' => 'reviews',
+            'link' => '/client-portal/reviews',
+            'is_read' => false,
+        ]);
+
+        $response = $this->get('/client-portal/notifications');
+
+        $response->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('client-portal/dashboard')
+                ->where('activeTab', 'notifications')
+                ->has('notifications.data', 1)
+                ->where('stats.unread_notifications', 1)
+            );
+    }
+
+    /**
+     * Test 8: Client accessing /notifications via Inertia or browser is redirected to client-portal notifications.
+     */
+    public function test_client_visiting_notifications_is_redirected_to_client_portal(): void
+    {
+        $this->actingAs($this->clientUser);
+
+        $inertiaVersion = app(\App\Http\Middleware\HandleInertiaRequests::class)->version(
+            \Illuminate\Http\Request::create('/notifications', 'GET')
+        );
+
+        // Inertia visit (with valid headers)
+        $response = $this->withHeaders([
+            'X-Inertia' => 'true',
+            'X-Inertia-Version' => $inertiaVersion,
+            'X-Requested-With' => 'XMLHttpRequest',
+        ])->get('/notifications');
+        $response->assertRedirect(route('client-portal.notifications'));
+
+        // Normal browser visit
+        $browserResponse = $this->get('/notifications');
+        $browserResponse->assertRedirect(route('client-portal.notifications'));
+    }
+
+    /**
+     * Test 9: AJAX fetch request to /notifications still returns valid JSON for background consumers.
+     */
+    public function test_ajax_notifications_endpoint_still_returns_json(): void
+    {
+        $this->actingAs($this->clientUser);
+
+        $response = $this->getJson('/notifications');
+        $response->assertOk()
+            ->assertJsonStructure([
+                'notifications' => ['data', 'current_page', 'total'],
+                'unread_count',
+            ]);
+    }
 }

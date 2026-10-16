@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T19:22:20.453Z",
+  "generated_at": "2026-10-16T19:37:14.425Z",
   "stats": {
-    "total_nodes": 651,
-    "total_edges": 1424,
+    "total_nodes": 652,
+    "total_edges": 1427,
     "clusters": 7
   },
   "nodes": [
@@ -1434,6 +1434,16 @@
       "uri": "/client-portal/reviews",
       "name": "client-portal.reviews",
       "action": "reviewsTab"
+    },
+    {
+      "id": "route:GET:/client-portal/notifications",
+      "label": "GET /client-portal/notifications",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/client-portal/notifications",
+      "name": "client-portal.notifications",
+      "action": "notificationsTab"
     },
     {
       "id": "route:GET:/client-portal/projects/{project}",
@@ -5658,6 +5668,12 @@
       "action": "reviewsTab"
     },
     {
+      "source": "route:GET:/client-portal/notifications",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "notificationsTab"
+    },
+    {
       "source": "route:GET:/client-portal/projects/{project}",
       "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
       "relationship": "routes_to",
@@ -6496,12 +6512,12 @@
     },
     {
       "source": "controller:ClientPortalController",
-      "target": "model:ClientProjectGrant",
+      "target": "model:SystemNotification",
       "relationship": "queries_model"
     },
     {
       "source": "controller:ClientPortalController",
-      "target": "model:SystemNotification",
+      "target": "model:ClientProjectGrant",
       "relationship": "queries_model"
     },
     {
@@ -9274,6 +9290,11 @@
     },
     {
       "source": "component:dashboard",
+      "target": "component:echo",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:dashboard",
       "target": "component:app-layout",
       "relationship": "imports"
     },
@@ -11879,6 +11900,11 @@
     {
       "source": "test:ClientPortalWorkflowTest",
       "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:ClientPortalWorkflowTest",
+      "target": "controller:DashboardController",
       "relationship": "tests"
     },
     {

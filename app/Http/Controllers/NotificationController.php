@@ -10,11 +10,20 @@ use Illuminate\Http\Request;
 class NotificationController extends Controller
 {
     /**
-     * Get paginated notifications with filters.
+     * Get paginated notifications with filters, or redirect page visits to appropriate views.
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): mixed
     {
         $user = $request->user();
+
+        // If accessed as a browser page or via an Inertia navigation
+        if (!$request->wantsJson() || $request->header('X-Inertia')) {
+            if ($user && ($user->isClientUser() || $user->hasRole('client') || $user->primaryRoleName() === 'external_user')) {
+                return redirect()->route('client-portal.notifications');
+            }
+
+            return redirect()->route('dashboard');
+        }
 
         $query = SystemNotification::with('actor:id,name,email,avatar,avatar_url')
             ->where('user_id', $user->id);
