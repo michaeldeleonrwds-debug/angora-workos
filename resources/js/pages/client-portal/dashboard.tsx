@@ -140,7 +140,49 @@ export default function ClientPortalDashboard({
     const [currentTab, setCurrentTab] = useState<'overview' | 'board' | 'projects' | 'reviews'>(
         activeTab === 'projects' || activeTab === 'board' || activeTab === 'reviews' ? activeTab : 'overview'
     );
-    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+    const initialTaskFromUrl = () => {
+        if (typeof window !== 'undefined') {
+            const urlItem = new URLSearchParams(window.location.search).get('item')
+                || new URLSearchParams(window.location.search).get('task_id');
+            if (urlItem) {
+                return (tasks as Task[]).find((t) => t.id === Number(urlItem)) || null;
+            }
+        }
+        return null;
+    };
+    const [selectedTask, setSelectedTask] = useState<Task | null>(() => initialTaskFromUrl());
+
+    const initialDrawerTab = typeof window !== 'undefined'
+        ? (new URLSearchParams(window.location.search).get('tab') as any) || undefined
+        : undefined;
+
+    const initialHighlightId = typeof window !== 'undefined'
+        ? Number(new URLSearchParams(window.location.search).get('target_id') || new URLSearchParams(window.location.search).get('comment_id')) || null
+        : null;
+
+    const handleOpenTask = (t: Task) => {
+        setSelectedTask(t);
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('item', String(t.id));
+            window.history.pushState({}, '', url.toString());
+        }
+    };
+
+    const handleCloseDrawer = () => {
+        setSelectedTask(null);
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('item');
+            url.searchParams.delete('task_id');
+            url.searchParams.delete('tab');
+            url.searchParams.delete('target_id');
+            url.searchParams.delete('comment_id');
+            window.history.pushState({}, '', url.toString());
+        }
+    };
+
     const [searchTerm, setSearchTerm] = useState('');
 
     const awaitingTasks = tasks.filter(
@@ -431,7 +473,7 @@ export default function ClientPortalDashboard({
                                             <div className="flex items-center gap-2 shrink-0">
                                                 <Button
                                                     size="sm"
-                                                    onClick={() => setSelectedTask(t)}
+                                                    onClick={() => handleOpenTask(t)}
                                                     className="rounded-xl bg-[#0073ea] text-white text-xs font-semibold gap-1.5 hover:bg-[#0060c0]"
                                                 >
                                                     <ShieldCheck className="h-3.5 w-3.5" />
@@ -534,7 +576,7 @@ export default function ClientPortalDashboard({
                             searchTerm={searchTerm}
                             personFilter="all"
                             priorityFilter="all"
-                            onSelectTask={(task) => setSelectedTask(task)}
+                            onSelectTask={(task) => handleOpenTask(task)}
                             onQuickAddTask={() => {}}
                         />
                     </div>
@@ -602,7 +644,7 @@ export default function ClientPortalDashboard({
                                 {tasks.map((t) => (
                                     <div
                                         key={t.id}
-                                        onClick={() => setSelectedTask(t)}
+                                        onClick={() => handleOpenTask(t)}
                                         className="cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-4 transition-all hover:border-primary/50 hover:shadow-xs"
                                     >
                                         <div className="space-y-1">
@@ -639,7 +681,7 @@ export default function ClientPortalDashboard({
                                                 size="sm"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
-                                                    setSelectedTask(t);
+                                                    handleOpenTask(t);
                                                 }}
                                                 className="rounded-xl bg-[#0073ea] text-white text-xs font-semibold gap-1.5 hover:bg-[#0060c0]"
                                             >
@@ -662,8 +704,10 @@ export default function ClientPortalDashboard({
                     board={activeBoard}
                     users={users}
                     permissions={permissions}
-                    onClose={() => setSelectedTask(null)}
-                    onSelectTask={(task) => setSelectedTask(task)}
+                    onClose={handleCloseDrawer}
+                    onSelectTask={(task) => handleOpenTask(task)}
+                    initialTab={initialDrawerTab}
+                    targetHighlightId={initialHighlightId}
                 />
             )}
         </AppLayout>

@@ -37,6 +37,7 @@ class KanbanController extends Controller
     protected \App\Services\TaskRecurrenceService $recurrenceService;
     protected \App\Services\Authorization\WorkOsPermissionService $permissionService;
     protected \App\Services\WorkflowService $workflowService;
+    protected \App\Services\HtmlSanitizerService $htmlSanitizer;
 
     public function __construct(
         AutomationEngineService $automationEngine,
@@ -45,7 +46,8 @@ class KanbanController extends Controller
         \App\Services\TaskDependencyService $dependencyService,
         \App\Services\TaskRecurrenceService $recurrenceService,
         \App\Services\Authorization\WorkOsPermissionService $permissionService,
-        \App\Services\WorkflowService $workflowService
+        \App\Services\WorkflowService $workflowService,
+        \App\Services\HtmlSanitizerService $htmlSanitizer
     ) {
         $this->automationEngine = $automationEngine;
         $this->crossBoardService = $crossBoardService;
@@ -54,6 +56,7 @@ class KanbanController extends Controller
         $this->recurrenceService = $recurrenceService;
         $this->permissionService = $permissionService;
         $this->workflowService = $workflowService;
+        $this->htmlSanitizer = $htmlSanitizer;
     }
     public function index(Request $request)
     {
@@ -123,6 +126,25 @@ class KanbanController extends Controller
         if ($boardId) {
             $targetBoardId = $boards->firstWhere('id', (int) $boardId)?->id;
         }
+
+        // Deep linking: resolve task early to auto-switch board if needed
+        $selectedTaskId = $request->query('item') ?: $request->query('task_id');
+        if ($selectedTaskId && !$targetBoardId) {
+            $candidate = KanbanTask::with('board.workspace')->find($selectedTaskId);
+            if ($candidate && $user->can('view', $candidate) && $candidate->board_id) {
+                if ($boards->contains('id', $candidate->board_id)) {
+                    $targetBoardId = $candidate->board_id;
+                    if ($candidate->board?->workspace_id) {
+                        $ws = $workspaces->firstWhere('id', $candidate->board->workspace_id);
+                        if ($ws) {
+                            $activeWorkspace = $ws;
+                            session(['active_workspace_id' => $ws->id]);
+                        }
+                    }
+                }
+            }
+        }
+
         if (!$targetBoardId && $activeWorkspace) {
             $targetBoardId = $boards->firstWhere('workspace_id', $activeWorkspace->id)?->id;
         }
@@ -187,9 +209,9 @@ class KanbanController extends Controller
             ]);
         }
 
-        // Deep linking: resolve selected item if requested via ?item={id}
-        $selectedTaskId = $request->query('item');
+        // Deep linking: resolve selected item if requested via ?item={id} or ?task_id={id}
         $selectedTask = null;
+        $selectedTaskNotFound = false;
         if ($selectedTaskId) {
             $taskCandidate = KanbanTask::with([
                 'assignee',
@@ -200,6 +222,7 @@ class KanbanController extends Controller
                 'subitems.column',
                 'comments.user',
                 'comments.replies.user',
+                'comments.mentions.user',
                 'attachments.user',
                 'dependencies.dependencyTask.column',
                 'dependents.task.column',
@@ -211,6 +234,8 @@ class KanbanController extends Controller
 
             if ($taskCandidate && $user->can('view', $taskCandidate)) {
                 $selectedTask = $taskCandidate;
+            } else {
+                $selectedTaskNotFound = true;
             }
         }
 
@@ -254,6 +279,7 @@ class KanbanController extends Controller
             'activeBoard' => $activeBoard,
             'users' => $users,
             'selectedTask' => $selectedTask,
+            'selectedTaskNotFound' => $selectedTaskNotFound,
             'mirroredValues' => $mirroredValues,
             'permissions' => $permissions,
         ]);
@@ -383,6 +409,23 @@ class KanbanController extends Controller
                 'created_by' => auth()->id() ?? 1,
             ]);
         }
+    }
+
+    /**
+     * Show board canonical view (resolves GET /kanban/boards/{board})
+     */
+    public function showBoard(Request $request, KanbanBoard $board)
+    {
+        $user = auth()->user();
+        if ($user && $user->isClientUser()) {
+            return redirect()->route('client-portal.board', array_merge(['board' => $board->id], $request->query()));
+        }
+
+        if (!$user->can('view', $board)) {
+            abort(403, 'Unauthorized board access');
+        }
+
+        return redirect()->route('kanban.index', array_merge(['board' => $board->id], $request->query()));
     }
 
     public function storeBoard(Request $request)
@@ -1648,12 +1691,14 @@ class KanbanController extends Controller
             'parent_id' => 'nullable|exists:kanban_comments,id',
         ]);
 
+        $sanitizedMessage = $this->htmlSanitizer->sanitize($validated['message']);
+
         $isClient = auth()->user() && auth()->user()->isClientUser();
         $comment = KanbanComment::create([
             'task_id' => $task->id,
             'parent_id' => $validated['parent_id'] ?? null,
             'user_id' => auth()->id(),
-            'message' => $validated['message'],
+            'message' => $sanitizedMessage,
             'is_client_visible' => $isClient ? true : $request->boolean('is_client_visible', true),
         ]);
 
@@ -1666,21 +1711,50 @@ class KanbanController extends Controller
 
         \App\Events\CommentAddedEvent::dispatch($comment);
 
-        // Notify mentioned users (@Name or @FirstName)
-        $users = User::where('id', '!=', auth()->id())->get();
-        $notifiedUserIds = [];
-        foreach ($users as $user) {
-            $firstName = explode(' ', $user->name)[0];
-            $escapedFullName = preg_quote($user->name, '/');
-            $escapedFirstName = preg_quote($firstName, '/');
+        // Parse mentions: structured nodes first, fallback to regex
+        $mentionedUserIds = \App\Services\HtmlSanitizerService::extractMentionUserIds($validated['message']);
 
-            if (
-                preg_match('/@' . $escapedFullName . '\b/i', $validated['message']) ||
-                preg_match('/@' . $escapedFirstName . '\b/i', $validated['message'])
-            ) {
-                $this->notificationService->notifyMention($task, $user, auth()->user(), $validated['message']);
-                $notifiedUserIds[] = $user->id;
+        if (empty($mentionedUserIds)) {
+            // Fallback for legacy plain-text mentions
+            $candidateUsers = User::where('id', '!=', auth()->id())->get();
+            foreach ($candidateUsers as $u) {
+                $firstName = explode(' ', $u->name)[0];
+                $escapedFullName = preg_quote($u->name, '/');
+                $escapedFirstName = preg_quote($firstName, '/');
+                if (
+                    preg_match('/@' . $escapedFullName . '\b/i', $validated['message']) ||
+                    preg_match('/@' . $escapedFirstName . '\b/i', $validated['message'])
+                ) {
+                    $mentionedUserIds[] = $u->id;
+                }
             }
+        }
+
+        $notifiedUserIds = [];
+        foreach (array_unique($mentionedUserIds) as $mentionedId) {
+            if ((int) $mentionedId === (int) auth()->id()) {
+                continue;
+            }
+
+            $userToNotify = User::find($mentionedId);
+            if (!$userToNotify) {
+                continue;
+            }
+
+            // Authorization check: mentioned user must be able to view the task
+            if (!$userToNotify->can('view', $task)) {
+                continue;
+            }
+
+            // Persist mention in database (guarantees uniqueness per comment & user)
+            \App\Models\KanbanCommentMention::firstOrCreate([
+                'comment_id' => $comment->id,
+                'user_id' => $userToNotify->id,
+                'task_id' => $task->id,
+            ]);
+
+            $this->notificationService->notifyMention($task, $userToNotify, auth()->user(), $sanitizedMessage, $comment->id);
+            $notifiedUserIds[] = $userToNotify->id;
         }
 
         // Notify parent comment author if reply
@@ -1688,16 +1762,21 @@ class KanbanController extends Controller
             $parent = KanbanComment::find($comment->parent_id);
             if ($parent && $parent->user_id && $parent->user_id !== auth()->id() && !in_array($parent->user_id, $notifiedUserIds)) {
                 $parentUser = User::find($parent->user_id);
-                if ($parentUser) {
+                if ($parentUser && $parentUser->can('view', $task)) {
                     $this->notificationService->notify(
                         recipient: $parentUser,
                         title: 'New reply to your update',
                         message: auth()->user()->name . ' replied to your update on "' . $task->title . '"',
                         type: 'info',
                         category: 'mentions',
-                        link: "/kanban?task_id={$task->id}",
+                        link: \App\Services\NotificationService::generateTaskLink($task, tab: 'updates', targetId: $comment->id, recipient: $parentUser),
                         actorId: auth()->id(),
-                        metadata: ['task_id' => $task->id, 'comment_id' => $comment->id]
+                        metadata: [
+                            'task_id' => $task->id,
+                            'comment_id' => $comment->id,
+                            'target_id' => $comment->id,
+                            'tab' => 'updates',
+                        ]
                     );
                     $notifiedUserIds[] = $parentUser->id;
                 }
@@ -1707,21 +1786,67 @@ class KanbanController extends Controller
         // Notify task assignee if someone else commented and they weren't already notified
         if ($task->assigned_to && $task->assigned_to !== auth()->id() && !in_array($task->assigned_to, $notifiedUserIds)) {
             $assignee = User::find($task->assigned_to);
-            if ($assignee) {
+            if ($assignee && $assignee->can('view', $task)) {
                 $this->notificationService->notify(
                     recipient: $assignee,
                     title: 'New update on your task',
                     message: auth()->user()->name . ' posted an update on "' . $task->title . '"',
                     type: 'info',
                     category: 'system',
-                    link: "/kanban?task_id={$task->id}",
+                    link: \App\Services\NotificationService::generateTaskLink($task, tab: 'updates', targetId: $comment->id, recipient: $assignee),
                     actorId: auth()->id(),
-                    metadata: ['task_id' => $task->id, 'comment_id' => $comment->id]
+                    metadata: [
+                        'task_id' => $task->id,
+                        'comment_id' => $comment->id,
+                        'target_id' => $comment->id,
+                        'tab' => 'updates',
+                    ]
                 );
             }
         }
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'comment' => $comment->load(['user', 'replies.user', 'mentions.user']),
+            ]);
+        }
+
         return back()->with('success', 'Update posted');
+    }
+
+    /**
+     * Upload an inline image from rich-text editor.
+     */
+    public function uploadCommentImage(Request $request, KanbanTask $task)
+    {
+        Gate::authorize('view', $task);
+
+        $request->validate([
+            'image' => 'required|file|image|mimes:jpeg,png,jpg,gif,webp|max:10240', // 10MB
+        ]);
+
+        $file = $request->file('image');
+        $fileName = $file->getClientOriginalName();
+        $filePath = $file->store('attachments/kanban/comments', 'public');
+
+        $isClient = auth()->user() && auth()->user()->isClientUser();
+        $attachment = KanbanAttachment::create([
+            'task_id' => $task->id,
+            'user_id' => auth()->id(),
+            'file_name' => $fileName,
+            'file_path' => $filePath,
+            'file_size_bytes' => $file->getSize(),
+            'mime_type' => $file->getClientMimeType() ?: 'image/jpeg',
+            'is_client_visible' => $isClient ? true : $request->boolean('is_client_visible', true),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'attachment_id' => $attachment->id,
+            'url' => route('kanban.attachments.preview', $attachment),
+            'file_name' => $fileName,
+        ]);
     }
 
     public function deleteComment(KanbanComment $comment)
@@ -1838,6 +1963,23 @@ class KanbanController extends Controller
         }
 
         return Storage::disk('public')->download($attachment->file_path, $attachment->file_name);
+    }
+
+    /**
+     * Preview an attachment inline with authorization check.
+     */
+    public function previewAttachment(KanbanAttachment $attachment)
+    {
+        Gate::authorize('view', $attachment);
+
+        if (!$attachment->file_path || !Storage::disk('public')->exists($attachment->file_path)) {
+            abort(404, 'Attachment file not found on storage.');
+        }
+
+        return Storage::disk('public')->response($attachment->file_path, $attachment->file_name, [
+            'Content-Type' => $attachment->mime_type ?: 'image/jpeg',
+            'Content-Disposition' => 'inline; filename="' . $attachment->file_name . '"',
+        ]);
     }
 
     // --- Views Management (Table, Kanban, Calendar, Timeline, Gantt, Workload, Chart, Files, Gallery) ---

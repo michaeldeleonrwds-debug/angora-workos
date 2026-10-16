@@ -65,6 +65,47 @@ class NotificationService
     }
 
     /**
+     * Generate canonical, safe deep-link for a task notification.
+     */
+    public static function generateTaskLink(
+        KanbanTask $task,
+        string $tab = 'updates',
+        ?int $targetId = null,
+        User|int|null $recipient = null
+    ): string {
+        $recipientUser = null;
+        if ($recipient instanceof User) {
+            $recipientUser = $recipient;
+        } elseif (is_numeric($recipient)) {
+            $recipientUser = User::find($recipient);
+        }
+
+        $isClient = $recipientUser && $recipientUser->isClientUser();
+
+        if ($isClient) {
+            $params = [
+                'item' => $task->id,
+                'tab' => $tab === 'updates' ? 'reviews' : $tab,
+            ];
+            if ($targetId) {
+                $params['target_id'] = $targetId;
+            }
+            return route('client-portal.board', $params);
+        }
+
+        $params = [
+            'board' => $task->board_id,
+            'item' => $task->id,
+            'tab' => $tab,
+        ];
+        if ($targetId) {
+            $params['target_id'] = $targetId;
+        }
+
+        return '/kanban?' . http_build_query($params);
+    }
+
+    /**
      * Notify an assignee when a task is assigned to them.
      */
     public function notifyAssignment(KanbanTask $task, User $assignee, ?User $actor = null): ?SystemNotification
@@ -76,16 +117,16 @@ class NotificationService
             message: "{$actorName} assigned you to \"{$task->title}\"",
             type: 'info',
             category: 'assignments',
-            link: "/kanban?task_id={$task->id}",
+            link: self::generateTaskLink($task, tab: 'updates', recipient: $assignee),
             actorId: $actor?->id,
-            metadata: ['task_id' => $task->id, 'board_id' => $task->board_id]
+            metadata: ['task_id' => $task->id, 'board_id' => $task->board_id, 'tab' => 'updates']
         );
     }
 
     /**
      * Notify a user when they are mentioned in a comment or task description.
      */
-    public function notifyMention(KanbanTask $task, User $mentionedUser, User $actor, string $commentExcerpt): ?SystemNotification
+    public function notifyMention(KanbanTask $task, User $mentionedUser, User $actor, string $commentExcerpt, ?int $commentId = null): ?SystemNotification
     {
         $excerpt = Str::limit(strip_tags($commentExcerpt), 80);
         return $this->notify(
@@ -94,9 +135,15 @@ class NotificationService
             message: "{$actor->name} mentioned you on \"{$task->title}\": \"{$excerpt}\"",
             type: 'info',
             category: 'mentions',
-            link: "/kanban?task_id={$task->id}",
+            link: self::generateTaskLink($task, tab: 'updates', targetId: $commentId, recipient: $mentionedUser),
             actorId: $actor->id,
-            metadata: ['task_id' => $task->id, 'board_id' => $task->board_id]
+            metadata: [
+                'task_id' => $task->id,
+                'board_id' => $task->board_id,
+                'tab' => 'updates',
+                'comment_id' => $commentId,
+                'target_id' => $commentId,
+            ]
         );
     }
 
@@ -131,12 +178,14 @@ class NotificationService
             message: "{$actor->name} submitted \"{$task->title}\" for review (Round {$cycle->round_number}).",
             type: 'warning',
             category: 'reviews',
-            link: "/kanban?task_id={$task->id}",
+            link: self::generateTaskLink($task, tab: 'reviews', targetId: $cycle->id, recipient: $targetUser),
             actorId: $actor->id,
             metadata: [
                 'task_id' => $task->id,
                 'board_id' => $task->board_id,
+                'tab' => 'reviews',
                 'review_cycle_id' => $cycle->id,
+                'target_id' => $cycle->id,
                 'round_number' => $cycle->round_number,
             ]
         );
@@ -171,12 +220,14 @@ class NotificationService
             message: $message,
             type: $type,
             category: 'reviews',
-            link: "/kanban?task_id={$task->id}",
+            link: self::generateTaskLink($task, tab: 'reviews', targetId: $decision->id, recipient: $recipientId),
             actorId: $actor->id,
             metadata: [
                 'task_id' => $task->id,
                 'board_id' => $task->board_id,
+                'tab' => 'reviews',
                 'review_cycle_id' => $cycle->id,
+                'target_id' => $decision->id,
                 'decision' => $decision->decision,
                 'round_number' => $cycle->round_number,
             ]

@@ -42,4 +42,14 @@ class KanbanComment extends Model
     {
         return $this->hasMany(KanbanComment::class, 'parent_id')->with('user')->oldest();
     }
+
+    public function mentions()
+    {
+        return $this->hasMany(KanbanCommentMention::class, 'comment_id');
+    }
+
+    public function mentionedUsers()
+    {
+        return $this->belongsToMany(User::class, 'kanban_comment_mentions', 'comment_id', 'user_id');
+    }
 }

@@ -506,7 +506,13 @@ class TaskReviewController extends Controller
                 'title' => "New Review Ready: {$task->title}",
                 'message' => "Round {$roundNumber} of '{$task->title}' has been submitted for your review.",
                 'type' => 'client_review',
-                'link' => '/client-portal',
+                'category' => 'reviews',
+                'link' => \App\Services\NotificationService::generateTaskLink($task, tab: 'reviews', recipient: $clientUser),
+                'metadata' => [
+                    'task_id' => $task->id,
+                    'board_id' => $task->board_id,
+                    'tab' => 'reviews',
+                ],
             ]);
         }
 
@@ -603,7 +609,13 @@ class TaskReviewController extends Controller
                 'title' => "Task Sent Back to Production: {$task->title}",
                 'message' => "Client revisions required. Please review PM notes and begin rework.",
                 'type' => 'task_assigned',
-                'link' => "/kanban/boards/{$task->board_id}",
+                'category' => 'assignments',
+                'link' => \App\Services\NotificationService::generateTaskLink($task, tab: 'updates', recipient: $task->assigned_to),
+                'metadata' => [
+                    'task_id' => $task->id,
+                    'board_id' => $task->board_id,
+                    'tab' => 'updates',
+                ],
             ]);
         }
 

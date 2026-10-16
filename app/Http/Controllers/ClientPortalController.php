@@ -594,7 +594,13 @@ class ClientPortalController extends Controller
                     'title' => "Client Approved: {$task->title}",
                     'message' => "Client {$customer->name} has approved Round {$roundNumber} of '{$task->title}'. The task is now Complete.",
                     'type' => 'client_approved',
-                    'link' => "/kanban/boards/{$task->board_id}",
+                    'category' => 'reviews',
+                    'link' => \App\Services\NotificationService::generateTaskLink($task, tab: 'reviews', recipient: $recipientId),
+                    'metadata' => [
+                        'task_id' => $task->id,
+                        'board_id' => $task->board_id,
+                        'tab' => 'reviews',
+                    ],
                 ]);
             }
         });
@@ -696,7 +702,13 @@ class ClientPortalController extends Controller
                     'title' => "Client Revision Requested: {$task->title}",
                     'message' => "Client {$customer->name} requested revisions on '{$task->title}': " . \Illuminate\Support\Str::limit($validated['feedback'], 100),
                     'type' => 'client_revision',
-                    'link' => "/kanban/boards/{$task->board_id}",
+                    'category' => 'reviews',
+                    'link' => \App\Services\NotificationService::generateTaskLink($task, tab: 'reviews', recipient: $recipientId),
+                    'metadata' => [
+                        'task_id' => $task->id,
+                        'board_id' => $task->board_id,
+                        'tab' => 'reviews',
+                    ],
                 ]);
             }
         });

@@ -472,9 +472,12 @@ class KanbanTask extends Model
     public function applyWorkflowStatus(KanbanColumn $status): void
     {
         $this->column_id = $status->id;
-        $this->completed_at = $status->isCompletionStatus()
-            ? ($this->completed_at ?? now())
-            : null;
+        if ($status->isCompletionStatus()) {
+            $this->completed_at = $this->completed_at ?? now();
+            $this->progress = 100;
+        } else {
+            $this->completed_at = null;
+        }
     }
 
     /**

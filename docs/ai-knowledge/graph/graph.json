@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T14:32:07.439Z",
+  "generated_at": "2026-10-16T15:15:13.617Z",
   "stats": {
-    "total_nodes": 599,
-    "total_edges": 1198,
+    "total_nodes": 606,
+    "total_edges": 1218,
     "clusters": 7
   },
   "nodes": [
@@ -136,6 +136,16 @@
       "uri": "/workspaces/{workspace}/members/{member}",
       "name": "workspaces.members.update",
       "action": "updateMemberRole"
+    },
+    {
+      "id": "route:GET:/kanban/boards/{board}",
+      "label": "GET /kanban/boards/{board}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/boards/{board}",
+      "name": "kanban.boards.show",
+      "action": "showBoard"
     },
     {
       "id": "route:POST:/kanban/boards",
@@ -438,6 +448,16 @@
       "action": "storeComment"
     },
     {
+      "id": "route:POST:/kanban/tasks/{task}/comments/upload-image",
+      "label": "POST /kanban/tasks/{task}/comments/upload-image",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/comments/upload-image",
+      "name": "kanban.tasks.comments.upload-image",
+      "action": "uploadCommentImage"
+    },
+    {
       "id": "route:DELETE:/kanban/comments/{comment}",
       "label": "DELETE /kanban/comments/{comment}",
       "type": "route",
@@ -466,6 +486,16 @@
       "uri": "/kanban/tasks/{task}/attachments",
       "name": "kanban.tasks.attachments.store",
       "action": "storeAttachment"
+    },
+    {
+      "id": "route:GET:/kanban/attachments/{attachment}/preview",
+      "label": "GET /kanban/attachments/{attachment}/preview",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/attachments/{attachment}/preview",
+      "name": "kanban.attachments.preview",
+      "action": "previewAttachment"
     },
     {
       "id": "route:GET:/kanban/attachments/{attachment}/download",
@@ -2648,6 +2678,12 @@
       "file": "app/Services/FormProcessorService.php"
     },
     {
+      "id": "service:HtmlSanitizerService",
+      "label": "HtmlSanitizerService",
+      "type": "service",
+      "file": "app/Services/HtmlSanitizerService.php"
+    },
+    {
       "id": "service:IntegrationService",
       "label": "IntegrationService",
       "type": "service",
@@ -3430,6 +3466,12 @@
       "file": "app/Models/KanbanComment.php"
     },
     {
+      "id": "model:KanbanCommentMention",
+      "label": "KanbanCommentMention",
+      "type": "model",
+      "file": "app/Models/KanbanCommentMention.php"
+    },
+    {
       "id": "model:KanbanTask",
       "label": "KanbanTask",
       "type": "model",
@@ -4030,6 +4072,12 @@
       "file": "resources/js/components/NotificationPreferencesModal.tsx"
     },
     {
+      "id": "component:RichTextCommentEditor",
+      "label": "RichTextCommentEditor",
+      "type": "component",
+      "file": "resources/js/components/RichTextCommentEditor.tsx"
+    },
+    {
       "id": "component:text-link",
       "label": "text-link",
       "type": "component",
@@ -4244,6 +4292,12 @@
       "label": "KanbanRoleBasedUxTest",
       "type": "test",
       "file": "tests/Feature/KanbanRoleBasedUxTest.php"
+    },
+    {
+      "id": "test:NotificationAndCollaborationTest",
+      "label": "NotificationAndCollaborationTest",
+      "type": "test",
+      "file": "tests/Feature/NotificationAndCollaborationTest.php"
     },
     {
       "id": "test:Phase10SecurityHardeningAndEndToEndTest",
@@ -4566,6 +4620,12 @@
       "action": "updateMemberRole"
     },
     {
+      "source": "route:GET:/kanban/boards/{board}",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "showBoard"
+    },
+    {
       "source": "route:POST:/kanban/boards",
       "target": "controller:KanbanController",
       "relationship": "routes_to",
@@ -4746,6 +4806,12 @@
       "action": "storeComment"
     },
     {
+      "source": "route:POST:/kanban/tasks/{task}/comments/upload-image",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "uploadCommentImage"
+    },
+    {
       "source": "route:DELETE:/kanban/comments/{comment}",
       "target": "controller:KanbanController",
       "relationship": "routes_to",
@@ -4762,6 +4828,12 @@
       "target": "controller:KanbanController",
       "relationship": "routes_to",
       "action": "storeAttachment"
+    },
+    {
+      "source": "route:GET:/kanban/attachments/{attachment}/preview",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "previewAttachment"
     },
     {
       "source": "route:GET:/kanban/attachments/{attachment}/download",
@@ -6000,6 +6072,11 @@
     },
     {
       "source": "controller:ClientPortalController",
+      "target": "service:NotificationService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:ClientPortalController",
       "target": "model:SalesCustomer",
       "relationship": "queries_model"
     },
@@ -6438,6 +6515,12 @@
     },
     {
       "source": "controller:KanbanController",
+      "target": "$task",
+      "relationship": "authorizes_with",
+      "ability": "view"
+    },
+    {
+      "source": "controller:KanbanController",
       "target": "$comment",
       "relationship": "authorizes_with",
       "ability": "delete"
@@ -6459,6 +6542,12 @@
       "target": "$attachment",
       "relationship": "authorizes_with",
       "ability": "delete"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "$attachment",
+      "relationship": "authorizes_with",
+      "ability": "view"
     },
     {
       "source": "controller:KanbanController",
@@ -6635,6 +6724,11 @@
     {
       "source": "controller:KanbanController",
       "target": "service:WorkflowService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "service:HtmlSanitizerService",
       "relationship": "calls_service"
     },
     {
@@ -7565,6 +7659,18 @@
       "source": "service:FormProcessorService",
       "target": "model:SystemNotification",
       "relationship": "uses_model"
+    },
+    {
+      "source": "service:HtmlSanitizerService",
+      "target": "service_method:HtmlSanitizerService::clean",
+      "relationship": "defines_method",
+      "method": "clean"
+    },
+    {
+      "source": "service:HtmlSanitizerService",
+      "target": "service_method:HtmlSanitizerService::sanitize",
+      "relationship": "defines_method",
+      "method": "sanitize"
     },
     {
       "source": "service:IntegrationService",
@@ -9116,6 +9222,11 @@
       "relationship": "imports"
     },
     {
+      "source": "component:ItemDetailDrawer",
+      "target": "component:RichTextCommentEditor",
+      "relationship": "imports"
+    },
+    {
       "source": "component:KanbanBoardView",
       "target": "component:badge",
       "relationship": "imports"
@@ -9531,11 +9642,6 @@
     {
       "source": "component:index",
       "target": "component:WorkloadView",
-      "relationship": "imports"
-    },
-    {
-      "source": "component:index",
-      "target": "component:WorkspaceBoardNav",
       "relationship": "imports"
     },
     {
@@ -10136,6 +10242,36 @@
       "relationship": "imports"
     },
     {
+      "source": "component:RichTextCommentEditor",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:RichTextCommentEditor",
+      "target": "component:dropdown-menu",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:RichTextCommentEditor",
+      "target": "component:popover",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:RichTextCommentEditor",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:RichTextCommentEditor",
+      "target": "component:utils",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:RichTextCommentEditor",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
       "source": "component:text-link",
       "target": "component:utils",
       "relationship": "imports"
@@ -10417,6 +10553,33 @@
     },
     {
       "source": "test:KanbanRoleBasedUxTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
+    },
+    {
+      "source": "test:NotificationAndCollaborationTest",
+      "target": "service:HtmlSanitizerService",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:NotificationAndCollaborationTest",
+      "target": "service:NotificationService",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:NotificationAndCollaborationTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:NotificationAndCollaborationTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:NotificationAndCollaborationTest",
       "target": "role:project_manager",
       "relationship": "audits_role",
       "role": "project_manager"

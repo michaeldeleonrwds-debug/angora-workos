@@ -22,7 +22,7 @@ import TableView from './components/TableView';
 import WorkflowBlueprintModal from './components/WorkflowBlueprintModal';
 import WorkflowSettingsModal from './components/WorkflowSettingsModal';
 import WorkloadView from './components/WorkloadView';
-import WorkspaceBoardNav from './components/WorkspaceBoardNav';
+import { AlertCircle, X } from 'lucide-react';
 import { KanbanBoard, KanbanPageProps, Task } from './types';
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -37,6 +37,7 @@ export default function KanbanPage({
     activeBoard,
     users = [],
     selectedTask = null,
+    selectedTaskNotFound = false,
     mirroredValues = {},
     permissions,
 }: KanbanPageProps) {
@@ -168,6 +169,33 @@ export default function KanbanPage({
         }
     }, [selectedTask]);
 
+    const initialDrawerTab = typeof window !== 'undefined'
+        ? (new URLSearchParams(window.location.search).get('tab') as any) || undefined
+        : undefined;
+
+    const initialHighlightId = typeof window !== 'undefined'
+        ? Number(new URLSearchParams(window.location.search).get('target_id') || new URLSearchParams(window.location.search).get('comment_id')) || null
+        : null;
+
+    const [taskNotFoundMessage, setTaskNotFoundMessage] = useState<string | null>(
+        selectedTaskNotFound ? 'The requested task could not be found or you do not have permission to view it.' : null
+    );
+
+    useEffect(() => {
+        if (selectedTaskNotFound) {
+            setTaskNotFoundMessage('The requested task could not be found or you do not have permission to view it.');
+            if (typeof window !== 'undefined') {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('item');
+                url.searchParams.delete('task_id');
+                url.searchParams.delete('tab');
+                url.searchParams.delete('target_id');
+                url.searchParams.delete('comment_id');
+                window.history.replaceState({}, '', url.toString());
+            }
+        }
+    }, [selectedTaskNotFound]);
+
     const handleOpenTask = (task: Task) => {
         setSelectedTaskForDrawer(task);
         if (typeof window !== 'undefined') {
@@ -182,6 +210,10 @@ export default function KanbanPage({
         if (typeof window !== 'undefined') {
             const url = new URL(window.location.href);
             url.searchParams.delete('item');
+            url.searchParams.delete('task_id');
+            url.searchParams.delete('tab');
+            url.searchParams.delete('target_id');
+            url.searchParams.delete('comment_id');
             window.history.pushState({}, '', url.toString());
         }
     };
@@ -388,6 +420,23 @@ export default function KanbanPage({
                     onOpenWorkflow={() => setIsWorkflowModalOpen(true)}
                 />
 
+                {/* Alert when requested deep-linked task is unavailable/denied */}
+                {taskNotFoundMessage && (
+                    <div className="mx-4 mt-3 flex items-center justify-between rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
+                        <div className="flex items-center gap-2">
+                            <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+                            <span>{taskNotFoundMessage}</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setTaskNotFoundMessage(null)}
+                            className="rounded p-1 hover:bg-amber-200/50 dark:hover:bg-amber-900/50 cursor-pointer"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                )}
+
                 {/* 2. Main Views Container */}
                 <div className={`flex-1 min-h-0 w-full ${activeTab === 'kanban' ? 'overflow-hidden p-3 sm:p-4 flex flex-col' : 'p-4 md:p-6 overflow-auto'}`}>
                     {activeTab === 'table' && (
@@ -518,6 +567,8 @@ export default function KanbanPage({
                     permissions={userPermissions}
                     onClose={handleCloseDrawer}
                     onSelectTask={handleOpenTask}
+                    initialTab={initialDrawerTab}
+                    targetHighlightId={initialHighlightId}
                 />
             )}
 

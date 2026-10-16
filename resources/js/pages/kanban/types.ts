@@ -140,6 +140,14 @@ export interface TaskAttachment {
     user?: User;
 }
 
+export interface CommentMention {
+    id: number;
+    comment_id: number;
+    user_id: number;
+    task_id: number;
+    user?: User;
+}
+
 export interface TaskComment {
     id: number;
     task_id: number;
@@ -150,6 +158,8 @@ export interface TaskComment {
     created_at: string;
     user?: User;
     replies?: TaskComment[];
+    mentions?: CommentMention[];
+    is_client_visible?: boolean;
 }
 
 export interface TaskActivity {
@@ -431,6 +441,7 @@ export interface KanbanPageProps {
     activeBoard?: KanbanBoard;
     users: User[];
     selectedTask?: Task | null;
+    selectedTaskNotFound?: boolean;
     mirroredValues?: Record<number, Record<string, any>>;
     permissions?: BoardPermissions;
 }

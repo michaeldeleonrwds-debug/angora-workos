@@ -34,6 +34,7 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/workspaces/{workspace}/members/{member}', [WorkspaceController::class, 'updateMemberRole'])->name('workspaces.members.update');
 
     // Boards
+    Route::get('/kanban/boards/{board}', [KanbanController::class, 'showBoard'])->name('kanban.boards.show');
     Route::post('/kanban/boards', [KanbanController::class, 'storeBoard'])->name('kanban.boards.store');
     Route::patch('/kanban/boards/{board}', [KanbanController::class, 'updateBoard'])->name('kanban.boards.update');
     Route::post('/kanban/boards/{board}/duplicate', [KanbanController::class, 'duplicateBoard'])->name('kanban.boards.duplicate');
@@ -76,11 +77,13 @@ Route::middleware(['auth'])->group(function () {
 
     // Comments, Replies & Reactions
     Route::post('/kanban/tasks/{task}/comments', [KanbanController::class, 'storeComment'])->name('kanban.tasks.comments.store');
+    Route::post('/kanban/tasks/{task}/comments/upload-image', [KanbanController::class, 'uploadCommentImage'])->name('kanban.tasks.comments.upload-image');
     Route::delete('/kanban/comments/{comment}', [KanbanController::class, 'deleteComment'])->name('kanban.comments.delete');
     Route::post('/kanban/comments/{comment}/reactions', [KanbanController::class, 'toggleCommentReaction'])->name('kanban.comments.reactions');
 
     // Attachments
     Route::post('/kanban/tasks/{task}/attachments', [KanbanController::class, 'storeAttachment'])->name('kanban.tasks.attachments.store');
+    Route::get('/kanban/attachments/{attachment}/preview', [KanbanController::class, 'previewAttachment'])->name('kanban.attachments.preview');
     Route::get('/kanban/attachments/{attachment}/download', [KanbanController::class, 'downloadAttachment'])->name('kanban.attachments.download');
     Route::delete('/kanban/attachments/{attachment}', [KanbanController::class, 'deleteAttachment'])->name('kanban.attachments.delete');
 

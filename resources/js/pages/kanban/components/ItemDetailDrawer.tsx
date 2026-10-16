@@ -45,6 +45,7 @@ import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
 import EmployeeTaskPanel from './EmployeeTaskPanel';
+import { RichTextCommentEditor } from '@/components/RichTextCommentEditor';
 
 interface ItemDetailDrawerProps {
     task: Task | null;
@@ -53,9 +54,20 @@ interface ItemDetailDrawerProps {
     permissions?: BoardPermissions;
     onClose: () => void;
     onSelectTask?: (task: Task) => void;
+    initialTab?: 'updates' | 'files' | 'activity' | 'reviews' | 'dependencies';
+    targetHighlightId?: number | null;
 }
 
-export default function ItemDetailDrawer({ task, board, users = [], permissions, onClose, onSelectTask }: ItemDetailDrawerProps) {
+export default function ItemDetailDrawer({
+    task,
+    board,
+    users = [],
+    permissions,
+    onClose,
+    onSelectTask,
+    initialTab,
+    targetHighlightId,
+}: ItemDetailDrawerProps) {
     if (!task) return null;
 
     const { auth } = usePage().props as any;
@@ -88,9 +100,76 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     );
     const isEmployeeView = !isPrivilegedManager;
 
+    const getInitialCollabTab = (): 'updates' | 'files' | 'activity' | 'reviews' | 'dependencies' => {
+        if (typeof window !== 'undefined') {
+            const urlTab = new URLSearchParams(window.location.search).get('tab');
+            if (urlTab && ['updates', 'files', 'activity', 'reviews', 'dependencies'].includes(urlTab)) {
+                return urlTab as any;
+            }
+        }
+        if (initialTab) return initialTab;
+        return isClientUser ? 'reviews' : 'updates';
+    };
+
     const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity' | 'reviews' | 'dependencies'>(
-        isClientUser ? 'reviews' : 'updates'
+        getInitialCollabTab
     );
+
+    const handleTabChange = (newTab: 'updates' | 'files' | 'activity' | 'reviews' | 'dependencies') => {
+        setActiveCollabTab(newTab);
+        if (typeof window !== 'undefined') {
+            const url = new URL(window.location.href);
+            url.searchParams.set('tab', newTab);
+            window.history.replaceState({}, '', url.toString());
+        }
+    };
+
+    const [highlightedTargetId, setHighlightedTargetId] = useState<number | null>(() => {
+        if (targetHighlightId) return targetHighlightId;
+        if (typeof window !== 'undefined') {
+            const param = new URLSearchParams(window.location.search).get('target_id')
+                || new URLSearchParams(window.location.search).get('comment_id');
+            return param ? Number(param) : null;
+        }
+        return null;
+    });
+
+    useEffect(() => {
+        if (initialTab) {
+            setActiveCollabTab(initialTab);
+        }
+    }, [initialTab]);
+
+    useEffect(() => {
+        if (targetHighlightId) {
+            setHighlightedTargetId(targetHighlightId);
+        }
+    }, [targetHighlightId]);
+
+    useEffect(() => {
+        if (!highlightedTargetId) return;
+
+        const timer = setTimeout(() => {
+            const el = document.getElementById(`comment-${highlightedTargetId}`)
+                || document.getElementById(`reply-${highlightedTargetId}`)
+                || document.getElementById(`attachment-${highlightedTargetId}`)
+                || document.getElementById(`review-${highlightedTargetId}`)
+                || document.getElementById(`target-${highlightedTargetId}`);
+
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 350);
+
+        const clearTimer = setTimeout(() => {
+            setHighlightedTargetId(null);
+        }, 3500);
+
+        return () => {
+            clearTimeout(timer);
+            clearTimeout(clearTimer);
+        };
+    }, [highlightedTargetId, activeCollabTab]);
     const [reviewCycles, setReviewCycles] = useState<TaskReviewCycle[]>(task.review_cycles || []);
     const [submitNotes, setSubmitNotes] = useState('');
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
@@ -647,9 +726,48 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
         router.patch(`/kanban/tasks/${task.id}`, { [field]: val }, { preserveScroll: true });
     };
 
-    // Parse and render inline images for comments
+    const [selectedMentionUser, setSelectedMentionUser] = useState<User | null>(null);
+
+    // Parse and render rich comment content with inline images & mentions
     const renderCommentContent = (text: string) => {
         if (!text) return null;
+        const hasHtml = /<[a-z][\s\S]*>/i.test(text);
+        if (hasHtml) {
+            return (
+                <div
+                    className="rich-comment-body text-sm leading-relaxed text-foreground [&_p]:my-1.5 [&_h2]:text-base [&_h2]:font-bold [&_h2]:my-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:my-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l-3 [&_blockquote]:border-primary/50 [&_blockquote]:pl-3 [&_blockquote]:italic [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:font-mono [&_code]:text-xs [&_pre]:bg-muted/80 [&_pre]:p-3 [&_pre]:rounded-xl [&_pre]:font-mono [&_pre]:text-xs [&_pre]:my-2 [&_img]:rounded-xl [&_img]:max-h-72 [&_img]:my-2.5 [&_img]:cursor-pointer [&_a]:text-primary [&_a]:underline"
+                    dangerouslySetInnerHTML={{ __html: text }}
+                    onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.tagName === 'IMG') {
+                            const img = target as HTMLImageElement;
+                            setLightboxAsset({
+                                id: 0,
+                                media_uuid: '',
+                                disk: 'public',
+                                file_path: img.src,
+                                original_filename: img.alt || 'attachment',
+                                mime_type: 'image/png',
+                                file_size_bytes: 0,
+                                url: img.src,
+                                created_at: '',
+                            });
+                        }
+                        const mentionNode = target.closest('[data-type="mention"]');
+                        if (mentionNode) {
+                            const mentionId = mentionNode.getAttribute('data-id');
+                            if (mentionId) {
+                                const matchedUser = users.find((u) => u.id === Number(mentionId));
+                                if (matchedUser) {
+                                    setSelectedMentionUser(matchedUser);
+                                }
+                            }
+                        }
+                    }}
+                />
+            );
+        }
+
         const imgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
         const parts = [];
         let lastIndex = 0;
@@ -690,7 +808,11 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
             parts.push(<span key={lastIndex}>{text.substring(lastIndex)}</span>);
         }
 
-        return parts.length > 0 ? parts : text;
+        return parts.length > 0 ? (
+            <div className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{parts}</div>
+        ) : (
+            <div className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{text}</div>
+        );
     };
 
     const primaryAssigneeIds = useMemo(() => {
@@ -748,6 +870,53 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     };
 
     // Comments & Replies
+    const [isPostingComment, setIsPostingComment] = useState(false);
+
+    const handleSendRichComment = async (html: string) => {
+        setIsPostingComment(true);
+        try {
+            await new Promise<void>((resolve, reject) => {
+                router.post(
+                    `/kanban/tasks/${task.id}/comments`,
+                    { message: html },
+                    {
+                        preserveScroll: true,
+                        onSuccess: () => resolve(),
+                        onError: (err) => reject(err),
+                        onFinish: () => setIsPostingComment(false),
+                    }
+                );
+            });
+        } catch (e) {
+            console.error('Error posting comment:', e);
+            setIsPostingComment(false);
+        }
+    };
+
+    const handleSendRichReply = async (parentId: number, html: string) => {
+        try {
+            await new Promise<void>((resolve, reject) => {
+                router.post(
+                    `/kanban/tasks/${task.id}/comments`,
+                    {
+                        parent_id: parentId,
+                        message: html,
+                    },
+                    {
+                        preserveScroll: true,
+                        onSuccess: () => {
+                            setReplyingToCommentId(null);
+                            resolve();
+                        },
+                        onError: (err) => reject(err),
+                    }
+                );
+            });
+        } catch (e) {
+            console.error('Error posting reply:', e);
+        }
+    };
+
     const handleSendComment = (e: React.FormEvent) => {
         e.preventDefault();
         if (!commentText.trim()) return;
@@ -1672,7 +1841,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                             {isClientUser ? (
                                 <>
                                     <button
-                                        onClick={() => setActiveCollabTab('reviews')}
+                                        onClick={() => handleTabChange('reviews')}
                                         className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
                                             activeCollabTab === 'reviews'
                                                 ? 'border-primary text-primary'
@@ -1687,7 +1856,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                     </button>
 
                                     <button
-                                        onClick={() => setActiveCollabTab('updates')}
+                                        onClick={() => handleTabChange('updates')}
                                         className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
                                             activeCollabTab === 'updates'
                                                 ? 'border-primary text-primary'
@@ -1699,7 +1868,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                     </button>
 
                                     <button
-                                        onClick={() => setActiveCollabTab('files')}
+                                        onClick={() => handleTabChange('files')}
                                         className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
                                             activeCollabTab === 'files'
                                                 ? 'border-primary text-primary'
@@ -1713,7 +1882,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                             ) : (
                                 <>
                                     <button
-                                        onClick={() => setActiveCollabTab('updates')}
+                                        onClick={() => handleTabChange('updates')}
                                         className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
                                             activeCollabTab === 'updates'
                                                 ? 'border-primary text-primary'
@@ -1725,7 +1894,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                     </button>
 
                                     <button
-                                        onClick={() => setActiveCollabTab('files')}
+                                        onClick={() => handleTabChange('files')}
                                         className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
                                             activeCollabTab === 'files'
                                                 ? 'border-primary text-primary'
@@ -1737,7 +1906,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                     </button>
 
                                     <button
-                                        onClick={() => setActiveCollabTab('activity')}
+                                        onClick={() => handleTabChange('activity')}
                                         className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
                                             activeCollabTab === 'activity'
                                                 ? 'border-primary text-primary'
@@ -1749,7 +1918,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                     </button>
 
                                     <button
-                                        onClick={() => setActiveCollabTab('reviews')}
+                                        onClick={() => handleTabChange('reviews')}
                                         className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
                                             activeCollabTab === 'reviews'
                                                 ? 'border-primary text-primary'
@@ -1764,7 +1933,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                     </button>
 
                                     <button
-                                        onClick={() => setActiveCollabTab('dependencies')}
+                                        onClick={() => handleTabChange('dependencies')}
                                         className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
                                             activeCollabTab === 'dependencies'
                                                 ? 'border-primary text-primary'
@@ -1786,62 +1955,14 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                             {/* 1. UPDATES TAB */}
                             {activeCollabTab === 'updates' && (
                                 <div className="space-y-5">
-                                    {/* Composer */}
-                                    <form onSubmit={handleSendComment} className="border-border bg-card rounded-2xl border p-3.5 shadow-xs">
-                                        <textarea
-                                            rows={3}
-                                            placeholder="Write an update, ask a question, or use @mention for team members..."
-                                            value={commentText}
-                                            onChange={(e) => setCommentText(e.target.value)}
-                                            className="placeholder:text-muted-foreground/60 w-full resize-none border-none bg-transparent text-xs focus:outline-none"
-                                        />
-
-                                        <div className="border-border/40 flex items-center justify-between border-t pt-2 text-xs">
-                                            {/* @mention Quick Tool */}
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <button
-                                                        type="button"
-                                                        className="text-muted-foreground hover:text-primary hover:bg-muted flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold"
-                                                    >
-                                                        <AtSign className="h-3.5 w-3.5" />
-                                                        <span>Mention</span>
-                                                    </button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent className="w-48 rounded-xl">
-                                                    {users.map((u) => (
-                                                        <DropdownMenuItem
-                                                            key={u.id}
-                                                            onClick={() => setCommentText((prev) => `${prev} @${u.name} `)}
-                                                            className="text-xs"
-                                                        >
-                                                            <span>@{u.name}</span>
-                                                        </DropdownMenuItem>
-                                                    ))}
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-
-                                            <div className="flex items-center gap-1.5 ml-2 mr-auto">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        setMediaTarget('comment');
-                                                        setIsMediaModalOpen(true);
-                                                    }}
-                                                    className="text-muted-foreground hover:text-primary hover:bg-muted flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold"
-                                                    title="Attach image from media library"
-                                                >
-                                                    <ImageIcon className="h-3.5 w-3.5" />
-                                                    <span>Image</span>
-                                                </button>
-                                            </div>
-
-                                            <Button type="submit" size="sm" className="h-8 gap-1 px-4 text-xs font-bold">
-                                                <Send className="h-3 w-3" />
-                                                <span>Update</span>
-                                            </Button>
-                                        </div>
-                                    </form>
+                                    {/* Rich Text Composer */}
+                                    <RichTextCommentEditor
+                                        taskId={task.id}
+                                        users={users}
+                                        onSubmit={handleSendRichComment}
+                                        isSubmitting={isPostingComment}
+                                        isClientUser={isClientUser}
+                                    />
 
                                     {/* Comments List */}
                                     <div className="space-y-4">
@@ -1850,7 +1971,15 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                             const replies = comment.replies || [];
 
                                             return (
-                                                <div key={comment.id} className="border-border/70 bg-card space-y-3 rounded-2xl border p-4 shadow-2xs">
+                                                <div
+                                                    key={comment.id}
+                                                    id={`comment-${comment.id}`}
+                                                    className={`border-border/70 bg-card space-y-3 rounded-2xl border p-4 shadow-2xs transition-all duration-300 ${
+                                                        highlightedTargetId === comment.id
+                                                            ? 'ring-2 ring-primary ring-offset-2 bg-primary/5'
+                                                            : ''
+                                                    }`}
+                                                >
                                                     {/* Author, Role & Timestamp */}
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2.5">
@@ -1936,7 +2065,12 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                                             {replies.map((rep) => (
                                                                 <div
                                                                     key={rep.id}
-                                                                    className="bg-muted/30 border-border/50 rounded-xl border p-2.5 text-xs"
+                                                                    id={`reply-${rep.id}`}
+                                                                    className={`bg-muted/30 border-border/50 rounded-xl border p-2.5 text-xs transition-all duration-300 ${
+                                                                        highlightedTargetId === rep.id
+                                                                            ? 'ring-2 ring-primary ring-offset-2 bg-primary/5'
+                                                                            : ''
+                                                                    }`}
                                                                 >
                                                                     <div className="mb-1.5 flex items-center justify-between">
                                                                         <div className="flex items-center gap-1.5">
@@ -1972,21 +2106,19 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
 
                                                     {/* Reply Composer */}
                                                     {replyingToCommentId === comment.id && (
-                                                        <form
-                                                            onSubmit={(e) => handleSendReply(comment.id, e)}
-                                                            className="flex items-center gap-2 pt-2 pl-4"
-                                                        >
-                                                            <Input
+                                                        <div className="pt-2 pl-4">
+                                                            <RichTextCommentEditor
+                                                                taskId={task.id}
+                                                                users={users}
+                                                                onSubmit={(html) => handleSendRichReply(comment.id, html)}
+                                                                buttonLabel="Reply"
                                                                 placeholder="Write a reply..."
-                                                                value={replyText}
-                                                                onChange={(e) => setReplyText(e.target.value)}
-                                                                autoFocus
-                                                                className="h-8 flex-1 text-xs"
+                                                                isReply={true}
+                                                                onCancel={() => setReplyingToCommentId(null)}
+                                                                autoFocus={true}
+                                                                isClientUser={isClientUser}
                                                             />
-                                                            <Button type="submit" size="sm" className="h-8 text-xs font-bold">
-                                                                Reply
-                                                            </Button>
-                                                        </form>
+                                                        </div>
                                                     )}
                                                 </div>
                                             );
@@ -2095,7 +2227,10 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                         {attachments.map((att) => (
                                             <div
                                                 key={att.id}
-                                                className="border-border bg-card flex items-center justify-between rounded-xl border p-3 text-xs shadow-xs"
+                                                id={`attachment-${att.id}`}
+                                                className={`border-border bg-card flex items-center justify-between rounded-xl border p-3 text-xs shadow-xs transition-all duration-300 ${
+                                                    highlightedTargetId === att.id ? 'ring-2 ring-primary ring-offset-2 bg-primary/5' : ''
+                                                }`}
                                             >
                                                 <div className="flex flex-1 items-center gap-3 truncate">
                                                     <FileText className="text-primary h-6 w-6 flex-shrink-0" />
@@ -2978,7 +3113,10 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                                 {[...reviewCycles].reverse().map((cycle) => (
                                                     <div
                                                         key={cycle.id}
-                                                        className="rounded-xl border border-border bg-card p-3.5 text-xs space-y-3 shadow-2xs"
+                                                        id={`review-${cycle.id}`}
+                                                        className={`rounded-xl border border-border bg-card p-3.5 text-xs space-y-3 shadow-2xs transition-all duration-300 ${
+                                                            highlightedTargetId === cycle.id ? 'ring-2 ring-primary ring-offset-2 bg-primary/5' : ''
+                                                        }`}
                                                     >
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
@@ -3740,6 +3878,43 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                     </form>
                 </DialogContent>
             </Dialog>
+
+            {/* Mentioned User Profile Info Modal */}
+            {selectedMentionUser && (
+                <Dialog open={Boolean(selectedMentionUser)} onOpenChange={() => setSelectedMentionUser(null)}>
+                    <DialogContent className="max-w-xs rounded-2xl p-5 sm:max-w-xs">
+                        <DialogHeader>
+                            <DialogTitle className="text-sm font-bold text-foreground">
+                                Team Member Profile
+                            </DialogTitle>
+                        </DialogHeader>
+                        <div className="flex flex-col items-center text-center py-2 space-y-2">
+                            {selectedMentionUser.avatar || selectedMentionUser.avatar_url ? (
+                                <img
+                                    src={(selectedMentionUser.avatar || selectedMentionUser.avatar_url) || undefined}
+                                    alt={selectedMentionUser.name}
+                                    className="h-16 w-16 rounded-full object-cover border-2 border-primary/20 shadow-xs"
+                                />
+                            ) : (
+                                <div className="bg-primary/20 text-primary flex h-16 w-16 items-center justify-center rounded-full text-xl font-bold border-2 border-primary/30">
+                                    {selectedMentionUser.name.charAt(0).toUpperCase()}
+                                </div>
+                            )}
+                            <div>
+                                <h4 className="text-sm font-bold text-foreground">{selectedMentionUser.name}</h4>
+                                {selectedMentionUser.role && (
+                                    <span className="inline-block mt-1 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground border border-border/50">
+                                        {selectedMentionUser.role.replace(/_/g, ' ')}
+                                    </span>
+                                )}
+                            </div>
+                            {selectedMentionUser.email && (
+                                <p className="text-xs text-muted-foreground break-all">{selectedMentionUser.email}</p>
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
+            )}
         </div>
     );
 }
