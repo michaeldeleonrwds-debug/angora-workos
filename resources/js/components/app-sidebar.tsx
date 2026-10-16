@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, useSidebar } fro
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Check, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus, ShieldCheck, Users } from 'lucide-react';
+import { Bell, Check, CheckCircle2, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus, Settings, ShieldCheck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface NavItem {
@@ -42,9 +42,71 @@ export function AppSidebar() {
     const page = usePage<SharedData>();
     const { state, isMobile } = useSidebar();
     const isCollapsed = state === 'collapsed' && !isMobile;
+    const isClient = page.props.auth?.user?.role === 'client' || (page.props.auth?.user as any)?.is_client === true;
 
     const canManageUsers = page.props.auth?.capabilities?.canManageUsers === true;
     const canManageRbac = page.props.auth?.capabilities?.canManageRbac === true;
+
+    const clientNavItems: NavItem[] = [
+        {
+            title: 'Dashboard',
+            url: '/client-portal',
+            icon: LayoutDashboard,
+            color: '#0073ea',
+        },
+        {
+            title: 'My Projects',
+            url: '/client-portal/projects',
+            icon: FolderKanban,
+            color: '#a25ddc',
+        },
+        {
+            title: 'Client Board',
+            url: '/client-portal/board',
+            icon: Kanban,
+            color: '#579bfc',
+        },
+        {
+            title: 'Reviews / Approvals',
+            url: '/client-portal/reviews',
+            icon: CheckCircle2,
+            color: '#fdab3d',
+        },
+        {
+            title: 'Notifications',
+            url: '/notifications',
+            icon: Bell,
+            color: '#00c875',
+        },
+        {
+            title: 'Account / Settings',
+            url: '/settings/profile',
+            icon: Settings,
+            color: '#64748b',
+        },
+    ];
+
+    const isClientItemActive = (itemUrl: string) => {
+        if (itemUrl === '/client-portal') {
+            return page.url === '/client-portal' || page.url === '/client-portal?tab=overview';
+        }
+        if (itemUrl === '/client-portal/projects') {
+            return page.url === '/client-portal/projects' || page.url.includes('tab=projects') || page.url.startsWith('/client-portal/projects/');
+        }
+        if (itemUrl === '/client-portal/board') {
+            return page.url === '/client-portal/board' || page.url.includes('tab=board') || page.url.startsWith('/kanban');
+        }
+        if (itemUrl === '/client-portal/reviews') {
+            return page.url === '/client-portal/reviews' || page.url.includes('tab=reviews');
+        }
+        if (itemUrl === '/notifications') {
+            return page.url.startsWith('/notifications');
+        }
+        if (itemUrl === '/settings/profile') {
+            return page.url.startsWith('/settings');
+        }
+        return page.url === itemUrl;
+    };
 
     const adminNavItems: NavItem[] = [
         ...(canManageUsers
@@ -105,161 +167,94 @@ export function AppSidebar() {
             {/* Header: Logo & Workspace Selector */}
             <SidebarHeader className="border-b border-white/[0.08] p-3.5 pb-3 group-data-[collapsible=icon]:border-b-0 group-data-[collapsible=icon]:p-2">
                 <div className="flex items-center justify-between group-data-[collapsible=icon]:justify-center">
-                    <Link href="/dashboard" className="flex items-center justify-center">
+                    <Link href={isClient ? '/client-portal' : '/dashboard'} className="flex items-center justify-center">
                         <AppLogo />
                     </Link>
                 </div>
 
-                {/* Workspace Selector with Dropdown */}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        {workspaceSelectorTrigger}
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                        side={isCollapsed ? 'right' : 'bottom'}
-                        align="start"
-                        sideOffset={6}
-                        className="w-56 rounded-2xl border border-white/10 bg-[#1E1E30] text-white shadow-2xl p-1.5 z-50"
-                    >
-                        <DropdownMenuLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
-                            Workspaces
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator className="bg-white/10 my-1" />
-                        {userWorkspaces.length === 0 ? (
-                            <div className="px-2 py-1.5 text-xs text-slate-400 italic">No workspaces available</div>
-                        ) : (
-                            userWorkspaces.map((w) => {
-                                const isSelected = w.id === currentWorkspace.id;
-                                return (
-                                    <DropdownMenuItem
-                                        key={w.id}
-                                        onClick={() => handleSwitchWorkspace(w.id)}
-                                        className={`flex items-center justify-between rounded-xl px-2.5 py-2 text-xs cursor-pointer transition-colors ${
-                                            isSelected
-                                                ? 'bg-white/10 font-bold text-white'
-                                                : 'text-slate-300 hover:bg-white/[0.07] hover:text-white'
-                                        }`}
-                                    >
-                                        <div className="flex items-center gap-2 truncate">
-                                            <span
-                                                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white"
-                                                style={{ backgroundColor: w.color || '#0073ea' }}
-                                            >
-                                                {w.name.charAt(0).toUpperCase()}
-                                            </span>
-                                            <span className="truncate">{w.name}</span>
-                                        </div>
-                                        {isSelected && <Check className="h-3.5 w-3.5 text-[#00c875] shrink-0 ml-1.5" />}
-                                    </DropdownMenuItem>
-                                );
-                            })
-                        )}
-                        <DropdownMenuSeparator className="bg-white/10 my-1" />
-                        <DropdownMenuItem asChild>
-                            <Link
-                                href="/kanban"
-                                className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/[0.07] cursor-pointer"
-                            >
-                                <Plus className="h-3.5 w-3.5" />
-                                <span>Create / Manage Boards</span>
-                            </Link>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                {/* Workspace Selector: static for clients, dropdown for internal */}
+                {isClient ? (
+                    <div className="mt-2.5 flex items-center justify-between rounded-xl border border-white/[0.08] bg-white/[0.05] px-3 py-2 text-xs text-slate-200 select-none group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:mt-2 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0">
+                        <div className="flex items-center gap-2.5 min-w-0 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white shadow-xs bg-[#579bfc]">
+                                C
+                            </span>
+                            <span className="text-xs font-semibold text-white truncate group-data-[collapsible=icon]:hidden">
+                                Client Workspace
+                            </span>
+                        </div>
+                    </div>
+                ) : (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            {workspaceSelectorTrigger}
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                            side={isCollapsed ? 'right' : 'bottom'}
+                            align="start"
+                            sideOffset={6}
+                            className="w-56 rounded-2xl border border-white/10 bg-[#1E1E30] text-white shadow-2xl p-1.5 z-50"
+                        >
+                            <DropdownMenuLabel className="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-2 py-1">
+                                Workspaces
+                            </DropdownMenuLabel>
+                            <DropdownMenuSeparator className="bg-white/10 my-1" />
+                            {userWorkspaces.length === 0 ? (
+                                <div className="px-2 py-1.5 text-xs text-slate-400 italic">No workspaces available</div>
+                            ) : (
+                                userWorkspaces.map((w) => {
+                                    const isSelected = w.id === currentWorkspace.id;
+                                    return (
+                                        <DropdownMenuItem
+                                            key={w.id}
+                                            onClick={() => handleSwitchWorkspace(w.id)}
+                                            className={`flex items-center justify-between rounded-xl px-2.5 py-2 text-xs cursor-pointer transition-colors ${
+                                                isSelected
+                                                    ? 'bg-white/10 font-bold text-white'
+                                                    : 'text-slate-300 hover:bg-white/[0.07] hover:text-white'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-2 truncate">
+                                                <span
+                                                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-black text-white"
+                                                    style={{ backgroundColor: w.color || '#0073ea' }}
+                                                >
+                                                    {w.name.charAt(0).toUpperCase()}
+                                                </span>
+                                                <span className="truncate">{w.name}</span>
+                                            </div>
+                                            {isSelected && <Check className="h-3.5 w-3.5 text-[#00c875] shrink-0 ml-1.5" />}
+                                        </DropdownMenuItem>
+                                    );
+                                })
+                            )}
+                            <DropdownMenuSeparator className="bg-white/10 my-1" />
+                            <DropdownMenuItem asChild>
+                                <Link
+                                    href="/kanban"
+                                    className="flex items-center gap-2 rounded-xl px-2.5 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-white/[0.07] cursor-pointer"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    <span>Create / Manage Boards</span>
+                                </Link>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </SidebarHeader>
 
             <SidebarContent className="px-2.5 py-2.5 group-data-[collapsible=icon]:px-1.5 group-data-[collapsible=icon]:py-2">
-                {/* Section Header */}
-                <div className="px-2.5 pt-2 pb-1.5 group-data-[collapsible=icon]:hidden">
-                    <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Work Management</span>
-                </div>
-
-                {/* Primary Navigation Items */}
-                <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
-                    {mainNavItems.map((item) => {
-                        const isActive = page.url === item.url || (item.url !== '/dashboard' && page.url.startsWith(item.url));
-
-                        const linkContent = (
-                            <Link
-                                key={item.title}
-                                href={item.url}
-                                className={`group/item flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs transition-all duration-150 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 ${
-                                    isActive
-                                        ? 'bg-[#0073ea] font-bold text-white shadow-sm'
-                                        : 'text-slate-300/90 hover:bg-white/[0.07] hover:text-white'
-                                }`}
-                            >
-                                <item.icon
-                                    className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover/item:scale-105 ${
-                                        isActive ? 'text-white' : 'text-slate-400 group-hover/item:text-white'
-                                    }`}
-                                />
-                                <span className="truncate font-medium group-data-[collapsible=icon]:hidden">{item.title}</span>
-                            </Link>
-                        );
-
-                        if (isCollapsed) {
-                            return (
-                                <Tooltip key={item.title}>
-                                    <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                                    <TooltipContent
-                                        side="right"
-                                        align="center"
-                                        className="z-50 rounded-lg border border-[#353550] bg-[#1E1E30] px-3 py-1.5 text-xs text-white shadow-xl"
-                                    >
-                                        <span className="font-semibold">{item.title}</span>
-                                    </TooltipContent>
-                                </Tooltip>
-                            );
-                        }
-
-                        return linkContent;
-                    })}
-                </div>
-
-                {/* Boards Quick Section */}
-                <div className="mt-5 px-2.5 pt-2 pb-1.5 group-data-[collapsible=icon]:hidden">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Workspaces & Boards</span>
-                        <Link
-                            href="/kanban"
-                            className="rounded p-0.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
-                            title="New Board or Task"
-                        >
-                            <Plus className="h-3.5 w-3.5" />
-                        </Link>
-                    </div>
-                </div>
-
-                <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
-                    <Link
-                        href="/kanban"
-                        className="group/item flex items-center gap-3 rounded-xl px-3 py-2 text-xs text-slate-300/90 transition-all duration-150 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 hover:bg-white/[0.07] hover:text-white"
-                    >
-                        <FolderKanban className="h-4 w-4 shrink-0 text-[#00c875] group-hover/item:scale-105" />
-                        <span className="truncate font-medium group-data-[collapsible=icon]:hidden">Sprint & Task Board</span>
-                    </Link>
-                    <Link
-                        href="/kanban"
-                        className="group/item flex items-center gap-3 rounded-xl px-3 py-2 text-xs text-slate-300/90 transition-all duration-150 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 hover:bg-white/[0.07] hover:text-white"
-                    >
-                        <Kanban className="h-4 w-4 shrink-0 text-[#fdab3d] group-hover/item:scale-105" />
-                        <span className="truncate font-medium group-data-[collapsible=icon]:hidden">Active Workflow</span>
-                    </Link>
-                </div>
-
-                {/* Administration Section */}
-                {adminNavItems.length > 0 && (
+                {isClient ? (
                     <>
-                        <div className="mt-5 px-2.5 pt-2 pb-1.5 group-data-[collapsible=icon]:hidden">
-                            <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Administration</span>
+                        {/* Section Header */}
+                        <div className="px-2.5 pt-2 pb-1.5 group-data-[collapsible=icon]:hidden">
+                            <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Client Portal</span>
                         </div>
+
+                        {/* Client Navigation Items: Dashboard, My Projects, Client Board, Reviews / Approvals, Notifications, Account Settings */}
                         <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
-                            {adminNavItems.map((item) => {
-                        const isActive =
-                            item.url === '/kanban'
-                                ? page.url.startsWith('/kanban')
-                                : page.url === item.url;
+                            {clientNavItems.map((item) => {
+                                const isActive = isClientItemActive(item.url);
 
                                 const linkContent = (
                                     <Link
@@ -298,6 +293,140 @@ export function AppSidebar() {
                                 return linkContent;
                             })}
                         </div>
+                    </>
+                ) : (
+                    <>
+                        {/* Section Header */}
+                        <div className="px-2.5 pt-2 pb-1.5 group-data-[collapsible=icon]:hidden">
+                            <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Work Management</span>
+                        </div>
+
+                        {/* Primary Navigation Items */}
+                        <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
+                            {mainNavItems.map((item) => {
+                                const isActive = page.url === item.url || (item.url !== '/dashboard' && page.url.startsWith(item.url));
+
+                                const linkContent = (
+                                    <Link
+                                        key={item.title}
+                                        href={item.url}
+                                        className={`group/item flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs transition-all duration-150 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 ${
+                                            isActive
+                                                ? 'bg-[#0073ea] font-bold text-white shadow-sm'
+                                                : 'text-slate-300/90 hover:bg-white/[0.07] hover:text-white'
+                                        }`}
+                                    >
+                                        <item.icon
+                                            className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover/item:scale-105 ${
+                                                isActive ? 'text-white' : 'text-slate-400 group-hover/item:text-white'
+                                            }`}
+                                        />
+                                        <span className="truncate font-medium group-data-[collapsible=icon]:hidden">{item.title}</span>
+                                    </Link>
+                                );
+
+                                if (isCollapsed) {
+                                    return (
+                                        <Tooltip key={item.title}>
+                                            <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                                            <TooltipContent
+                                                side="right"
+                                                align="center"
+                                                className="z-50 rounded-lg border border-[#353550] bg-[#1E1E30] px-3 py-1.5 text-xs text-white shadow-xl"
+                                            >
+                                                <span className="font-semibold">{item.title}</span>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    );
+                                }
+
+                                return linkContent;
+                            })}
+                        </div>
+
+                        {/* Boards Quick Section */}
+                        <div className="mt-5 px-2.5 pt-2 pb-1.5 group-data-[collapsible=icon]:hidden">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Workspaces & Boards</span>
+                                <Link
+                                    href="/kanban"
+                                    className="rounded p-0.5 text-slate-400 transition-colors hover:bg-white/10 hover:text-white"
+                                    title="New Board or Task"
+                                >
+                                    <Plus className="h-3.5 w-3.5" />
+                                </Link>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
+                            <Link
+                                href="/kanban"
+                                className="group/item flex items-center gap-3 rounded-xl px-3 py-2 text-xs text-slate-300/90 transition-all duration-150 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 hover:bg-white/[0.07] hover:text-white"
+                            >
+                                <FolderKanban className="h-4 w-4 shrink-0 text-[#00c875] group-hover/item:scale-105" />
+                                <span className="truncate font-medium group-data-[collapsible=icon]:hidden">Sprint & Task Board</span>
+                            </Link>
+                            <Link
+                                href="/kanban"
+                                className="group/item flex items-center gap-3 rounded-xl px-3 py-2 text-xs text-slate-300/90 transition-all duration-150 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 hover:bg-white/[0.07] hover:text-white"
+                            >
+                                <Kanban className="h-4 w-4 shrink-0 text-[#fdab3d] group-hover/item:scale-105" />
+                                <span className="truncate font-medium group-data-[collapsible=icon]:hidden">Active Workflow</span>
+                            </Link>
+                        </div>
+
+                        {/* Administration Section */}
+                        {adminNavItems.length > 0 && (
+                            <>
+                                <div className="mt-5 px-2.5 pt-2 pb-1.5 group-data-[collapsible=icon]:hidden">
+                                    <span className="text-[10px] font-bold tracking-wider text-slate-400/80 uppercase">Administration</span>
+                                </div>
+                                <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
+                                    {adminNavItems.map((item) => {
+                                        const isActive =
+                                            item.url === '/kanban'
+                                                ? page.url.startsWith('/kanban')
+                                                : page.url === item.url;
+
+                                        const linkContent = (
+                                            <Link
+                                                key={item.title}
+                                                href={item.url}
+                                                className={`group/item flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs transition-all duration-150 group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0 ${
+                                                    isActive
+                                                        ? 'bg-[#0073ea] font-bold text-white shadow-sm'
+                                                        : 'text-slate-300/90 hover:bg-white/[0.07] hover:text-white'
+                                                }`}
+                                            >
+                                                <item.icon
+                                                    className={`h-4 w-4 shrink-0 transition-transform duration-150 group-hover/item:scale-105 ${
+                                                        isActive ? 'text-white' : 'text-slate-400 group-hover/item:text-white'
+                                                    }`}
+                                                />
+                                                <span className="truncate font-medium group-data-[collapsible=icon]:hidden">{item.title}</span>
+                                            </Link>
+                                        );
+
+                                        if (isCollapsed) {
+                                            return (
+                                                <Tooltip key={item.title}>
+                                                    <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
+                                                    <TooltipContent
+                                                        side="right"
+                                                        align="center"
+                                                        className="z-50 rounded-lg border border-[#353550] bg-[#1E1E30] px-3 py-1.5 text-xs text-white shadow-xl"
+                                                    >
+                                                        <span className="font-semibold">{item.title}</span>
+                                                    </TooltipContent>
+                                                </Tooltip>
+                                            );
+                                        }
+
+                                        return linkContent;
+                                    })}
+                                </div>
+                            </>
+                        )}
                     </>
                 )}
             </SidebarContent>

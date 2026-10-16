@@ -59,6 +59,10 @@ class KanbanController extends Controller
     {
         $user = auth()->user();
 
+        if ($user && $user->isClientUser()) {
+            return redirect()->route('client-portal.board');
+        }
+
         // 1. Get workspaces accessible by current user
         $workspacesQuery = Workspace::with([
             'boards' => function ($q) {
@@ -1644,11 +1648,13 @@ class KanbanController extends Controller
             'parent_id' => 'nullable|exists:kanban_comments,id',
         ]);
 
+        $isClient = auth()->user() && auth()->user()->isClientUser();
         $comment = KanbanComment::create([
             'task_id' => $task->id,
             'parent_id' => $validated['parent_id'] ?? null,
             'user_id' => auth()->id(),
             'message' => $validated['message'],
+            'is_client_visible' => $isClient ? true : $request->boolean('is_client_visible', true),
         ]);
 
         TaskActivityService::log(
@@ -1772,6 +1778,7 @@ class KanbanController extends Controller
         $fileName = $file->getClientOriginalName();
         $filePath = $file->store('attachments/kanban', 'public');
 
+        $isClient = auth()->user() && auth()->user()->isClientUser();
         $attachment = KanbanAttachment::create([
             'task_id' => $task->id,
             'user_id' => auth()->id(),
@@ -1779,6 +1786,7 @@ class KanbanController extends Controller
             'file_path' => $filePath,
             'file_size_bytes' => $file->getSize(),
             'mime_type' => $file->getClientMimeType() ?: 'application/octet-stream',
+            'is_client_visible' => $isClient ? true : $request->boolean('is_client_visible', true),
         ]);
 
         TaskActivityService::log(

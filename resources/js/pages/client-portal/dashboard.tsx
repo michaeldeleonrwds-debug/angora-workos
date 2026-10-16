@@ -1,29 +1,44 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Head, Link, router } from '@inertiajs/react';
+import AppLayout from '@/layouts/app-layout';
+import ItemDetailDrawer from '@/pages/kanban/components/ItemDetailDrawer';
+import KanbanBoardView from '@/pages/kanban/components/KanbanBoardView';
+import { BoardPermissions, KanbanBoard, Task, User } from '@/pages/kanban/types';
+import { type BreadcrumbItem } from '@/types';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
     ArrowRight,
     Calendar,
     CheckCircle2,
+    CheckSquare,
     Clock,
     Download,
     ExternalLink,
-    FileCheck,
+    FileText,
     FolderKanban,
+    Kanban,
     Layers,
-    MessageSquare,
+    MessageCircle,
     Paperclip,
     RotateCcw,
-    Send,
     ShieldAlert,
     ShieldCheck,
     Sparkles,
+    User as UserIcon,
 } from 'lucide-react';
 import React, { useState } from 'react';
+
+const breadcrumbs: BreadcrumbItem[] = [
+    {
+        title: 'Client Workspace',
+        href: '/client-portal',
+    },
+    {
+        title: 'Dashboard',
+        href: '/client-portal',
+    },
+];
 
 interface ClientDeliverable {
     id: number;
@@ -34,57 +49,6 @@ interface ClientDeliverable {
     version: number;
     client_status: 'pending' | 'approved' | 'revision_requested';
     client_feedback?: string;
-}
-
-interface ClientComment {
-    id: number;
-    message: string;
-    created_at: string;
-    user?: {
-        name: string;
-        avatar_url?: string;
-    };
-}
-
-interface ClientAttachment {
-    id: number;
-    file_name: string;
-    file_size_bytes: number;
-    mime_type: string;
-    download_url: string;
-}
-
-interface ClientTask {
-    id: number;
-    title: string;
-    description?: string;
-    priority: string;
-    due_date?: string | null;
-    client_deadline?: string | null;
-    status: string;
-    stage_key: string;
-    stage_color: string;
-    client_review_status: string;
-    client_revision_count: number;
-    is_awaiting_approval: boolean;
-    is_revision_requested: boolean;
-    is_complete: boolean;
-    assignee?: {
-        name: string;
-        avatar_url?: string;
-    } | null;
-    review_cycle?: {
-        id: number;
-        round_number: number;
-        state: string;
-        notes?: string;
-        client_feedback?: string;
-        submitted_at?: string;
-        resolved_at?: string;
-    } | null;
-    deliverables: ClientDeliverable[];
-    comments: ClientComment[];
-    attachments: ClientAttachment[];
 }
 
 interface ClientProject {
@@ -111,365 +75,367 @@ interface ClientPortalDashboardProps {
         company?: string;
         email: string;
     };
+    stats?: {
+        total_items: number;
+        awaiting_review: number;
+        needs_revision: number;
+        approved: number;
+        total_projects: number;
+    };
+    activeTab?: 'overview' | 'projects' | 'board' | 'reviews';
+    board?: KanbanBoard;
+    permissions?: BoardPermissions;
     projects?: ClientProject[];
     deliverables?: any[];
-    tasks?: ClientTask[];
+    tasks?: any[];
+    users?: User[];
 }
 
 export default function ClientPortalDashboard({
     client,
+    stats = {
+        total_items: 0,
+        awaiting_review: 0,
+        needs_revision: 0,
+        approved: 0,
+        total_projects: 0,
+    },
+    activeTab = 'overview',
+    board,
+    permissions: propPermissions,
     projects = [],
+    deliverables = [],
     tasks = [],
+    users = [],
 }: ClientPortalDashboardProps) {
-    const [activeTab, setActiveTab] = useState<'awaiting' | 'revision' | 'approved' | 'projects'>('awaiting');
-    const [selectedTask, setSelectedTask] = useState<ClientTask | null>(null);
-    const [isDecisionOpen, setIsDecisionOpen] = useState(false);
-    const [decisionType, setDecisionType] = useState<'approved' | 'revision_requested'>('approved');
-    const [decisionFeedback, setDecisionFeedback] = useState('');
-    const [isSubmittingDecision, setIsSubmittingDecision] = useState(false);
-
-    // Filter tasks by status categories
-    const awaitingTasks = tasks.filter((t) => t.is_awaiting_approval);
-    const revisionTasks = tasks.filter((t) => t.is_revision_requested);
-    const approvedTasks = tasks.filter((t) => t.is_complete);
-
-    const handleOpenDecision = (task: ClientTask, type: 'approved' | 'revision_requested') => {
-        setSelectedTask(task);
-        setDecisionType(type);
-        setDecisionFeedback('');
-        setIsDecisionOpen(true);
+    const defaultPermissions: BoardPermissions = {
+        canView: true,
+        canCreateTask: false,
+        canEditTask: false,
+        canEditProgress: false,
+        canChangeStatus: false,
+        canMoveAssignedTask: false,
+        canAssignUsers: false,
+        canChangeDeadlines: false,
+        canChangePriority: false,
+        canDeleteTask: false,
+        canViewAllTasks: true,
+        canFilterPersonalTasks: false,
+        canManageBoard: false,
+        canManageColumns: false,
+        canManageGroups: false,
+        canManageAutomations: false,
+        canManageBlueprints: false,
+        canManageDependencies: false,
+        canManageRecurrence: false,
+        canManageSubtasks: false,
+        canApproveReview: true,
+        canExport: false,
     };
+    const permissions: BoardPermissions = { ...defaultPermissions, ...propPermissions };
+    const { auth } = usePage<any>().props;
+    const currentUser = auth?.user;
+    const firstName = client?.name?.split(' ')[0] || currentUser?.name?.split(' ')[0] || 'Client';
 
-    const handleConfirmDecision = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedTask) return;
+    const [currentTab, setCurrentTab] = useState<'overview' | 'board' | 'projects' | 'reviews'>(
+        activeTab === 'projects' || activeTab === 'board' || activeTab === 'reviews' ? activeTab : 'overview'
+    );
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
 
-        setIsSubmittingDecision(true);
+    const awaitingTasks = tasks.filter(
+        (t) => t.is_awaiting_approval || t.client_review_status === 'submitted' || t.stage_key === 'client_under_review'
+    );
+    const revisionTasks = tasks.filter(
+        (t) => t.is_revision_requested || t.client_review_status === 'revision_requested'
+    );
+    const approvedTasks = tasks.filter((t) => t.is_complete || t.client_review_status === 'approved');
 
-        const endpoint =
-            decisionType === 'approved'
-                ? `/client-portal/tasks/${selectedTask.id}/approve`
-                : `/client-portal/tasks/${selectedTask.id}/request-revision`;
-
-        router.post(
-            endpoint,
-            {
-                feedback: decisionFeedback,
-            },
-            {
-                onSuccess: () => {
-                    setIsDecisionOpen(false);
-                    setSelectedTask(null);
-                    setDecisionFeedback('');
-                    setIsSubmittingDecision(false);
-                },
-                onError: () => {
-                    setIsSubmittingDecision(false);
-                },
-            },
-        );
+    // Default empty board placeholder if none passed
+    const activeBoard: KanbanBoard = board || {
+        id: 0,
+        title: `${client.company || client.name} — Client Review Board`,
+        department: 'Client Portal',
+        visibility: 'private' as const,
+        is_favorite: false,
+        is_template: false,
+        created_by: 0,
+        columns: [
+            { id: 1, board_id: 0, title: 'Awaiting Review', color: '#579BFC', position: 0, stage_key: 'client_under_review', tasks: awaitingTasks },
+            { id: 2, board_id: 0, title: 'Needs Revision', color: '#FF642E', position: 1, stage_key: 'for_revision', tasks: revisionTasks },
+            { id: 3, board_id: 0, title: 'Approved / Completed', color: '#00C875', position: 2, stage_key: 'complete', tasks: approvedTasks },
+        ],
+        groups: [],
+        views: [],
     };
 
     return (
-        <div className="min-h-screen bg-[#F8F9F7] text-[#12121E]">
-            <Head title={`Client Portal — ${client.name} | Angora Work OS`} />
+        <AppLayout breadcrumbs={breadcrumbs}>
+            <Head title="Client Portal — Angora Work OS" />
 
-            {/* Portal Navigation Bar */}
-            <header className="sticky top-0 z-30 border-b border-white/10 bg-[#12121E] px-6 py-4 text-white shadow-md">
-                <div className="mx-auto flex max-w-7xl items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#6366f1] to-[#D8F779] text-lg font-black text-black shadow-sm">
-                            A
-                        </div>
-                        <div>
-                            <span className="text-base font-bold tracking-tight">Angora Client Portal</span>
-                            <span className="-mt-0.5 block text-xs text-slate-400">Production Review & Approvals</span>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-4">
-                        <div className="hidden text-right sm:block">
-                            <span className="block text-xs text-slate-400">Signed in as</span>
-                            <span className="text-sm font-bold text-white">
-                                {client.name} {client.company ? `(${client.company})` : ''}
+            <div className="flex min-h-full flex-col space-y-7 bg-[#F8F9F7] p-6 transition-colors md:p-8 dark:bg-[#161624]">
+                {/* Header Banner */}
+                <div className="flex flex-col justify-between gap-4 pb-2 md:flex-row md:items-center">
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-2xl font-black tracking-tight text-[#191927] sm:text-3xl lg:text-4xl dark:text-white">
+                                Good day, {firstName}! 👋
+                            </h1>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[#0073ea]/10 px-2.5 py-0.5 text-xs font-semibold text-[#0073ea] dark:bg-[#0073ea]/20 dark:text-[#579bfc]">
+                                <Sparkles className="h-3 w-3" />
+                                Client Portal
                             </span>
                         </div>
-                        <Link
-                            href="/dashboard"
-                            className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-400 transition hover:text-white"
-                        >
-                            Return to App
-                        </Link>
-                    </div>
-                </div>
-            </header>
-
-            <main className="mx-auto max-w-7xl space-y-8 p-6 md:p-8">
-                {/* Welcome Card & Metrics */}
-                <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-r from-[#12121E] via-[#1a1a2e] to-[#252542] p-8 text-white shadow-xl">
-                    <div className="relative z-10 max-w-3xl space-y-2">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[#D8F779]/30 bg-[#D8F779]/20 px-3 py-1 text-xs font-bold text-[#D8F779]">
-                            <Sparkles className="h-3.5 w-3.5" />
-                            Client Workspace & Review Gate
-                        </div>
-                        <h1 className="text-3xl font-extrabold tracking-tight">Welcome, {client.name}</h1>
-                        <p className="text-sm leading-relaxed text-slate-300 md:text-base">
-                            Review and inspect deliverables published by your agency production team. Approve completed milestones or
-                            request specific design revisions directly in this portal.
+                        <p className="mt-1.5 text-xs text-[#777785] sm:text-sm dark:text-slate-400">
+                            {client.company ? <strong className="text-foreground">{client.company}</strong> : null}
+                            {client.company ? ' · ' : ''}
+                            Review deliverables, track production milestones, and provide approvals directly with your project team.
                         </p>
                     </div>
 
-                    <div className="relative z-10 mt-6 grid grid-cols-2 gap-4 border-t border-white/10 pt-6 text-xs md:grid-cols-4">
-                        <div
-                            onClick={() => setActiveTab('awaiting')}
-                            className="cursor-pointer rounded-xl bg-white/5 p-3 transition hover:bg-white/10"
+                    <div className="flex items-center gap-2.5">
+                        <Button
+                            onClick={() => setCurrentTab('board')}
+                            className="flex h-10 items-center gap-1.5 rounded-xl bg-[#0073ea] px-4 text-xs font-semibold text-white shadow-xs transition-colors hover:bg-[#0060c0]"
                         >
-                            <span className="flex items-center gap-1.5 text-slate-400">
-                                <Clock className="h-3.5 w-3.5 text-[#D8F779]" /> Awaiting Your Approval
-                            </span>
-                            <p className="text-2xl font-black text-[#D8F779]">{awaitingTasks.length}</p>
+                            <Kanban className="h-4 w-4 text-white" />
+                            Open Client Board
+                        </Button>
+                        <Button
+                            onClick={() => setCurrentTab('reviews')}
+                            variant="outline"
+                            className="flex h-10 items-center gap-1.5 rounded-xl border border-[#ECECF0] bg-white px-4 text-xs font-semibold text-[#191927] shadow-xs transition-colors hover:bg-slate-50 dark:border-[#28283E] dark:bg-[#1E1E2F] dark:text-white dark:hover:bg-[#252538]"
+                        >
+                            <ShieldCheck className="h-4 w-4 text-[#0073ea]" />
+                            Reviews & Approvals
+                        </Button>
+                    </div>
+                </div>
+
+                {/* 5 KPI Metric Cards */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:gap-5 lg:grid-cols-5">
+                    {/* Card 1: Total Items */}
+                    <div
+                        onClick={() => setCurrentTab('overview')}
+                        className="flex cursor-pointer flex-col justify-between space-y-3 rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:border-[#28283E] dark:bg-[#1E1E2F]"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold tracking-wider text-[#777785] uppercase dark:text-slate-400">Total Items</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0073ea]/10 text-[#0073ea] dark:bg-[#0073ea]/20">
+                                <CheckSquare className="h-5 w-5" />
+                            </div>
                         </div>
-                        <div
-                            onClick={() => setActiveTab('revision')}
-                            className="cursor-pointer rounded-xl bg-white/5 p-3 transition hover:bg-white/10"
-                        >
-                            <span className="flex items-center gap-1.5 text-slate-400">
-                                <RotateCcw className="h-3.5 w-3.5 text-rose-400" /> Revisions in Progress
-                            </span>
-                            <p className="text-2xl font-black text-rose-400">{revisionTasks.length}</p>
+                        <div>
+                            <div className="text-3xl font-black tracking-tight text-[#191927] dark:text-white">{stats.total_items}</div>
+                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">
+                                Across {stats.total_projects} active {stats.total_projects === 1 ? 'project' : 'projects'}
+                            </p>
                         </div>
-                        <div
-                            onClick={() => setActiveTab('approved')}
-                            className="cursor-pointer rounded-xl bg-white/5 p-3 transition hover:bg-white/10"
-                        >
-                            <span className="flex items-center gap-1.5 text-slate-400">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Completed & Approved
-                            </span>
-                            <p className="text-2xl font-black text-emerald-400">{approvedTasks.length}</p>
+                    </div>
+
+                    {/* Card 2: Awaiting Review */}
+                    <div
+                        onClick={() => setCurrentTab('reviews')}
+                        className="flex cursor-pointer flex-col justify-between space-y-3 rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:border-[#28283E] dark:bg-[#1E1E2F]"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold tracking-wider text-[#777785] uppercase dark:text-slate-400">Awaiting Review</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0073ea]/10 text-[#0073ea] dark:bg-[#0073ea]/20">
+                                <Clock className="h-5 w-5 text-[#0073ea]" />
+                            </div>
                         </div>
-                        <div
-                            onClick={() => setActiveTab('projects')}
-                            className="cursor-pointer rounded-xl bg-white/5 p-3 transition hover:bg-white/10"
-                        >
-                            <span className="flex items-center gap-1.5 text-slate-400">
-                                <FolderKanban className="h-3.5 w-3.5 text-indigo-400" /> Active Projects
-                            </span>
-                            <p className="text-2xl font-black text-white">{projects.length}</p>
+                        <div>
+                            <div className="text-3xl font-black tracking-tight text-[#0073ea] dark:text-[#579bfc]">{stats.awaiting_review}</div>
+                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">
+                                {stats.awaiting_review > 0 ? 'Your sign-off required' : 'All deliverables reviewed'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Card 3: Needs Revision */}
+                    <div
+                        onClick={() => setCurrentTab('board')}
+                        className="flex cursor-pointer flex-col justify-between space-y-3 rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:border-[#28283E] dark:bg-[#1E1E2F]"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold tracking-wider text-[#777785] uppercase dark:text-slate-400">In Revision</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FF642E]/10 text-[#FF642E] dark:bg-[#FF642E]/20">
+                                <RotateCcw className="h-5 w-5 text-[#FF642E]" />
+                            </div>
+                        </div>
+                        <div>
+                            <div className="text-3xl font-black tracking-tight text-[#FF642E]">{stats.needs_revision}</div>
+                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">
+                                In agency rework queue
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Card 4: Approved */}
+                    <div
+                        onClick={() => setCurrentTab('board')}
+                        className="flex cursor-pointer flex-col justify-between space-y-3 rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:border-[#28283E] dark:bg-[#1E1E2F]"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold tracking-wider text-[#777785] uppercase dark:text-slate-400">Approved</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00c875]/10 text-[#00c875] dark:bg-[#00c875]/20">
+                                <CheckCircle2 className="h-5 w-5 text-[#00c875]" />
+                            </div>
+                        </div>
+                        <div>
+                            <div className="text-3xl font-black tracking-tight text-[#00c875]">{stats.approved}</div>
+                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">
+                                Completed deliverables
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Card 5: Active Projects */}
+                    <div
+                        onClick={() => setCurrentTab('projects')}
+                        className="flex cursor-pointer flex-col justify-between space-y-3 rounded-2xl border border-[#ECECF0] bg-white p-5 shadow-[0_2px_12px_rgba(0,0,0,0.03)] transition-all hover:shadow-[0_4px_16px_rgba(0,0,0,0.06)] dark:border-[#28283E] dark:bg-[#1E1E2F]"
+                    >
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold tracking-wider text-[#777785] uppercase dark:text-slate-400">Active Projects</span>
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-600 dark:bg-purple-500/20">
+                                <FolderKanban className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                            </div>
+                        </div>
+                        <div>
+                            <div className="text-3xl font-black tracking-tight text-[#191927] dark:text-white">{stats.total_projects}</div>
+                            <p className="mt-1 text-xs text-[#777785] dark:text-slate-400">
+                                Managed engagements
+                            </p>
                         </div>
                     </div>
                 </div>
 
-                {/* Main Tabbed Interface */}
-                <div className="space-y-6">
-                    {/* Tab Navigation */}
-                    <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('awaiting')}
-                            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
-                                activeTab === 'awaiting'
-                                    ? 'bg-[#12121E] text-white shadow-xs'
-                                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                            }`}
-                        >
-                            <Clock className="h-3.5 w-3.5 text-amber-500" />
-                            <span>Awaiting Approval</span>
-                            {awaitingTasks.length > 0 && (
-                                <span className="rounded-full bg-amber-500 px-1.5 py-0.2 text-[10px] font-extrabold text-white">
-                                    {awaitingTasks.length}
-                                </span>
-                            )}
-                        </button>
+                {/* Tab Navigation */}
+                <div className="flex items-center gap-2 border-b border-[#ECECF0] pb-px dark:border-[#28283E] text-xs font-bold">
+                    <button
+                        onClick={() => setCurrentTab('overview')}
+                        className={`flex items-center gap-1.5 border-b-2 px-3 pb-3 transition-colors ${
+                            currentTab === 'overview'
+                                ? 'border-[#0073ea] text-[#0073ea]'
+                                : 'border-transparent text-[#777785] hover:text-[#191927] dark:hover:text-white'
+                        }`}
+                    >
+                        <Layers className="h-4 w-4" />
+                        <span>Overview</span>
+                    </button>
 
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('revision')}
-                            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
-                                activeTab === 'revision'
-                                    ? 'bg-[#12121E] text-white shadow-xs'
-                                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                            }`}
-                        >
-                            <RotateCcw className="h-3.5 w-3.5 text-rose-500" />
-                            <span>Needs Revision</span>
-                            {revisionTasks.length > 0 && (
-                                <span className="rounded-full bg-rose-500 px-1.5 py-0.2 text-[10px] font-extrabold text-white">
-                                    {revisionTasks.length}
-                                </span>
-                            )}
-                        </button>
+                    <button
+                        onClick={() => setCurrentTab('board')}
+                        className={`flex items-center gap-1.5 border-b-2 px-3 pb-3 transition-colors ${
+                            currentTab === 'board'
+                                ? 'border-[#0073ea] text-[#0073ea]'
+                                : 'border-transparent text-[#777785] hover:text-[#191927] dark:hover:text-white'
+                        }`}
+                    >
+                        <Kanban className="h-4 w-4" />
+                        <span>Client Board</span>
+                        {stats.awaiting_review > 0 && (
+                            <span className="flex h-2 w-2 rounded-full bg-[#0073ea] animate-pulse" />
+                        )}
+                    </button>
 
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('approved')}
-                            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
-                                activeTab === 'approved'
-                                    ? 'bg-[#12121E] text-white shadow-xs'
-                                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                            }`}
-                        >
-                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                            <span>Approved / Completed</span>
-                            <span className="rounded-full bg-slate-100 px-1.5 py-0.2 text-[10px] font-bold text-slate-600">
-                                {approvedTasks.length}
-                            </span>
-                        </button>
+                    <button
+                        onClick={() => setCurrentTab('projects')}
+                        className={`flex items-center gap-1.5 border-b-2 px-3 pb-3 transition-colors ${
+                            currentTab === 'projects'
+                                ? 'border-[#0073ea] text-[#0073ea]'
+                                : 'border-transparent text-[#777785] hover:text-[#191927] dark:hover:text-white'
+                        }`}
+                    >
+                        <FolderKanban className="h-4 w-4" />
+                        <span>My Projects ({projects.length})</span>
+                    </button>
 
-                        <button
-                            type="button"
-                            onClick={() => setActiveTab('projects')}
-                            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition ${
-                                activeTab === 'projects'
-                                    ? 'bg-[#12121E] text-white shadow-xs'
-                                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                            }`}
-                        >
-                            <Layers className="h-3.5 w-3.5 text-indigo-500" />
-                            <span>Project Overview ({projects.length})</span>
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => setCurrentTab('reviews')}
+                        className={`flex items-center gap-1.5 border-b-2 px-3 pb-3 transition-colors ${
+                            currentTab === 'reviews'
+                                ? 'border-[#0073ea] text-[#0073ea]'
+                                : 'border-transparent text-[#777785] hover:text-[#191927] dark:hover:text-white'
+                        }`}
+                    >
+                        <ShieldCheck className="h-4 w-4" />
+                        <span>Reviews & Approvals ({stats.awaiting_review})</span>
+                    </button>
+                </div>
 
-                    {/* Tab 1: Awaiting Approval */}
-                    {activeTab === 'awaiting' && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
+                {/* Tab 1: OVERVIEW */}
+                {currentTab === 'overview' && (
+                    <div className="space-y-6">
+                        {/* Awaiting Review Attention Queue */}
+                        <div className="rounded-2xl border border-[#ECECF0] bg-white p-6 shadow-xs dark:border-[#28283E] dark:bg-[#1E1E2F]">
+                            <div className="flex items-center justify-between mb-4">
                                 <div>
-                                    <h2 className="text-xl font-bold tracking-tight text-[#12121E]">Tasks Awaiting Your Approval</h2>
-                                    <p className="text-xs text-slate-500">
-                                        These deliverables have passed internal agency quality review and require your official signoff or revision feedback.
+                                    <h3 className="text-base font-bold text-foreground">
+                                        Deliverables Awaiting Your Approval ({awaitingTasks.length})
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        Tasks submitted by your agency production team ready for client sign-off.
                                     </p>
                                 </div>
+                                {awaitingTasks.length > 0 && (
+                                    <Button
+                                        size="sm"
+                                        onClick={() => setCurrentTab('reviews')}
+                                        className="rounded-xl bg-[#0073ea] text-white text-xs font-semibold hover:bg-[#0060c0]"
+                                    >
+                                        Review All Items
+                                    </Button>
+                                )}
                             </div>
 
                             {awaitingTasks.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-                                    <FileCheck className="mb-2 h-10 w-10 text-slate-400 opacity-60" />
-                                    <h3 className="text-base font-bold text-slate-800">No deliverables currently pending your review</h3>
-                                    <p className="mt-1 max-w-sm text-xs text-slate-500">
-                                        Your agency production team is currently working on your tasks. You will be notified when new rounds are published.
-                                    </p>
+                                <div className="flex flex-col items-center justify-center p-8 text-center text-xs text-muted-foreground">
+                                    <CheckCircle2 className="h-8 w-8 text-emerald-500 mb-2" />
+                                    <p className="font-semibold text-foreground">All deliverables are up to date!</p>
+                                    <p>No deliverables currently require your review.</p>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                    {awaitingTasks.map((task) => (
+                                <div className="divide-y divide-border/60">
+                                    {awaitingTasks.map((t) => (
                                         <div
-                                            key={task.id}
-                                            className="flex flex-col justify-between space-y-4 rounded-2xl border border-amber-200 bg-white p-6 shadow-sm transition hover:shadow-md"
+                                            key={t.id}
+                                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5 transition-colors hover:bg-muted/20 rounded-xl px-2.5"
                                         >
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-xs font-bold text-amber-700">
-                                                        Awaiting Client Approval
-                                                    </span>
-                                                    <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">
-                                                        Round {task.review_cycle?.round_number || 1}
-                                                    </span>
-                                                </div>
-
-                                                <h3 className="text-lg font-bold text-slate-900">{task.title}</h3>
-
-                                                {task.description && (
-                                                    <p className="text-xs leading-relaxed text-slate-600">{task.description}</p>
-                                                )}
-
-                                                {/* Deadlines */}
-                                                <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 border-t border-slate-100 pt-2">
-                                                    {task.client_deadline && (
-                                                        <div className="flex items-center gap-1.5 font-semibold text-slate-800">
-                                                            <Calendar className="h-3.5 w-3.5 text-indigo-500" />
-                                                            <span>Client Target: {task.client_deadline}</span>
-                                                        </div>
-                                                    )}
-                                                    {task.due_date && (
-                                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                                            <Clock className="h-3.5 w-3.5 text-slate-400" />
-                                                            <span>Production Due: {task.due_date}</span>
-                                                        </div>
+                                            <div className="space-y-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-bold text-sm text-foreground">{t.title}</span>
+                                                    <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-200">
+                                                        Awaiting Sign-off
+                                                    </Badge>
+                                                    {t.client_revision_count > 0 && (
+                                                        <span className="text-[10px] text-muted-foreground">
+                                                            (Round {t.client_revision_count + 1})
+                                                        </span>
                                                     )}
                                                 </div>
-
-                                                {/* Deliverables / Attachments */}
-                                                {task.deliverables.length > 0 && (
-                                                    <div className="space-y-2 rounded-xl bg-slate-50 p-3 border border-slate-100">
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                                                            Published Deliverables
+                                                <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                                    {t.project?.name && (
+                                                        <span>Project: <strong className="text-foreground">{t.project.name}</strong></span>
+                                                    )}
+                                                    {t.client_deadline && (
+                                                        <span className="flex items-center gap-1 font-semibold text-foreground">
+                                                            <Calendar className="h-3 w-3 text-primary" />
+                                                            Deadline: {t.client_deadline}
                                                         </span>
-                                                        {task.deliverables.map((d) => (
-                                                            <div key={d.id} className="flex items-center justify-between text-xs">
-                                                                <span className="font-semibold text-slate-800 truncate mr-2">
-                                                                    {d.title} (v{d.version})
-                                                                </span>
-                                                                <div className="flex items-center gap-2 shrink-0">
-                                                                    {d.external_url && (
-                                                                        <a
-                                                                            href={d.external_url}
-                                                                            target="_blank"
-                                                                            rel="noopener noreferrer"
-                                                                            className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:underline"
-                                                                        >
-                                                                            <ExternalLink className="h-3.5 w-3.5" />
-                                                                            Live Preview
-                                                                        </a>
-                                                                    )}
-                                                                    {d.file_url && (
-                                                                        <a
-                                                                            href={d.file_url}
-                                                                            download
-                                                                            className="inline-flex items-center gap-1 font-bold text-slate-700 hover:underline"
-                                                                        >
-                                                                            <Download className="h-3.5 w-3.5" />
-                                                                            Download
-                                                                        </a>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-
-                                                {/* Client-visible attachments */}
-                                                {task.attachments.length > 0 && (
-                                                    <div className="space-y-1.5 pt-1">
-                                                        <span className="text-[10px] font-bold uppercase text-slate-400 block">
-                                                            Downloadable Assets
-                                                        </span>
-                                                        {task.attachments.map((att) => (
-                                                            <a
-                                                                key={att.id}
-                                                                href={att.download_url}
-                                                                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2 text-xs hover:bg-slate-50 transition"
-                                                            >
-                                                                <span className="truncate font-semibold text-slate-700">
-                                                                    {att.file_name}
-                                                                </span>
-                                                                <Download className="h-3.5 w-3.5 text-slate-500 shrink-0 ml-2" />
-                                                            </a>
-                                                        ))}
-                                                    </div>
-                                                )}
+                                                    )}
+                                                    <span>{t.deliverables_count ?? t.deliverables?.length ?? 0} Deliverables</span>
+                                                </div>
                                             </div>
 
-                                            {/* Action Buttons */}
-                                            <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                                            <div className="flex items-center gap-2 shrink-0">
                                                 <Button
-                                                    type="button"
-                                                    variant="outline"
                                                     size="sm"
-                                                    onClick={() => handleOpenDecision(task, 'revision_requested')}
-                                                    className="border-rose-200 text-xs font-bold text-rose-700 hover:bg-rose-50"
+                                                    onClick={() => setSelectedTask(t)}
+                                                    className="rounded-xl bg-[#0073ea] text-white text-xs font-semibold gap-1.5 hover:bg-[#0060c0]"
                                                 >
-                                                    <RotateCcw className="mr-1 h-3.5 w-3.5" />
-                                                    Request Changes
-                                                </Button>
-
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() => handleOpenDecision(task, 'approved')}
-                                                    className="border border-[#c9ea68] bg-[#D8F779] text-xs font-bold text-[#12121E] hover:bg-[#c9ea68]"
-                                                >
-                                                    <CheckCircle2 className="mr-1 h-3.5 w-3.5 text-emerald-800" />
-                                                    Approve Work
+                                                    <ShieldCheck className="h-3.5 w-3.5" />
+                                                    <span>Review & Decide</span>
                                                 </Button>
                                             </div>
                                         </div>
@@ -477,305 +443,229 @@ export default function ClientPortalDashboard({
                                 </div>
                             )}
                         </div>
-                    )}
 
-                    {/* Tab 2: Needs Revision */}
-                    {activeTab === 'revision' && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-xl font-bold tracking-tight text-[#12121E]">Revisions In Progress</h2>
-                                    <p className="text-xs text-slate-500">
-                                        Tasks where you requested revisions. The agency production team is actively incorporating your feedback.
-                                    </p>
+                        {/* Two Columns: Recent Projects & Quick Deliverables */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {/* Projects Summary */}
+                            <div className="rounded-2xl border border-[#ECECF0] bg-white p-6 shadow-xs dark:border-[#28283E] dark:bg-[#1E1E2F]">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-base font-bold text-foreground">Active Projects ({projects.length})</h3>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setCurrentTab('projects')}
+                                        className="text-xs font-semibold text-primary hover:underline p-0 h-auto"
+                                    >
+                                        View all
+                                    </Button>
                                 </div>
-                            </div>
 
-                            {revisionTasks.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-                                    <CheckCircle2 className="mb-2 h-10 w-10 text-emerald-500 opacity-60" />
-                                    <h3 className="text-base font-bold text-slate-800">No active revision requests</h3>
-                                    <p className="mt-1 max-w-sm text-xs text-slate-500">
-                                        All your tasks are either awaiting your review or already completed and approved.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                                    {revisionTasks.map((task) => (
-                                        <div
-                                            key={task.id}
-                                            className="space-y-4 rounded-2xl border border-rose-200 bg-white p-6 shadow-sm"
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <span className="rounded-full bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-xs font-bold text-rose-700">
-                                                    Revision Round {task.client_revision_count}
-                                                </span>
-                                                <Badge variant="outline" className="text-xs">
-                                                    Status: {task.status}
+                                {projects.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground italic">No projects assigned yet.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {projects.slice(0, 4).map((p) => (
+                                            <div key={p.id} className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/20 p-3 text-xs">
+                                                <div className="space-y-0.5 truncate pr-3">
+                                                    <h4 className="font-bold text-foreground truncate">{p.name}</h4>
+                                                    <p className="text-[11px] text-muted-foreground">
+                                                        PM: {p.project_manager?.name || 'Assigned Lead'} · {p.deliverables_count} Deliverables
+                                                    </p>
+                                                </div>
+                                                <Badge variant="outline" className="text-[10px] capitalize shrink-0">
+                                                    {p.status?.replace('_', ' ') || 'Active'}
                                                 </Badge>
                                             </div>
-
-                                            <h3 className="text-lg font-bold text-slate-900">{task.title}</h3>
-
-                                            {/* Submitted Client Feedback */}
-                                            {task.review_cycle?.client_feedback && (
-                                                <div className="rounded-xl border border-purple-200 bg-purple-50 p-3 text-xs text-purple-900">
-                                                    <span className="font-bold block mb-1">Your Requested Changes:</span>
-                                                    <p>{task.review_cycle.client_feedback}</p>
-                                                </div>
-                                            )}
-
-                                            <div className="rounded-xl border border-amber-100 bg-amber-50/60 p-3 text-xs text-amber-900">
-                                                <span className="font-bold flex items-center gap-1.5 text-amber-800 mb-1">
-                                                    <Clock className="h-3.5 w-3.5 text-amber-600" />
-                                                    Under Active Rework
-                                                </span>
-                                                <p className="text-[11px] text-amber-700">
-                                                    Our project management team has reviewed your notes and sent this task back to the creative team. A new revision round will be submitted for your signoff soon.
-                                                </p>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Tab 3: Approved / Completed */}
-                    {activeTab === 'approved' && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-xl font-bold tracking-tight text-[#12121E]">Completed & Approved Work</h2>
-                                    <p className="text-xs text-slate-500">
-                                        Officially signed-off deliverables and completed milestones.
-                                    </p>
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
-                            {approvedTasks.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white p-12 text-center">
-                                    <FileCheck className="mb-2 h-10 w-10 text-slate-400 opacity-60" />
-                                    <h3 className="text-base font-bold text-slate-800">No completed tasks yet</h3>
-                                    <p className="mt-1 max-w-sm text-xs text-slate-500">
-                                        Approved tasks will appear here once you sign off on submitted deliverables.
-                                    </p>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                                    {approvedTasks.map((task) => (
-                                        <div
-                                            key={task.id}
-                                            className="space-y-4 rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm"
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-bold text-emerald-700">
-                                                    ✓ Officially Approved
-                                                </span>
-                                                <span className="text-xs text-slate-400">Complete</span>
-                                            </div>
-
-                                            <h3 className="text-lg font-bold text-slate-900">{task.title}</h3>
-
-                                            {task.description && (
-                                                <p className="text-xs text-slate-600 line-clamp-2">{task.description}</p>
-                                            )}
-
-                                            {/* Deliverables / Assets */}
-                                            {task.deliverables.length > 0 && (
-                                                <div className="space-y-1.5 border-t border-slate-100 pt-2">
-                                                    {task.deliverables.map((d) => (
-                                                        <div key={d.id} className="flex items-center justify-between text-xs">
-                                                            <span className="font-semibold text-slate-800 truncate mr-2">
-                                                                {d.title}
-                                                            </span>
-                                                            <div className="flex items-center gap-2 shrink-0">
-                                                                {d.external_url && (
-                                                                    <a
-                                                                        href={d.external_url}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        className="font-bold text-indigo-600 hover:underline"
-                                                                    >
-                                                                        Preview
-                                                                    </a>
-                                                                )}
-                                                                {d.file_url && (
-                                                                    <a
-                                                                        href={d.file_url}
-                                                                        download
-                                                                        className="font-bold text-slate-700 hover:underline"
-                                                                    >
-                                                                        Download
-                                                                    </a>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
-                    {/* Tab 4: Projects Overview */}
-                    {activeTab === 'projects' && (
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="text-xl font-bold tracking-tight text-[#12121E]">Your Projects</h2>
-                                    <p className="text-xs text-slate-500">Track status, assigned agency project managers, and deliverable items.</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-                                {projects.map((proj) => (
-                                    <div
-                                        key={proj.id}
-                                        className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md"
+                            {/* Recent Revisions */}
+                            <div className="rounded-2xl border border-[#ECECF0] bg-white p-6 shadow-xs dark:border-[#28283E] dark:bg-[#1E1E2F]">
+                                <div className="flex items-center justify-between mb-4">
+                                    <h3 className="text-base font-bold text-foreground">Revisions in Progress ({revisionTasks.length})</h3>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setCurrentTab('board')}
+                                        className="text-xs font-semibold text-primary hover:underline p-0 h-auto"
                                     >
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <Badge className="bg-[#12121E] text-white text-xs">{proj.status}</Badge>
-                                                {proj.pending_review_count > 0 && (
-                                                    <span className="rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-600">
-                                                        {proj.pending_review_count} needs review
+                                        View board
+                                    </Button>
+                                </div>
+
+                                {revisionTasks.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground italic">No active revision requests.</p>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {revisionTasks.slice(0, 4).map((t) => (
+                                            <div
+                                                key={t.id}
+                                                onClick={() => setSelectedTask(t)}
+                                                className="cursor-pointer flex items-center justify-between rounded-xl border border-rose-200/60 bg-rose-50/40 p-3 text-xs transition-colors hover:bg-rose-50/80 dark:border-rose-900/40 dark:bg-rose-950/20"
+                                            >
+                                                <div className="space-y-0.5 truncate pr-3">
+                                                    <h4 className="font-bold text-foreground truncate">{t.title}</h4>
+                                                    <p className="text-[11px] text-rose-700 dark:text-rose-300">
+                                                        Round {t.client_revision_count || 1} rework in production
+                                                    </p>
+                                                </div>
+                                                <span className="rounded-full bg-rose-600/10 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-300 shrink-0">
+                                                    Reworking
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Tab 2: CLIENT KANBAN BOARD */}
+                {currentTab === 'board' && (
+                    <div className="flex-1 min-h-[620px] rounded-2xl border border-[#ECECF0] bg-card p-4 shadow-xs dark:border-[#28283E]">
+                        <KanbanBoardView
+                            board={activeBoard}
+                            currentUser={currentUser}
+                            permissions={permissions}
+                            users={users}
+                            searchTerm={searchTerm}
+                            personFilter="all"
+                            priorityFilter="all"
+                            onSelectTask={(task) => setSelectedTask(task)}
+                            onQuickAddTask={() => {}}
+                        />
+                    </div>
+                )}
+
+                {/* Tab 3: MY PROJECTS */}
+                {currentTab === 'projects' && (
+                    <div className="rounded-2xl border border-[#ECECF0] bg-white p-6 shadow-xs dark:border-[#28283E] dark:bg-[#1E1E2F]">
+                        <h3 className="text-base font-bold text-foreground mb-4">My Client Projects</h3>
+                        {projects.length === 0 ? (
+                            <p className="text-xs text-muted-foreground italic">No projects assigned.</p>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left text-xs">
+                                    <thead>
+                                        <tr className="border-b border-border/80 text-muted-foreground uppercase text-[10px] font-bold">
+                                            <th className="py-2.5 px-3">Project Name</th>
+                                            <th className="py-2.5 px-3">Status</th>
+                                            <th className="py-2.5 px-3">Project Manager</th>
+                                            <th className="py-2.5 px-3">Deliverables</th>
+                                            <th className="py-2.5 px-3">Target Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border/50">
+                                        {projects.map((p) => (
+                                            <tr key={p.id} className="hover:bg-muted/20">
+                                                <td className="py-3 px-3 font-bold text-foreground">{p.name}</td>
+                                                <td className="py-3 px-3">
+                                                    <Badge variant="outline" className="text-[10px] capitalize">
+                                                        {p.status?.replace('_', ' ') || 'Active'}
+                                                    </Badge>
+                                                </td>
+                                                <td className="py-3 px-3 text-muted-foreground">
+                                                    {p.project_manager?.name || 'Team Lead'}
+                                                </td>
+                                                <td className="py-3 px-3 font-semibold text-foreground">
+                                                    {p.deliverables_count} items ({p.pending_review_count} in review)
+                                                </td>
+                                                <td className="py-3 px-3 text-muted-foreground">
+                                                    {p.due_date || 'Ongoing'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Tab 4: REVIEWS & APPROVALS */}
+                {currentTab === 'reviews' && (
+                    <div className="rounded-2xl border border-[#ECECF0] bg-white p-6 shadow-xs dark:border-[#28283E] dark:bg-[#1E1E2F]">
+                        <div className="mb-4">
+                            <h3 className="text-base font-bold text-foreground">Reviews & Deliverable Sign-offs</h3>
+                            <p className="text-xs text-muted-foreground">
+                                Inspect deliverable files, evaluate designer updates, and click to approve or request revisions.
+                            </p>
+                        </div>
+
+                        {tasks.length === 0 ? (
+                            <p className="text-xs text-muted-foreground italic">No items available for review.</p>
+                        ) : (
+                            <div className="space-y-3">
+                                {tasks.map((t) => (
+                                    <div
+                                        key={t.id}
+                                        onClick={() => setSelectedTask(t)}
+                                        className="cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-border/80 bg-card p-4 transition-all hover:border-primary/50 hover:shadow-xs"
+                                    >
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-sm font-bold text-foreground">{t.title}</h4>
+                                                {t.client_review_status === 'approved' || t.is_complete ? (
+                                                    <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                                                        Approved
+                                                    </span>
+                                                ) : t.client_review_status === 'revision_requested' ? (
+                                                    <span className="rounded-full bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                                                        Needs Revision (Round {t.client_revision_count || 1})
+                                                    </span>
+                                                ) : (
+                                                    <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-bold text-blue-600 dark:text-blue-400">
+                                                        Awaiting Review
                                                     </span>
                                                 )}
                                             </div>
-
-                                            <h3 className="line-clamp-1 text-lg font-bold text-slate-900">{proj.name}</h3>
-
-                                            {proj.description && (
-                                                <p className="line-clamp-2 text-xs leading-relaxed text-slate-600">{proj.description}</p>
-                                            )}
-
-                                            {proj.project_manager && (
-                                                <div className="border-t pt-1 text-xs text-slate-500">
-                                                    <span className="block text-[10px] font-bold text-slate-400 uppercase">Project Manager</span>
-                                                    <span className="font-semibold text-slate-800">{proj.project_manager.name}</span>
-                                                </div>
-                                            )}
-
-                                            <div className="flex items-center justify-between border-t pt-2 text-xs text-slate-500">
-                                                <div className="flex items-center gap-1.5">
-                                                    <Calendar className="h-3.5 w-3.5" />
-                                                    <span>Target: {proj.due_date || 'Ongoing'}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 font-semibold text-slate-700">
-                                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                                                    <span>
-                                                        {proj.approved_count}/{proj.deliverables_count} approved
+                                            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                                {t.client_deadline && (
+                                                    <span className="flex items-center gap-1 font-semibold text-foreground">
+                                                        <Calendar className="h-3 w-3 text-primary" />
+                                                        Deadline: {t.client_deadline}
                                                     </span>
-                                                </div>
+                                                )}
+                                                <span>{t.deliverables_count ?? t.deliverables?.length ?? 0} Deliverables</span>
+                                                {t.comments?.length > 0 && <span>{t.comments.length} Comments</span>}
                                             </div>
                                         </div>
 
-                                        <div className="mt-4 border-t pt-4">
-                                            <Link
-                                                href={`/client-portal/projects/${proj.id}`}
-                                                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#12121E] px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-800"
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <Button
+                                                size="sm"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedTask(t);
+                                                }}
+                                                className="rounded-xl bg-[#0073ea] text-white text-xs font-semibold gap-1.5 hover:bg-[#0060c0]"
                                             >
-                                                Open Project Workspace →
-                                            </Link>
+                                                <ShieldCheck className="h-3.5 w-3.5" />
+                                                <span>Open Review</span>
+                                            </Button>
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        </div>
-                    )}
-                </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
-                {/* Review Decision Modal */}
-                <Dialog open={isDecisionOpen} onOpenChange={setIsDecisionOpen}>
-                    <DialogContent className="max-w-md bg-white text-slate-900">
-                        <DialogHeader>
-                            <DialogTitle className="text-lg font-bold">
-                                {decisionType === 'approved' ? 'Approve Deliverable Work' : 'Request Changes on Deliverable'}
-                            </DialogTitle>
-                            <DialogDescription className="text-xs text-slate-500">
-                                For <strong>{selectedTask?.title}</strong> (Round {selectedTask?.review_cycle?.round_number || 1}).
-                            </DialogDescription>
-                        </DialogHeader>
-
-                        <form onSubmit={handleConfirmDecision} className="space-y-4 pt-2">
-                            <div className="space-y-2">
-                                <Label className="text-xs font-bold">Decision Status</Label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setDecisionType('approved')}
-                                        className={`rounded-xl border p-3 text-center text-xs font-bold transition ${
-                                            decisionType === 'approved'
-                                                ? 'border-emerald-500 bg-emerald-50 text-emerald-800'
-                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        ✓ Approve Work
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => setDecisionType('revision_requested')}
-                                        className={`rounded-xl border p-3 text-center text-xs font-bold transition ${
-                                            decisionType === 'revision_requested'
-                                                ? 'border-rose-500 bg-rose-50 text-rose-800'
-                                                : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                                        }`}
-                                    >
-                                        Request Changes
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div className="space-y-1">
-                                <Label className="text-xs font-bold">
-                                    {decisionType === 'approved' ? 'Approval Notes (Optional)' : 'Required Change Instructions'}
-                                </Label>
-                                <Textarea
-                                    rows={4}
-                                    required={decisionType === 'revision_requested'}
-                                    placeholder={
-                                        decisionType === 'approved'
-                                            ? 'Optional notes: Assets look great! Ready to finalize.'
-                                            : 'Please detail specific adjustments or elements that need revision...'
-                                    }
-                                    value={decisionFeedback}
-                                    onChange={(e) => setDecisionFeedback(e.target.value)}
-                                    className="text-xs"
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-2 border-t pt-2">
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setIsDecisionOpen(false)}
-                                    disabled={isSubmittingDecision}
-                                >
-                                    Cancel
-                                </Button>
-                                <Button
-                                    type="submit"
-                                    size="sm"
-                                    disabled={isSubmittingDecision}
-                                    className={
-                                        decisionType === 'approved'
-                                            ? 'bg-emerald-600 font-bold text-white hover:bg-emerald-700'
-                                            : 'bg-rose-600 font-bold text-white hover:bg-rose-700'
-                                    }
-                                >
-                                    {isSubmittingDecision ? 'Submitting...' : 'Confirm Decision'}
-                                </Button>
-                            </div>
-                        </form>
-                    </DialogContent>
-                </Dialog>
-            </main>
-        </div>
+            {/* Shared Item Detail Drawer with client capabilities */}
+            {selectedTask && (
+                <ItemDetailDrawer
+                    task={selectedTask}
+                    board={activeBoard}
+                    users={users}
+                    permissions={permissions}
+                    onClose={() => setSelectedTask(null)}
+                    onSelectTask={(task) => setSelectedTask(task)}
+                />
+            )}
+        </AppLayout>
     );
 }

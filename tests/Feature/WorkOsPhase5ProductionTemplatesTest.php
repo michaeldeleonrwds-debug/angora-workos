@@ -39,12 +39,14 @@ class WorkOsPhase5ProductionTemplatesTest extends TestCase
             'status' => 'active',
             'name' => 'Admin User',
         ]);
+        $this->admin->assignRole('super_admin');
 
         $this->member = User::factory()->create([
-            'role' => 'dept_user',
+            'role' => 'admin',
             'status' => 'active',
             'name' => 'Member User',
         ]);
+        $this->member->assignRole('admin');
 
         $this->externalUser = User::factory()->create([
             'role' => 'external_user',

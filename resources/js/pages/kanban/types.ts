@@ -254,6 +254,11 @@ export interface Task {
     internal_revision_count?: number;
     client_revision_count?: number;
     client_review_status?: 'pending' | 'submitted' | 'approved' | 'revision_requested' | 'rework_in_production' | string | null;
+    client_deadline?: string | null;
+    project?: { id: number; name: string } | null;
+    project_name?: string | null;
+    deliverables?: any[];
+    deliverables_count?: number;
     latest_client_review_cycle?: TaskReviewCycle | null;
     client?: any;
     recurrence_rule_id?: number | null;

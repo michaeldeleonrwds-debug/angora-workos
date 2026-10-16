@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T13:13:58.340Z",
+  "generated_at": "2026-10-16T14:32:07.439Z",
   "stats": {
-    "total_nodes": 596,
-    "total_edges": 1192,
+    "total_nodes": 599,
+    "total_edges": 1198,
     "clusters": 7
   },
   "nodes": [
@@ -1268,6 +1268,36 @@
       "label": "\\App\\Http\\Controllers\\ClientPortalController",
       "type": "controller",
       "file": null
+    },
+    {
+      "id": "route:GET:/client-portal/projects",
+      "label": "GET /client-portal/projects",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/client-portal/projects",
+      "name": "client-portal.projects",
+      "action": "projectsTab"
+    },
+    {
+      "id": "route:GET:/client-portal/board",
+      "label": "GET /client-portal/board",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/client-portal/board",
+      "name": "client-portal.board",
+      "action": "boardTab"
+    },
+    {
+      "id": "route:GET:/client-portal/reviews",
+      "label": "GET /client-portal/reviews",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/client-portal/reviews",
+      "name": "client-portal.reviews",
+      "action": "reviewsTab"
     },
     {
       "id": "route:GET:/client-portal/projects/{project}",
@@ -5154,6 +5184,24 @@
       "action": "dashboard"
     },
     {
+      "source": "route:GET:/client-portal/projects",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "projectsTab"
+    },
+    {
+      "source": "route:GET:/client-portal/board",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "boardTab"
+    },
+    {
+      "source": "route:GET:/client-portal/reviews",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "reviewsTab"
+    },
+    {
       "source": "route:GET:/client-portal/projects/{project}",
       "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
       "relationship": "routes_to",
@@ -5973,6 +6021,16 @@
     {
       "source": "controller:ClientPortalController",
       "target": "model:KanbanTask",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:ClientPortalController",
+      "target": "model:KanbanBoard",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:ClientPortalController",
+      "target": "model:KanbanColumn",
       "relationship": "queries_model"
     },
     {
@@ -8497,24 +8555,23 @@
     },
     {
       "source": "component:dashboard",
-      "target": "component:dialog",
+      "target": "component:app-layout",
       "relationship": "imports"
     },
     {
       "source": "component:dashboard",
-      "target": "component:label",
+      "target": "component:ItemDetailDrawer",
       "relationship": "imports"
     },
     {
       "source": "component:dashboard",
-      "target": "component:textarea",
+      "target": "component:KanbanBoardView",
       "relationship": "imports"
     },
     {
       "source": "component:dashboard",
-      "target": "route:CALL:/dashboard",
-      "relationship": "calls_route",
-      "uri": "/dashboard"
+      "target": "component:types",
+      "relationship": "imports"
     },
     {
       "source": "component:project",
@@ -8564,13 +8621,9 @@
     },
     {
       "source": "component:dashboard",
-      "target": "component:app-layout",
-      "relationship": "imports"
-    },
-    {
-      "source": "component:dashboard",
-      "target": "component:types",
-      "relationship": "imports"
+      "target": "route:CALL:/dashboard",
+      "relationship": "calls_route",
+      "uri": "/dashboard"
     },
     {
       "source": "component:dashboard",
@@ -9857,6 +9910,18 @@
       "target": "route:CALL:/kanban",
       "relationship": "calls_route",
       "uri": "/kanban"
+    },
+    {
+      "source": "component:app-sidebar",
+      "target": "route:CALL:/settings/profile",
+      "relationship": "calls_route",
+      "uri": "/settings/profile"
+    },
+    {
+      "source": "component:app-sidebar",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
     },
     {
       "source": "component:app-sidebar",

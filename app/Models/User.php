@@ -170,7 +170,16 @@ class User extends Authenticatable
 
     public function primaryRoleName(): ?string
     {
-        return $this->getRoleNames()->first();
+        $role = $this->getRoleNames()->first();
+        if ($role) {
+            return $role;
+        }
+
+        if ($this->isClientUser()) {
+            return 'client';
+        }
+
+        return null;
     }
 
     public function toArray(): array
@@ -178,6 +187,7 @@ class User extends Authenticatable
         $attributes = parent::toArray();
         // Presentation compatibility only; there is no Eloquent role attribute.
         $attributes['role'] = $this->primaryRoleName();
+        $attributes['is_client'] = $this->isClientUser();
 
         return $attributes;
     }

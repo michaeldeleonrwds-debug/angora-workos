@@ -59,8 +59,25 @@ class ClientPortalController extends Controller
         return $customer;
     }
 
-    public function dashboard()
+    public function projectsTab(Request $request)
     {
+        return $this->dashboard($request, 'projects');
+    }
+
+    public function boardTab(Request $request)
+    {
+        return $this->dashboard($request, 'board');
+    }
+
+    public function reviewsTab(Request $request)
+    {
+        return $this->dashboard($request, 'reviews');
+    }
+
+    public function dashboard(Request $request = null, string $tab = 'overview')
+    {
+        $request = $request ?? request();
+        $activeTab = $request->query('tab', $tab);
         $customer = $this->getAuthenticatedCustomer();
 
         $projects = AgencyProject::where('client_id', $customer->id)
@@ -188,6 +205,7 @@ class ClientPortalController extends Controller
                     'client_status' => $d->client_status,
                     'client_feedback' => $d->client_feedback,
                 ]),
+                'deliverables_count' => $task->deliverables->count(),
                 'comments' => $task->comments->map(fn($c) => [
                     'id' => $c->id,
                     'message' => $c->message,
@@ -207,6 +225,149 @@ class ClientPortalController extends Controller
             ];
         });
 
+        // Resolve or create Client Kanban Board
+        $clientBoard = \App\Models\KanbanBoard::where('title', 'like', '%Client Review Board%')->first()
+            ?? \App\Models\KanbanBoard::where('department', 'Client Portal')->first();
+
+        if (!$clientBoard) {
+            $clientBoard = \App\Models\KanbanBoard::firstOrCreate(
+                ['title' => ($customer->company ?: $customer->name) . ' — Client Review Board'],
+                [
+                    'department' => 'Client Portal',
+                    'visibility' => 'private',
+                    'settings' => ['client_id' => $customer->id],
+                    'created_by' => auth()->id(),
+                ]
+            );
+        }
+
+        // Ensure 3 standard client stages: Awaiting Review, Needs Revision, Approved / Completed
+        $stageConfigs = [
+            ['title' => 'Awaiting Review', 'key' => 'client_under_review', 'color' => '#579BFC', 'semantic' => 'in_review', 'pos' => 0],
+            ['title' => 'Needs Revision', 'key' => 'for_revision', 'color' => '#FF642E', 'semantic' => 'in_progress', 'pos' => 1],
+            ['title' => 'Approved / Completed', 'key' => 'complete', 'color' => '#00C875', 'semantic' => 'completed', 'pos' => 2],
+        ];
+
+        $boardCols = [];
+        foreach ($stageConfigs as $sc) {
+            $col = $clientBoard->columns()->where('stage_key', $sc['key'])->first();
+            if (!$col) {
+                $col = \App\Models\KanbanColumn::create([
+                    'board_id' => $clientBoard->id,
+                    'title' => $sc['title'],
+                    'color' => $sc['color'],
+                    'stage_key' => $sc['key'],
+                    'semantic_category' => $sc['semantic'],
+                    'position' => $sc['pos'],
+                ]);
+            } else {
+                if ($col->title !== $sc['title'] || $col->color !== $sc['color']) {
+                    $col->update(['title' => $sc['title'], 'color' => $sc['color']]);
+                }
+            }
+            $boardCols[] = $col;
+        }
+
+        // Map client tasks into the 3 columns for KanbanBoardView
+        $awaitingColId = $boardCols[0]->id;
+        $revisionColId = $boardCols[1]->id;
+        $approvedColId = $boardCols[2]->id;
+
+        $colTasksMap = [
+            $awaitingColId => [],
+            $revisionColId => [],
+            $approvedColId => [],
+        ];
+
+        foreach ($clientSafeTasks as $taskData) {
+            $targetColId = $awaitingColId;
+            if ($taskData['is_complete'] || $taskData['client_review_status'] === 'approved') {
+                $targetColId = $approvedColId;
+            } elseif ($taskData['is_revision_requested'] || $taskData['client_review_status'] === 'revision_requested') {
+                $targetColId = $revisionColId;
+            }
+
+            // Find matching column object
+            $matchingCol = collect($boardCols)->firstWhere('id', $targetColId);
+
+            $colTasksMap[$targetColId][] = array_merge($taskData, [
+                'board_id' => $clientBoard->id,
+                'column_id' => $targetColId,
+                'column' => [
+                    'id' => $targetColId,
+                    'board_id' => $clientBoard->id,
+                    'title' => $matchingCol?->title ?? 'Stage',
+                    'stage_key' => $matchingCol?->stage_key ?? 'new_task',
+                    'color' => $matchingCol?->color ?? '#579bfc',
+                    'semantic_category' => $matchingCol?->semantic_category ?? 'in_progress',
+                ],
+            ]);
+        }
+
+        $formattedColumns = array_map(function ($col) use ($colTasksMap) {
+            return [
+                'id' => $col->id,
+                'board_id' => $col->board_id,
+                'title' => $col->title,
+                'color' => $col->color,
+                'position' => $col->position,
+                'stage_key' => $col->stage_key,
+                'semantic_category' => $col->semantic_category,
+                'tasks' => $colTasksMap[$col->id] ?? [],
+            ];
+        }, $boardCols);
+
+        $boardData = [
+            'id' => $clientBoard->id,
+            'title' => $clientBoard->title,
+            'department' => 'Client Portal',
+            'visibility' => 'private',
+            'columns' => $formattedColumns,
+            'groups' => [],
+            'views' => [
+                [
+                    'id' => 1,
+                    'board_id' => $clientBoard->id,
+                    'name' => 'Client Kanban',
+                    'type' => 'kanban',
+                    'is_default' => true,
+                    'position' => 0,
+                ],
+            ],
+        ];
+
+        $stats = [
+            'total_items' => count($clientSafeTasks),
+            'awaiting_review' => count($colTasksMap[$awaitingColId]),
+            'needs_revision' => count($colTasksMap[$revisionColId]),
+            'approved' => count($colTasksMap[$approvedColId]),
+            'total_projects' => $clientSafeProjects->count(),
+        ];
+
+        $permissions = [
+            'canView' => true,
+            'canCreateTask' => false,
+            'canEditTask' => false,
+            'canEditProgress' => false,
+            'canChangeStatus' => false,
+            'canMoveAssignedTask' => false,
+            'canAssignUsers' => false,
+            'canChangeDeadlines' => false,
+            'canChangePriority' => false,
+            'canDeleteTask' => false,
+            'canViewAllTasks' => true,
+            'canFilterPersonalTasks' => false,
+            'canManageBoard' => false,
+            'canManageColumns' => false,
+            'canManageGroups' => false,
+            'canManageAutomations' => false,
+            'canManageBlueprints' => false,
+            'canManageDependencies' => false,
+            'canManageRecurrence' => false,
+            'canApproveReview' => true,
+            'canExport' => false,
+        ];
+
         return Inertia::render('client-portal/dashboard', [
             'client' => [
                 'id' => $customer->id,
@@ -214,9 +375,14 @@ class ClientPortalController extends Controller
                 'company' => $customer->company,
                 'email' => $customer->email,
             ],
+            'stats' => $stats,
+            'activeTab' => $activeTab,
+            'board' => $boardData,
+            'permissions' => $permissions,
             'projects' => $clientSafeProjects,
             'deliverables' => $pendingDeliverables,
             'tasks' => $clientSafeTasks,
+            'users' => User::select('id', 'name', 'email', 'avatar', 'avatar_url')->get(),
         ]);
     }
 

@@ -81,4 +81,128 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(403);
         $this->assertGuest();
     }
+
+    public function test_login_screen_renders_safely_when_users_have_null_roles_or_departments(): void
+    {
+        // 1. User with no roles and null department
+        $noRoleUser = User::factory()->create([
+            'name' => 'No Role User',
+            'email' => 'norole@test.com',
+            'department' => 'Operations',
+        ]);
+        $noRoleUser->syncRoles([]);
+
+        // 2. External client user with no Spatie roles
+        $clientUser = User::factory()->create([
+            'name' => 'Portal Client',
+            'email' => 'client@portal.test',
+            'department' => 'Client External',
+        ]);
+        $clientUser->syncRoles([]);
+
+        \App\Models\SalesCustomer::create([
+            'name' => 'Portal Customer',
+            'company_name' => 'Portal Customer Inc',
+            'email' => 'client@portal.test',
+            'user_id' => $clientUser->id,
+            'status' => 'active',
+            'client_portal_access' => true,
+        ]);
+
+        $response = $this->get('/login');
+        $response->assertStatus(200);
+
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->component('auth/login')
+            ->has('testAccounts')
+            ->where('testAccounts', function ($accounts) use ($clientUser, $noRoleUser) {
+                $accountsArray = collect($accounts);
+
+                // Both users must be present
+                $clientAccount = $accountsArray->firstWhere('id', $clientUser->id);
+                $noRoleAccount = $accountsArray->firstWhere('id', $noRoleUser->id);
+
+                if (! $clientAccount || ! $noRoleAccount) {
+                    return false;
+                }
+
+                // Roles must NEVER be null
+                if ($clientAccount['role'] === null || $noRoleAccount['role'] === null) {
+                    return false;
+                }
+
+                // Client role properly resolved
+                return $clientAccount['role'] === 'client';
+            })
+        );
+    }
+
+    public function test_client_user_redirects_to_client_portal_dashboard_on_login(): void
+    {
+        $clientUser = User::factory()->create([
+            'email' => 'client.redirect@apex.test',
+            'password' => \Illuminate\Support\Facades\Hash::make('password123'),
+        ]);
+        $clientUser->syncRoles([]);
+
+        \App\Models\SalesCustomer::create([
+            'name' => 'Apex Redirect Ltd',
+            'company_name' => 'Apex Redirect Ltd',
+            'email' => 'client.redirect@apex.test',
+            'user_id' => $clientUser->id,
+            'status' => 'active',
+            'client_portal_access' => true,
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => $clientUser->email,
+            'password' => 'password123',
+        ]);
+
+        $this->assertAuthenticatedAs($clientUser);
+        $response->assertRedirect(route('client-portal.dashboard', absolute: false));
+    }
+
+    public function test_client_user_redirects_to_client_portal_dashboard_on_quick_login(): void
+    {
+        $clientUser = User::factory()->create([
+            'email' => 'client.quick@apex.test',
+        ]);
+        $clientUser->syncRoles([]);
+
+        \App\Models\SalesCustomer::create([
+            'name' => 'Apex Quick Ltd',
+            'company_name' => 'Apex Quick Ltd',
+            'email' => 'client.quick@apex.test',
+            'user_id' => $clientUser->id,
+            'status' => 'active',
+            'client_portal_access' => true,
+        ]);
+
+        $response = $this->post('/dev-quick-login', [
+            'user_id' => $clientUser->id,
+        ]);
+
+        $this->assertAuthenticatedAs($clientUser);
+        $response->assertRedirect(route('client-portal.dashboard', absolute: false));
+    }
+
+    public function test_internal_staff_redirects_to_internal_dashboard_on_login(): void
+    {
+        $this->seed(\Database\Seeders\RbacSeeder::class);
+
+        $employee = User::factory()->create([
+            'email' => 'internal.employee@angora.test',
+            'password' => \Illuminate\Support\Facades\Hash::make('password123'),
+            'role' => 'employee',
+        ]);
+
+        $response = $this->post('/login', [
+            'email' => $employee->email,
+            'password' => 'password123',
+        ]);
+
+        $this->assertAuthenticatedAs($employee);
+        $response->assertRedirect(route('dashboard', absolute: false));
+    }
 }

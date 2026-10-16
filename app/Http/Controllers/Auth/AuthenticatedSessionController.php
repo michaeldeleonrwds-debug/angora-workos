@@ -20,10 +20,18 @@ class AuthenticatedSessionController extends Controller
     {
         $testAccounts = [];
         if (app()->environment(['local', 'testing'])) {
-            $testAccounts = \App\Models\User::select('id', 'name', 'email', 'department')
+            $testAccounts = \App\Models\User::query()
                 ->where('status', 'active')
                 ->orderBy('id')
-                ->get();
+                ->get()
+                ->map(fn ($u) => [
+                    'id' => $u->id,
+                    'name' => $u->name,
+                    'email' => $u->email,
+                    'department' => $u->department ?? 'General',
+                    'role' => $u->primaryRoleName() ?? ($u->isClientUser() ? 'client' : 'guest'),
+                ])
+                ->values();
         }
 
         return Inertia::render('auth/login', [
@@ -61,6 +69,10 @@ class AuthenticatedSessionController extends Controller
             description: "Development Quick Login as {$user->name} ({$user->primaryRoleName()})"
         );
 
+        if ($user->isClientUser()) {
+            return redirect()->intended(route('client-portal.dashboard', absolute: false));
+        }
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
@@ -72,6 +84,11 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        $user = $request->user();
+        if ($user && $user->isClientUser()) {
+            return redirect()->intended(route('client-portal.dashboard', absolute: false));
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

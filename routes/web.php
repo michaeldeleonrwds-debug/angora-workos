@@ -178,6 +178,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Client Portal
     Route::get('/client-portal', [\App\Http\Controllers\ClientPortalController::class, 'dashboard'])->name('client-portal.dashboard');
+    Route::get('/client-portal/projects', [\App\Http\Controllers\ClientPortalController::class, 'projectsTab'])->name('client-portal.projects');
+    Route::get('/client-portal/board', [\App\Http\Controllers\ClientPortalController::class, 'boardTab'])->name('client-portal.board');
+    Route::get('/client-portal/reviews', [\App\Http\Controllers\ClientPortalController::class, 'reviewsTab'])->name('client-portal.reviews');
     Route::get('/client-portal/projects/{project}', [\App\Http\Controllers\ClientPortalController::class, 'project'])->name('client-portal.project');
     Route::post('/client-portal/deliverables/{deliverable}/feedback', [\App\Http\Controllers\ClientPortalController::class, 'submitFeedback'])->name('client-portal.feedback');
     Route::post('/client-portal/tasks/{task}/approve', [\App\Http\Controllers\ClientPortalController::class, 'approveTask'])->name('client-portal.tasks.approve');

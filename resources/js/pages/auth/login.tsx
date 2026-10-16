@@ -19,8 +19,8 @@ interface TestAccount {
     id: number;
     name: string;
     email: string;
-    role: string;
-    department: string;
+    role?: string | null;
+    department?: string | null;
 }
 
 interface LoginProps {
@@ -34,6 +34,12 @@ interface LoginProps {
 const roleColors: Record<string, string> = {
     super_admin: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
     admin: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
+    account_manager: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+    project_manager: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
+    employee: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+    designer: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
+    developer: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
+    client: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20',
     admin_manager: 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
     dept_user: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
     hr_staff: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
@@ -43,6 +49,7 @@ const roleColors: Record<string, string> = {
     finance_staff: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
     team_member: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
     external_user: 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20',
+    guest: 'bg-slate-100 text-slate-700 dark:text-slate-300 border-slate-200',
 };
 
 export default function Login({ status, canResetPassword = false, canRegister = false, isLocalEnv = false, testAccounts = [] }: LoginProps) {
@@ -366,7 +373,9 @@ export default function Login({ status, canResetPassword = false, canRegister = 
                                         </div>
                                         <div className="max-h-64 space-y-1.5 overflow-y-auto pr-1">
                                             {testAccounts.map((account) => {
-                                                const badgeStyle = roleColors[account.role] || 'bg-slate-100 text-slate-700 border-slate-200';
+                                                const rawRole = account.role || 'client';
+                                                const badgeStyle = roleColors[rawRole] || 'bg-slate-100 text-slate-700 border-slate-200';
+                                                const displayRole = account.role ? account.role.replace('_', ' ') : 'Client';
                                                 const isLoading = quickLoginLoadingId === account.id;
 
                                                 return (
@@ -380,13 +389,13 @@ export default function Login({ status, canResetPassword = false, canRegister = 
                                                                     {account.name}
                                                                 </span>
                                                                 <span
-                                                                    className={`py-0.2 shrink-0 rounded-md border px-1.5 text-[9px] font-bold ${badgeStyle}`}
+                                                                    className={`py-0.2 shrink-0 rounded-md border px-1.5 text-[9px] font-bold capitalize ${badgeStyle}`}
                                                                 >
-                                                                    {account.role.replace('_', ' ')}
+                                                                    {displayRole}
                                                                 </span>
                                                             </div>
                                                             <span className="truncate text-[10px] text-slate-400">
-                                                                {account.email} • {account.department}
+                                                                {account.email} • {account.department || 'External'}
                                                             </span>
                                                         </div>
                                                         <Button

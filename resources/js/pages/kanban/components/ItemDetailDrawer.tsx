@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { BoardPermissions, getTaskAssignedUsers, isProductionDeadlineHidden, isUserAssignedToTask, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
+import { BoardPermissions, getTaskAssignedUsers, isProductionDeadlineHidden, isTaskInCompletedStage, isUserAssignedToTask, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
@@ -60,6 +60,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
 
     const { auth } = usePage().props as any;
     const currentUser = auth?.user;
+    const isClientUser = Boolean(currentUser?.role === 'client' || currentUser?.is_client === true);
     const isSuperAdminOrAdmin = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
     const isReviewerRole = isSuperAdminOrAdmin || currentUser?.role === 'project_manager' || currentUser?.role === 'account_manager';
 
@@ -87,13 +88,18 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     );
     const isEmployeeView = !isPrivilegedManager;
 
-    const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity' | 'reviews' | 'dependencies'>('updates');
+    const [activeCollabTab, setActiveCollabTab] = useState<'updates' | 'files' | 'activity' | 'reviews' | 'dependencies'>(
+        isClientUser ? 'reviews' : 'updates'
+    );
     const [reviewCycles, setReviewCycles] = useState<TaskReviewCycle[]>(task.review_cycles || []);
     const [submitNotes, setSubmitNotes] = useState('');
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
     const [decisionFeedback, setDecisionFeedback] = useState('');
     const [isDeciding, setIsDeciding] = useState(false);
     const [reviewErrorMessage, setReviewErrorMessage] = useState<string | null>(null);
+    const [clientFeedbackText, setClientFeedbackText] = useState('');
+    const [isClientSubmittingDecision, setIsClientSubmittingDecision] = useState(false);
+    const [clientDecisionSuccess, setClientDecisionSuccess] = useState<string | null>(null);
     const [reviewPipelinePreset, setReviewPipelinePreset] = useState<'single' | 'two_stage' | 'three_stage'>('single');
 
     // Client Review & Revision State
@@ -532,6 +538,53 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
         }
     };
 
+    const handleClientApprove = () => {
+        if (!confirm('Approve these deliverables and mark this task complete?')) return;
+        setIsClientSubmittingDecision(true);
+        setReviewErrorMessage(null);
+        router.post(
+            `/client-portal/tasks/${task.id}/approve`,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsClientSubmittingDecision(false);
+                    setClientDecisionSuccess('Deliverables approved successfully! Task is now complete.');
+                },
+                onError: (errors: any) => {
+                    setIsClientSubmittingDecision(false);
+                    setReviewErrorMessage(errors?.feedback || 'Failed to approve task.');
+                },
+            }
+        );
+    };
+
+    const handleClientRequestRevision = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!clientFeedbackText.trim()) {
+            setReviewErrorMessage('Please provide revision notes or feedback.');
+            return;
+        }
+        setIsClientSubmittingDecision(true);
+        setReviewErrorMessage(null);
+        router.post(
+            `/client-portal/tasks/${task.id}/request-revision`,
+            { feedback: clientFeedbackText },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setIsClientSubmittingDecision(false);
+                    setClientFeedbackText('');
+                    setClientDecisionSuccess('Revision requested. Our project managers have been notified.');
+                },
+                onError: (errors: any) => {
+                    setIsClientSubmittingDecision(false);
+                    setReviewErrorMessage(errors?.feedback || 'Failed to submit revision request.');
+                },
+            }
+        );
+    };
+
     const [titleInput, setTitleInput] = useState(task.title);
     const [commentText, setCommentText] = useState('');
     const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
@@ -543,9 +596,11 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     const [lightboxAsset, setLightboxAsset] = useState<MediaAsset | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const comments = task.comments || [];
+    const rawComments = task.comments || [];
     const subitems = task.subitems || [];
-    const attachments = task.attachments || [];
+    const rawAttachments = task.attachments || [];
+    const comments = isClientUser ? rawComments.filter((c: any) => c.is_client_visible !== false) : rawComments;
+    const attachments = isClientUser ? rawAttachments.filter((a: any) => a.is_client_visible !== false) : rawAttachments;
     const mediaUsages = task.media_usages || task.mediaUsages || [];
     const boardColumns = board.board_columns || [];
 
@@ -812,7 +867,128 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                 <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-12 min-h-0">
                     {/* LEFT PANEL: TASK INFORMATION (5 Columns / 41.7%) */}
                     <div className="border-border bg-card overflow-y-auto border-b p-6 lg:col-span-5 lg:border-r lg:border-b-0 min-h-0">
-                        {isEmployeeView ? (
+                        {isClientUser ? (
+                            <div className="space-y-5">
+                                {/* Task Title */}
+                                <div>
+                                    <h2 className="text-foreground text-xl font-black">
+                                        {task.title}
+                                    </h2>
+                                </div>
+
+                                {/* Client Properties */}
+                                <div className="space-y-3.5 text-xs">
+                                    {/* Project */}
+                                    <div className="grid grid-cols-3 items-center">
+                                        <Label className="text-muted-foreground font-medium">Project</Label>
+                                        <div className="col-span-2">
+                                            <span className="font-semibold text-foreground">
+                                                {task.project?.name || (task as any).project_name || board.title}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Review Status */}
+                                    <div className="grid grid-cols-3 items-center">
+                                        <Label className="text-muted-foreground font-medium">Review Status</Label>
+                                        <div className="col-span-2">
+                                            {task.client_review_status === 'approved' || isTaskInCompletedStage(task, currentColumn) ? (
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                                    Approved
+                                                </span>
+                                            ) : task.client_review_status === 'revision_requested' ? (
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 px-2.5 py-0.5 text-xs font-bold text-rose-600 dark:text-rose-400">
+                                                    <RotateCcw className="h-3.5 w-3.5" />
+                                                    Revision Requested {task.client_revision_count ? `(Round ${task.client_revision_count})` : ''}
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/15 px-2.5 py-0.5 text-xs font-bold text-blue-600 dark:text-blue-400">
+                                                    <Clock className="h-3.5 w-3.5" />
+                                                    Awaiting Your Review
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Client Deadline (Suppressed if complete) */}
+                                    {!isTaskInCompletedStage(task, currentColumn) && task.client_deadline && (
+                                        <div className="grid grid-cols-3 items-center">
+                                            <Label className="text-muted-foreground font-medium">Client Deadline</Label>
+                                            <div className="col-span-2 flex items-center gap-1.5 font-semibold text-foreground">
+                                                <Calendar className="h-3.5 w-3.5 text-primary" />
+                                                <span>{formatDate(task.client_deadline)}</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Deliverables Count */}
+                                    <div className="grid grid-cols-3 items-center">
+                                        <Label className="text-muted-foreground font-medium">Deliverables</Label>
+                                        <div className="col-span-2 font-semibold text-foreground">
+                                            <span>{task.deliverables?.length ?? (task as any).deliverables_count ?? 0} attached</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Task Description / Overview */}
+                                <div className="border-t border-border/50 pt-4 space-y-2">
+                                    <Label className="text-xs font-bold text-foreground uppercase tracking-wider">
+                                        Overview & Description
+                                    </Label>
+                                    {task.description ? (
+                                        <div className="rounded-xl border border-border/60 bg-muted/20 p-3.5 text-xs text-foreground/90 whitespace-pre-wrap leading-relaxed">
+                                            {task.description}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground italic">No detailed description provided for this item.</p>
+                                    )}
+                                </div>
+
+                                {/* Deliverables summary */}
+                                {task.deliverables && task.deliverables.length > 0 && (
+                                    <div className="border-t border-border/50 pt-4 space-y-2">
+                                        <Label className="text-xs font-bold text-foreground uppercase tracking-wider">
+                                            Attached Deliverables ({task.deliverables.length})
+                                        </Label>
+                                        <div className="space-y-1.5">
+                                            {task.deliverables.map((del: any) => (
+                                                <div key={del.id} className="flex items-center justify-between rounded-xl border border-border/60 bg-card p-2.5 text-xs">
+                                                    <div className="truncate pr-2">
+                                                        <p className="font-semibold text-foreground truncate">{del.title}</p>
+                                                        <span className="text-[10px] text-muted-foreground">Version {del.version || 1}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        {del.file_url && (
+                                                            <a
+                                                                href={del.file_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-semibold text-primary hover:bg-muted"
+                                                            >
+                                                                <Download className="h-3 w-3" />
+                                                                Download
+                                                            </a>
+                                                        )}
+                                                        {del.external_url && (
+                                                            <a
+                                                                href={del.external_url}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 rounded-lg border border-border px-2 py-1 text-[11px] font-semibold text-primary hover:bg-muted"
+                                                            >
+                                                                <ExternalLink className="h-3 w-3" />
+                                                                View
+                                                            </a>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ) : isEmployeeView ? (
                             <EmployeeTaskPanel
                                 task={task}
                                 board={board}
@@ -1493,71 +1669,116 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
             <div className="bg-background flex flex-col overflow-hidden lg:col-span-7 min-h-0">
                         {/* Tabs Bar */}
                         <div className="border-border flex items-center gap-6 border-b px-6 pt-4 text-xs font-bold">
-                            <button
-                                onClick={() => setActiveCollabTab('updates')}
-                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
-                                    activeCollabTab === 'updates'
-                                        ? 'border-primary text-primary'
-                                        : 'text-muted-foreground hover:text-foreground border-transparent'
-                                }`}
-                            >
-                                <MessageCircle className="h-4 w-4" />
-                                <span>Updates ({comments.length})</span>
-                            </button>
+                            {isClientUser ? (
+                                <>
+                                    <button
+                                        onClick={() => setActiveCollabTab('reviews')}
+                                        className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                            activeCollabTab === 'reviews'
+                                                ? 'border-primary text-primary'
+                                                : 'text-muted-foreground hover:text-foreground border-transparent'
+                                        }`}
+                                    >
+                                        <ShieldCheck className="h-4 w-4" />
+                                        <span>Reviews & Approvals</span>
+                                        {(task.client_review_status === 'submitted' || currentColumn?.stage_key === 'client_under_review') && task.client_review_status !== 'approved' && (
+                                            <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                                        )}
+                                    </button>
 
-                            <button
-                                onClick={() => setActiveCollabTab('files')}
-                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
-                                    activeCollabTab === 'files'
-                                        ? 'border-primary text-primary'
-                                        : 'text-muted-foreground hover:text-foreground border-transparent'
-                                }`}
-                            >
-                                <Paperclip className="h-4 w-4" />
-                                <span>Files ({attachments.length})</span>
-                            </button>
+                                    <button
+                                        onClick={() => setActiveCollabTab('updates')}
+                                        className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                            activeCollabTab === 'updates'
+                                                ? 'border-primary text-primary'
+                                                : 'text-muted-foreground hover:text-foreground border-transparent'
+                                        }`}
+                                    >
+                                        <MessageCircle className="h-4 w-4" />
+                                        <span>Discussions ({comments.length})</span>
+                                    </button>
 
-                            <button
-                                onClick={() => setActiveCollabTab('activity')}
-                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
-                                    activeCollabTab === 'activity'
-                                        ? 'border-primary text-primary'
-                                        : 'text-muted-foreground hover:text-foreground border-transparent'
-                                }`}
-                            >
-                                <Activity className="h-4 w-4" />
-                                <span>Activity Log</span>
-                            </button>
+                                    <button
+                                        onClick={() => setActiveCollabTab('files')}
+                                        className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                            activeCollabTab === 'files'
+                                                ? 'border-primary text-primary'
+                                                : 'text-muted-foreground hover:text-foreground border-transparent'
+                                        }`}
+                                    >
+                                        <Paperclip className="h-4 w-4" />
+                                        <span>Deliverables & Files ({attachments.length})</span>
+                                    </button>
+                                </>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => setActiveCollabTab('updates')}
+                                        className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                            activeCollabTab === 'updates'
+                                                ? 'border-primary text-primary'
+                                                : 'text-muted-foreground hover:text-foreground border-transparent'
+                                        }`}
+                                    >
+                                        <MessageCircle className="h-4 w-4" />
+                                        <span>Updates ({comments.length})</span>
+                                    </button>
 
-                            <button
-                                onClick={() => setActiveCollabTab('reviews')}
-                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
-                                    activeCollabTab === 'reviews'
-                                        ? 'border-primary text-primary'
-                                        : 'text-muted-foreground hover:text-foreground border-transparent'
-                                }`}
-                            >
-                                <ShieldCheck className="h-4 w-4" />
-                                <span>Reviews ({reviewCycles.length})</span>
-                                {isPendingReview && (
-                                    <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                                )}
-                            </button>
+                                    <button
+                                        onClick={() => setActiveCollabTab('files')}
+                                        className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                            activeCollabTab === 'files'
+                                                ? 'border-primary text-primary'
+                                                : 'text-muted-foreground hover:text-foreground border-transparent'
+                                        }`}
+                                    >
+                                        <Paperclip className="h-4 w-4" />
+                                        <span>Files ({attachments.length})</span>
+                                    </button>
 
-                            <button
-                                onClick={() => setActiveCollabTab('dependencies')}
-                                className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
-                                    activeCollabTab === 'dependencies'
-                                        ? 'border-primary text-primary'
-                                        : 'text-muted-foreground hover:text-foreground border-transparent'
-                                }`}
-                            >
-                                <GitFork className="h-4 w-4" />
-                                <span>Dependencies ({dependencySummary.blocked_by.length + dependencySummary.blocks.length + dependencySummary.related.length})</span>
-                                {dependencySummary.is_blocked && (
-                                    <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" title="Task is blocked" />
-                                )}
-                            </button>
+                                    <button
+                                        onClick={() => setActiveCollabTab('activity')}
+                                        className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                            activeCollabTab === 'activity'
+                                                ? 'border-primary text-primary'
+                                                : 'text-muted-foreground hover:text-foreground border-transparent'
+                                        }`}
+                                    >
+                                        <Activity className="h-4 w-4" />
+                                        <span>Activity Log</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setActiveCollabTab('reviews')}
+                                        className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                            activeCollabTab === 'reviews'
+                                                ? 'border-primary text-primary'
+                                                : 'text-muted-foreground hover:text-foreground border-transparent'
+                                        }`}
+                                    >
+                                        <ShieldCheck className="h-4 w-4" />
+                                        <span>Reviews ({reviewCycles.length})</span>
+                                        {isPendingReview && (
+                                            <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+                                        )}
+                                    </button>
+
+                                    <button
+                                        onClick={() => setActiveCollabTab('dependencies')}
+                                        className={`flex items-center gap-1.5 border-b-2 pb-3 transition-all ${
+                                            activeCollabTab === 'dependencies'
+                                                ? 'border-primary text-primary'
+                                                : 'text-muted-foreground hover:text-foreground border-transparent'
+                                        }`}
+                                    >
+                                        <GitFork className="h-4 w-4" />
+                                        <span>Dependencies ({dependencySummary.blocked_by.length + dependencySummary.blocks.length + dependencySummary.related.length})</span>
+                                        {dependencySummary.is_blocked && (
+                                            <span className="flex h-2 w-2 rounded-full bg-red-500 animate-pulse" title="Task is blocked" />
+                                        )}
+                                    </button>
+                                </>
+                            )}
                         </div>
 
                         {/* Tab Contents */}
@@ -2060,6 +2281,202 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
 
                             {/* 4. REVIEWS & APPROVALS TAB */}
                             {activeCollabTab === 'reviews' && (
+                                isClientUser ? (
+                                    <div className="space-y-6">
+                                        {/* Error Banner */}
+                                        {reviewErrorMessage && (
+                                            <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs text-red-600 border border-red-200 dark:bg-red-950/30 dark:border-red-900/50">
+                                                <AlertCircle className="h-4 w-4 shrink-0" />
+                                                <span>{reviewErrorMessage}</span>
+                                            </div>
+                                        )}
+                                        {clientDecisionSuccess && (
+                                            <div className="flex items-center gap-2 rounded-xl bg-emerald-50 p-3 text-xs text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-900/50">
+                                                <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                                <span>{clientDecisionSuccess}</span>
+                                            </div>
+                                        )}
+
+                                        {/* State 1: Complete / Approved */}
+                                        {(task.client_review_status === 'approved' || isTaskInCompletedStage(task, currentColumn)) ? (
+                                            <div className="rounded-2xl border border-emerald-300 bg-emerald-50/80 p-5 space-y-3 dark:border-emerald-900/60 dark:bg-emerald-950/30">
+                                                <div className="flex items-center gap-2.5">
+                                                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-white font-bold">
+                                                        <CheckCircle2 className="h-4 w-4" />
+                                                    </span>
+                                                    <div>
+                                                        <h4 className="text-sm font-bold text-emerald-950 dark:text-emerald-200">
+                                                            Deliverables Approved & Task Completed
+                                                        </h4>
+                                                        <p className="text-xs text-emerald-700 dark:text-emerald-300">
+                                                            You have signed off on these deliverables. This task is complete.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : task.client_review_status === 'revision_requested' ? (
+                                            /* State 2: Revision Requested by Client */
+                                            <div className="rounded-2xl border border-rose-300 bg-rose-50/80 p-5 space-y-3 dark:border-rose-900/60 dark:bg-rose-950/30">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-rose-600 text-white font-bold">
+                                                            <RotateCcw className="h-4 w-4" />
+                                                        </span>
+                                                        <div>
+                                                            <h4 className="text-sm font-bold text-rose-950 dark:text-rose-200">
+                                                                Revision in Progress (Round {task.client_revision_count || 1})
+                                                            </h4>
+                                                            <p className="text-xs text-rose-700 dark:text-rose-300">
+                                                                Your revision notes were submitted to the project team. A revised version is being prepared.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="rounded-full bg-rose-600/10 px-2.5 py-0.5 text-xs font-bold text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
+                                                        In Revision
+                                                    </span>
+                                                </div>
+                                                {latestClientCycle?.client_feedback && (
+                                                    <div className="rounded-xl bg-white p-3.5 text-xs text-slate-800 shadow-2xs border border-rose-200/60 dark:bg-[#1E1E2F] dark:text-slate-200 dark:border-rose-900/40">
+                                                        <span className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400 block mb-1">
+                                                            Your Submitted Feedback:
+                                                        </span>
+                                                        <p className="whitespace-pre-wrap">{latestClientCycle.client_feedback}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            /* State 3: Awaiting Client Review / Approval Decision */
+                                            <div className="rounded-2xl border border-[#0073ea]/30 bg-[#0073ea]/5 p-5 space-y-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2.5">
+                                                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0073ea] text-white font-bold">
+                                                            <ShieldCheck className="h-4 w-4" />
+                                                        </span>
+                                                        <div>
+                                                            <h4 className="text-sm font-bold text-foreground">
+                                                                Deliverable Review & Sign-off
+                                                            </h4>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                Please inspect the deliverables below and submit your sign-off or revision notes.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <span className="rounded-full bg-[#0073ea]/15 px-2.5 py-0.5 text-xs font-bold text-[#0073ea] dark:text-[#579bfc]">
+                                                        Action Required
+                                                    </span>
+                                                </div>
+
+                                                {/* Attached Deliverables with direct links */}
+                                                {task.deliverables && task.deliverables.length > 0 && (
+                                                    <div className="space-y-2 rounded-xl bg-card border border-border/80 p-3">
+                                                        <span className="text-[11px] font-bold uppercase text-muted-foreground tracking-wider block">
+                                                            Deliverables Ready for Review
+                                                        </span>
+                                                        <div className="space-y-2">
+                                                            {task.deliverables.map((del: any) => (
+                                                                <div key={del.id} className="flex items-center justify-between rounded-lg bg-muted/30 p-2.5 text-xs">
+                                                                    <div className="truncate pr-3">
+                                                                        <p className="font-semibold text-foreground truncate">{del.title}</p>
+                                                                        {del.description && <p className="text-[11px] text-muted-foreground truncate">{del.description}</p>}
+                                                                        <span className="text-[10px] text-muted-foreground">v{del.version || 1}</span>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 shrink-0">
+                                                                        {del.file_url && (
+                                                                            <a
+                                                                                href={del.file_url}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="inline-flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground hover:bg-primary/90"
+                                                                            >
+                                                                                <Download className="h-3 w-3" />
+                                                                                Download
+                                                                            </a>
+                                                                        )}
+                                                                        {del.external_url && (
+                                                                            <a
+                                                                                href={del.external_url}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="inline-flex items-center gap-1 rounded-lg border border-primary text-primary px-2.5 py-1 text-xs font-semibold hover:bg-primary/10"
+                                                                            >
+                                                                                <ExternalLink className="h-3 w-3" />
+                                                                                Open Asset
+                                                                            </a>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Feedback & Actions */}
+                                                <form onSubmit={handleClientRequestRevision} className="space-y-3 pt-2">
+                                                    <div className="space-y-1.5">
+                                                        <Label className="text-xs font-bold text-foreground">
+                                                            Feedback & Revision Notes
+                                                        </Label>
+                                                        <textarea
+                                                            rows={3}
+                                                            value={clientFeedbackText}
+                                                            onChange={(e) => setClientFeedbackText(e.target.value)}
+                                                            placeholder="If you need changes, describe them clearly here before clicking Request Revision..."
+                                                            className="w-full rounded-xl border border-border bg-card p-3 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+                                                        <Button
+                                                            type="submit"
+                                                            size="sm"
+                                                            disabled={isClientSubmittingDecision}
+                                                            className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 shadow-xs"
+                                                        >
+                                                            <RotateCcw className="h-3.5 w-3.5" />
+                                                            <span>Request Revision</span>
+                                                        </Button>
+
+                                                        <Button
+                                                            type="button"
+                                                            size="sm"
+                                                            disabled={isClientSubmittingDecision}
+                                                            onClick={handleClientApprove}
+                                                            className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold gap-1.5 shadow-xs"
+                                                        >
+                                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                                            <span>Approve Deliverables</span>
+                                                        </Button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        )}
+
+                                        {/* Review History / Cycles */}
+                                        {reviewCycles.length > 0 && (
+                                            <div className="space-y-3 border-t border-border/60 pt-4">
+                                                <span className="text-xs font-bold text-foreground uppercase tracking-wider block">
+                                                    Review History ({reviewCycles.length} {reviewCycles.length === 1 ? 'Round' : 'Rounds'})
+                                                </span>
+                                                <div className="space-y-2">
+                                                    {reviewCycles.map((cyc: any) => (
+                                                        <div key={cyc.id} className="rounded-xl border border-border bg-card p-3 text-xs space-y-1.5">
+                                                            <div className="flex items-center justify-between font-semibold">
+                                                                <span>Round {cyc.round_number}</span>
+                                                                <span className="capitalize text-[11px] text-muted-foreground">{cyc.state?.replace('_', ' ')}</span>
+                                                            </div>
+                                                            {cyc.client_feedback && (
+                                                                <p className="text-muted-foreground text-[11px] whitespace-pre-wrap">{cyc.client_feedback}</p>
+                                                            )}
+                                                            {cyc.resolved_at && (
+                                                                <span className="text-[10px] text-muted-foreground/60 block">{formatDate(cyc.resolved_at)}</span>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : (
                                 <div className="space-y-6">
                                     {/* Error Banner */}
                                     {reviewErrorMessage && (
@@ -2652,7 +3069,8 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                         )}
                                     </div>
                                 </div>
-                            )}
+                            )
+                        )}
 
                             {/* Dependencies & Blockers Tab */}
                             {activeCollabTab === 'dependencies' && (
