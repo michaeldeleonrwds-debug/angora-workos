@@ -60,17 +60,17 @@ export default function Password() {
                 description="Manage your account password, security credentials, and authentication sessions"
             >
                 <div className="space-y-6">
-                    <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
-                        <div className="mb-5 border-b border-white/[0.06] pb-3">
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-white">Change Password</h3>
-                            <p className="mt-0.5 text-xs text-slate-400">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
+                        <div className="mb-5 border-b border-slate-200 pb-3 dark:border-white/[0.06]">
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Change Password</h3>
+                            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                                 Ensure your account uses a secure passphrase at least 8 characters in length.
                             </p>
                         </div>
 
                         <form onSubmit={updatePassword} className="space-y-4 max-w-xl">
                             <div className="space-y-1.5">
-                                <Label htmlFor="current_password" className="text-xs font-semibold text-slate-300">
+                                <Label htmlFor="current_password" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                     Current Password
                                 </Label>
                                 <Input
@@ -79,15 +79,15 @@ export default function Password() {
                                     value={data.current_password}
                                     onChange={(e) => setData('current_password', e.target.value)}
                                     type="password"
-                                    className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                    className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                     autoComplete="current-password"
                                     placeholder="Enter current password"
                                 />
-                                <InputError className="text-xs text-red-400" message={errors.current_password} />
+                                <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.current_password} />
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label htmlFor="password" className="text-xs font-semibold text-slate-300">
+                                <Label htmlFor="password" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                     New Password
                                 </Label>
                                 <Input
@@ -96,15 +96,15 @@ export default function Password() {
                                     value={data.password}
                                     onChange={(e) => setData('password', e.target.value)}
                                     type="password"
-                                    className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                    className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                     autoComplete="new-password"
                                     placeholder="Enter new password"
                                 />
-                                <InputError className="text-xs text-red-400" message={errors.password} />
+                                <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.password} />
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label htmlFor="password_confirmation" className="text-xs font-semibold text-slate-300">
+                                <Label htmlFor="password_confirmation" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                     Confirm New Password
                                 </Label>
                                 <Input
@@ -112,11 +112,11 @@ export default function Password() {
                                     value={data.password_confirmation}
                                     onChange={(e) => setData('password_confirmation', e.target.value)}
                                     type="password"
-                                    className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                    className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                     autoComplete="new-password"
                                     placeholder="Confirm new password"
                                 />
-                                <InputError className="text-xs text-red-400" message={errors.password_confirmation} />
+                                <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.password_confirmation} />
                             </div>
 
                             <div className="flex items-center gap-3 pt-3">
@@ -156,12 +156,12 @@ export default function Password() {
                         </form>
                     </div>
 
-                    <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
                         <div className="flex items-start gap-3">
-                            <ShieldAlert className="h-5 w-5 text-[#579bfc] shrink-0 mt-0.5" />
+                            <ShieldAlert className="h-5 w-5 text-[#0073ea] dark:text-[#579bfc] shrink-0 mt-0.5" />
                             <div>
-                                <h4 className="text-xs font-bold text-white">Active Session Security</h4>
-                                <p className="mt-0.5 text-xs text-slate-400">
+                                <h4 className="text-xs font-bold text-slate-900 dark:text-white">Active Session Security</h4>
+                                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                                     Updating your password automatically invalidates other active device sessions for your security.
                                 </p>
                             </div>

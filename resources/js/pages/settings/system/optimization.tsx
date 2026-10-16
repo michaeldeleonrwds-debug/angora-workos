@@ -53,29 +53,30 @@ export default function OptimizationSettings({ optimization }: { optimization: O
             >
                 <div className="space-y-6">
                     {/* Driver Status Banner */}
-                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-white/[0.08] bg-[#19192A]/60 p-5">
+                    {/* Driver Status Banner */}
+                    <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/60">
                         <div className="flex items-center gap-3.5">
-                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#00c875]/20 text-[#00c875]">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-600 dark:bg-[#00c875]/20 dark:text-[#00c875]">
                                 <ImageIcon className="h-6 w-6" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-bold text-white">Graphic Driver Pipeline</h3>
-                                <p className="mt-0.5 text-xs text-slate-400">
-                                    Intervention Image v3 · Worker queue: <span className="font-mono text-white font-semibold">{optimization.queue_name}</span> (Isolated from real-time broadcasts)
+                                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Graphic Driver Pipeline</h3>
+                                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                    Intervention Image v3 · Worker queue: <span className="font-mono text-slate-900 font-semibold dark:text-white">{optimization.queue_name}</span> (Isolated from real-time broadcasts)
                                 </p>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-slate-300">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-300">
                                 {optimization.gd_available || optimization.imagick_available ? (
                                     <>
-                                        <CheckCircle2 className="h-3.5 w-3.5 text-[#00c875]" />
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-[#00c875]" />
                                         <span>{optimization.imagick_available ? 'Imagick Active' : 'GD Active'}</span>
                                     </>
                                 ) : (
                                     <>
-                                        <AlertCircle className="h-3.5 w-3.5 text-amber-400" />
+                                        <AlertCircle className="h-3.5 w-3.5 text-amber-500" />
                                         <span>GD/Imagick Extension Optional</span>
                                     </>
                                 )}
@@ -84,10 +85,10 @@ export default function OptimizationSettings({ optimization }: { optimization: O
                     </div>
 
                     <form onSubmit={submit} className="space-y-6">
-                        <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
-                            <div className="mb-5 border-b border-white/[0.06] pb-3">
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-white">Compression Parameters</h3>
-                                <p className="mt-0.5 text-xs text-slate-400">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
+                            <div className="mb-5 border-b border-slate-200 pb-3 dark:border-white/[0.06]">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Compression Parameters</h3>
+                                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                                     Resize and compress uploaded image attachments asynchronously to preserve storage and bandwidth
                                 </p>
                             </div>
@@ -98,17 +99,17 @@ export default function OptimizationSettings({ optimization }: { optimization: O
                                         type="checkbox"
                                         checked={data.enabled}
                                         onChange={(e) => setData('enabled', e.target.checked)}
-                                        className="h-4 w-4 rounded border-white/20 bg-[#1E1E30] text-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                     />
                                     <div>
-                                        <span className="text-xs font-semibold text-white">Enable Automatic Background Optimization</span>
-                                        <p className="text-[11px] text-slate-400">Dispatches OptimizeImageJob to the default background queue</p>
+                                        <span className="text-xs font-semibold text-slate-900 dark:text-white">Enable Automatic Background Optimization</span>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Dispatches OptimizeImageJob to the default background queue</p>
                                     </div>
                                 </label>
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="max_width" className="text-xs font-semibold text-slate-300">
+                                        <Label htmlFor="max_width" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                             Max Width (px)
                                         </Label>
                                         <Input
@@ -116,13 +117,13 @@ export default function OptimizationSettings({ optimization }: { optimization: O
                                             type="number"
                                             value={data.max_width}
                                             onChange={(e) => setData('max_width', parseInt(e.target.value) || 1920)}
-                                            className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                            className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         />
-                                        <InputError className="text-xs text-red-400" message={errors.max_width} />
+                                        <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.max_width} />
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <Label htmlFor="max_height" className="text-xs font-semibold text-slate-300">
+                                        <Label htmlFor="max_height" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                             Max Height (px)
                                         </Label>
                                         <Input
@@ -130,18 +131,18 @@ export default function OptimizationSettings({ optimization }: { optimization: O
                                             type="number"
                                             value={data.max_height}
                                             onChange={(e) => setData('max_height', parseInt(e.target.value) || 1080)}
-                                            className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                            className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         />
-                                        <InputError className="text-xs text-red-400" message={errors.max_height} />
+                                        <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.max_height} />
                                     </div>
                                 </div>
 
                                 <div className="space-y-1.5">
                                     <div className="flex justify-between">
-                                        <Label htmlFor="quality" className="text-xs font-semibold text-slate-300">
+                                        <Label htmlFor="quality" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                             JPEG / WebP Quality (%)
                                         </Label>
-                                        <span className="text-xs font-mono text-slate-400">{data.quality}%</span>
+                                        <span className="text-xs font-mono text-slate-500 dark:text-slate-400">{data.quality}%</span>
                                     </div>
                                     <input
                                         type="range"
@@ -150,7 +151,7 @@ export default function OptimizationSettings({ optimization }: { optimization: O
                                         step="5"
                                         value={data.quality}
                                         onChange={(e) => setData('quality', parseInt(e.target.value) || 80)}
-                                        className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-white/20 accent-[#00c875]"
+                                        className="h-1.5 w-full cursor-pointer appearance-none rounded-lg bg-slate-200 accent-emerald-600 dark:bg-white/20 dark:accent-[#00c875]"
                                     />
                                 </div>
 
@@ -159,11 +160,11 @@ export default function OptimizationSettings({ optimization }: { optimization: O
                                         type="checkbox"
                                         checked={data.generate_webp}
                                         onChange={(e) => setData('generate_webp', e.target.checked)}
-                                        className="h-4 w-4 rounded border-white/20 bg-[#1E1E30] text-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                     />
                                     <div>
-                                        <span className="text-xs font-semibold text-white">Generate WebP Next-Gen Formats</span>
-                                        <p className="text-[11px] text-slate-400">Stores WebP variants alongside original files for faster page loads</p>
+                                        <span className="text-xs font-semibold text-slate-900 dark:text-white">Generate WebP Next-Gen Formats</span>
+                                        <p className="text-[11px] text-slate-500 dark:text-slate-400">Stores WebP variants alongside original files for faster page loads</p>
                                     </div>
                                 </label>
                             </div>

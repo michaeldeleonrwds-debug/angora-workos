@@ -311,8 +311,8 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                         onClick={() => fileInputRef.current?.click()}
                         className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition-colors cursor-pointer ${
                             dragActive
-                                ? 'border-[#D8F779] bg-[#D8F779]/5'
-                                : 'border-white/10 hover:border-white/20 bg-[#28283E]/50'
+                                ? 'border-[#0073ea] bg-[#0073ea]/5 dark:border-[#D8F779] dark:bg-[#D8F779]/5'
+                                : 'border-slate-300 bg-white hover:border-slate-400 dark:border-white/10 dark:bg-[#28283E]/50 dark:hover:border-white/20'
                         }`}
                     >
                         <input
@@ -323,10 +323,10 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                             className="hidden"
                         />
                         <Upload className="mb-1.5 h-5 w-5 text-slate-400" />
-                        <span className="text-xs font-semibold text-white">
+                        <span className="text-xs font-semibold text-slate-900 dark:text-white">
                             Click to upload or drag & drop photo here
                         </span>
-                        <span className="text-[11px] text-slate-400">
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
                             Square crop with zoom & circular preview
                         </span>
                     </div>
@@ -337,7 +337,7 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                             variant="secondary"
                             size="sm"
                             onClick={() => fileInputRef.current?.click()}
-                            className="h-8 gap-1.5 text-xs font-semibold bg-[#28283E] hover:bg-[#353550] text-white border border-white/10"
+                            className="h-8 gap-1.5 text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:bg-[#28283E] dark:text-white dark:hover:bg-[#353550]"
                         >
                             <Camera className="h-3.5 w-3.5" />
                             <span>{hasAvatar ? 'Change Photo' : 'Upload Photo'}</span>
@@ -350,7 +350,7 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                                 size="sm"
                                 onClick={handleRemoveAvatar}
                                 disabled={isDeleting}
-                                className="h-8 gap-1.5 text-xs font-semibold text-red-400 hover:bg-red-500/10 hover:text-red-300"
+                                className="h-8 gap-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-300"
                             >
                                 {isDeleting ? (
                                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -366,10 +366,10 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
 
             {/* Square Crop & Circular Preview Modal */}
             <Dialog open={cropModalOpen} onOpenChange={setCropModalOpen}>
-                <DialogContent className="max-w-md border-white/10 bg-[#1E1E30] text-white">
+                <DialogContent className="max-w-md border-slate-200 bg-white text-slate-900 dark:border-white/10 dark:bg-[#1E1E30] dark:text-white">
                     <DialogHeader>
-                        <DialogTitle className="text-base font-bold text-white">Crop Profile Photo</DialogTitle>
-                        <DialogDescription className="text-xs text-slate-400">
+                        <DialogTitle className="text-base font-bold text-slate-900 dark:text-white">Crop Profile Photo</DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500 dark:text-slate-400">
                             Drag to reposition and adjust the slider to zoom. The circle shows your final avatar.
                         </DialogDescription>
                     </DialogHeader>
@@ -377,7 +377,7 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                     <div className="flex flex-col items-center gap-5 py-3">
                         {/* Interactive Square Crop Viewport */}
                         <div
-                            className="relative h-[240px] w-[240px] overflow-hidden rounded-2xl border-2 border-[#D8F779]/40 bg-black/60 shadow-inner cursor-grab active:cursor-grabbing select-none"
+                            className="relative h-[240px] w-[240px] overflow-hidden rounded-2xl border-2 border-[#0073ea]/40 bg-slate-900 shadow-inner cursor-grab active:cursor-grabbing select-none dark:border-[#D8F779]/40 dark:bg-black/60"
                             onMouseDown={handleMouseDown}
                             onMouseMove={handleMouseMove}
                             onMouseUp={handleMouseUp}
@@ -400,13 +400,13 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                                 />
                             )}
                             {/* Circular Overlay Mask Guideline */}
-                            <div className="pointer-events-none absolute inset-0 rounded-full border-2 border-dashed border-white/60" />
+                            <div className="pointer-events-none absolute inset-0 rounded-full border-2 border-dashed border-white/70" />
                         </div>
 
                         {/* Live Circular Preview */}
                         <div className="flex items-center gap-4">
-                            <span className="text-xs font-semibold text-slate-300">Live Preview:</span>
-                            <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-white/20 shadow-md">
+                            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Live Preview:</span>
+                            <div className="relative h-16 w-16 overflow-hidden rounded-full border-2 border-slate-300 shadow-md dark:border-white/20">
                                 {rawImageSrc && (
                                     <img
                                         src={rawImageSrc}
@@ -433,7 +433,7 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                                 step="0.05"
                                 value={zoom}
                                 onChange={(e) => setZoom(parseFloat(e.target.value))}
-                                className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-white/20 accent-[#D8F779]"
+                                className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-slate-200 accent-[#0073ea] dark:bg-white/20 dark:accent-[#D8F779]"
                             />
                             <ZoomIn className="h-4 w-4 text-slate-400" />
                         </div>
@@ -445,7 +445,7 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                             variant="ghost"
                             onClick={() => setCropModalOpen(false)}
                             disabled={isSaving}
-                            className="text-xs text-slate-300 hover:bg-white/10 hover:text-white"
+                            className="text-xs text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
                         >
                             Cancel
                         </Button>
@@ -453,7 +453,7 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                             type="button"
                             onClick={handleSaveCrop}
                             disabled={isSaving}
-                            className="gap-1.5 text-xs font-bold bg-[#D8F779] hover:bg-[#c9e86a] text-black"
+                            className="gap-1.5 text-xs font-bold bg-[#0073ea] text-white hover:bg-[#0060c0] dark:bg-[#D8F779] dark:hover:bg-[#c9e86a] dark:text-black"
                         >
                             {isSaving ? (
                                 <>

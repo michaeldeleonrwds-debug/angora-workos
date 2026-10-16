@@ -48,15 +48,15 @@ export default function SecuritySettings({ policy, canManage }: { policy: Securi
             >
                 <div className="space-y-6">
                     <form onSubmit={submit} className="space-y-6">
-                        <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
-                            <div className="mb-5 flex items-center gap-2 border-b border-white/[0.06] pb-3">
-                                <Shield className="h-4 w-4 text-[#00c875]" />
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-white">Authentication & Session Rules</h3>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
+                            <div className="mb-5 flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-white/[0.06]">
+                                <Shield className="h-4 w-4 text-emerald-600 dark:text-[#00c875]" />
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Authentication & Session Rules</h3>
                             </div>
 
                             <div className="space-y-5 max-w-xl">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="session_lifetime" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="session_lifetime" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         Session Expiration (Minutes)
                                     </Label>
                                     <Input
@@ -65,14 +65,14 @@ export default function SecuritySettings({ policy, canManage }: { policy: Securi
                                         disabled={!canManage}
                                         value={data.session_lifetime}
                                         onChange={(e) => setData('session_lifetime', parseInt(e.target.value) || 120)}
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                     />
-                                    <p className="text-[11px] text-slate-400">Idle duration before a user is prompted to sign in again</p>
-                                    <InputError className="text-xs text-red-400" message={errors.session_lifetime} />
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Idle duration before a user is prompted to sign in again</p>
+                                    <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.session_lifetime} />
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="min_password_length" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="min_password_length" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         Minimum Password Length
                                     </Label>
                                     <Input
@@ -81,13 +81,13 @@ export default function SecuritySettings({ policy, canManage }: { policy: Securi
                                         disabled={!canManage}
                                         value={data.min_password_length}
                                         onChange={(e) => setData('min_password_length', parseInt(e.target.value) || 8)}
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                     />
-                                    <InputError className="text-xs text-red-400" message={errors.min_password_length} />
+                                    <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.min_password_length} />
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="rate_limit_login" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="rate_limit_login" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         Failed Login Attempt Ceiling
                                     </Label>
                                     <Input
@@ -96,10 +96,10 @@ export default function SecuritySettings({ policy, canManage }: { policy: Securi
                                         disabled={!canManage}
                                         value={data.rate_limit_login}
                                         onChange={(e) => setData('rate_limit_login', parseInt(e.target.value) || 5)}
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                     />
-                                    <p className="text-[11px] text-slate-400">Consecutive failed login threshold triggering temporary lockout</p>
-                                    <InputError className="text-xs text-red-400" message={errors.rate_limit_login} />
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Consecutive failed login threshold triggering temporary lockout</p>
+                                    <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.rate_limit_login} />
                                 </div>
 
                                 <div className="pt-2">
@@ -109,11 +109,11 @@ export default function SecuritySettings({ policy, canManage }: { policy: Securi
                                             disabled={!canManage}
                                             checked={data.require_2fa}
                                             onChange={(e) => setData('require_2fa', e.target.checked)}
-                                            className="h-4 w-4 rounded border-white/20 bg-[#1E1E30] text-[#0073ea] focus:ring-[#0073ea]"
+                                            className="h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                         />
                                         <div>
-                                            <span className="text-xs font-semibold text-white">Require Two-Factor Authentication (2FA)</span>
-                                            <p className="text-[11px] text-slate-400">Enforce TOTP authenticator app verification for staff</p>
+                                            <span className="text-xs font-semibold text-slate-900 dark:text-white">Require Two-Factor Authentication (2FA)</span>
+                                            <p className="text-[11px] text-slate-500 dark:text-slate-400">Enforce TOTP authenticator app verification for staff</p>
                                         </div>
                                     </label>
                                 </div>

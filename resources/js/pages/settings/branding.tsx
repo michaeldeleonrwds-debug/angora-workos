@@ -45,15 +45,15 @@ export default function BrandingSettings({ branding }: { branding: BrandingData 
                 description="Manage system title, brand accent colors, and custom organization typography"
             >
                 <form onSubmit={submit} className="space-y-6">
-                    <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
-                        <div className="mb-5 flex items-center gap-2 border-b border-white/[0.06] pb-3">
-                            <Sparkles className="h-4 w-4 text-[#D8F779]" />
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-white">Brand Metadata</h3>
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
+                        <div className="mb-5 flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-white/[0.06]">
+                            <Sparkles className="h-4 w-4 text-lime-600 dark:text-[#D8F779]" />
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Brand Metadata</h3>
                         </div>
 
                         <div className="space-y-4 max-w-xl">
                             <div className="space-y-1.5">
-                                <Label htmlFor="app_name" className="text-xs font-semibold text-slate-300">
+                                <Label htmlFor="app_name" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                     Application Name
                                 </Label>
                                 <Input
@@ -61,28 +61,28 @@ export default function BrandingSettings({ branding }: { branding: BrandingData 
                                     value={data.app_name}
                                     onChange={(e) => setData('app_name', e.target.value)}
                                     required
-                                    className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                    className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                     placeholder="e.g. Angora Work OS"
                                 />
-                                <InputError className="text-xs text-red-400" message={errors.app_name} />
+                                <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.app_name} />
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label htmlFor="tagline" className="text-xs font-semibold text-slate-300">
+                                <Label htmlFor="tagline" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                     Tagline
                                 </Label>
                                 <Input
                                     id="tagline"
                                     value={data.tagline}
                                     onChange={(e) => setData('tagline', e.target.value)}
-                                    className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                    className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                     placeholder="e.g. Next-Generation Agency Operating System"
                                 />
-                                <InputError className="text-xs text-red-400" message={errors.tagline} />
+                                <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.tagline} />
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label className="text-xs font-semibold text-slate-300">Primary Brand Accent</Label>
+                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Primary Brand Accent</Label>
                                 <div className="flex items-center gap-3">
                                     <input
                                         type="color"
@@ -93,7 +93,7 @@ export default function BrandingSettings({ branding }: { branding: BrandingData 
                                     <Input
                                         value={data.primary_color}
                                         onChange={(e) => setData('primary_color', e.target.value)}
-                                        className="h-9 w-32 rounded-xl border-white/10 bg-[#19192A] text-xs font-mono text-white"
+                                        className="h-9 w-32 rounded-xl border border-slate-300 bg-white text-xs font-mono text-slate-900 dark:border-white/10 dark:bg-[#19192A] dark:text-white"
                                     />
                                 </div>
                             </div>

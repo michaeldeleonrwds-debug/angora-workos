@@ -82,25 +82,25 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
             >
                 <div className="space-y-6">
                     <form onSubmit={submit} className="space-y-6">
-                        <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
-                            <div className="mb-5 flex items-center justify-between border-b border-white/[0.06] pb-3">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
+                            <div className="mb-5 flex items-center justify-between border-b border-slate-200 pb-3 dark:border-white/[0.06]">
                                 <div className="flex items-center gap-2">
-                                    <Mail className="h-4 w-4 text-[#fdab3d]" />
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-white">SMTP Transport Parameters</h3>
+                                    <Mail className="h-4 w-4 text-orange-500 dark:text-[#fdab3d]" />
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">SMTP Transport Parameters</h3>
                                 </div>
-                                <span className="text-[11px] text-slate-400">Encrypted in Vault</span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400">Encrypted in Vault</span>
                             </div>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-2xl">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="mail_mailer" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="mail_mailer" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         Mail Driver
                                     </Label>
                                     <select
                                         id="mail_mailer"
                                         value={data.mail_mailer}
                                         onChange={(e) => setData('mail_mailer', e.target.value)}
-                                        className="h-10 w-full rounded-xl border border-white/10 bg-[#19192A] px-3 text-xs text-white focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white"
                                     >
                                         <option value="smtp">SMTP (Recommended for Production / Dev)</option>
                                         <option value="log">Log (Local development testing)</option>
@@ -109,7 +109,7 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="mail_host" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="mail_host" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         SMTP Host
                                     </Label>
                                     <Input
@@ -117,14 +117,14 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                                         value={data.mail_host}
                                         onChange={(e) => setData('mail_host', e.target.value)}
                                         required
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         placeholder="e.g. smtp.mailgun.org or 127.0.0.1"
                                     />
-                                    <InputError className="text-xs text-red-400" message={errors.mail_host} />
+                                    <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.mail_host} />
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="mail_port" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="mail_port" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         Port
                                     </Label>
                                     <Input
@@ -133,21 +133,21 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                                         value={data.mail_port}
                                         onChange={(e) => setData('mail_port', parseInt(e.target.value) || 25)}
                                         required
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         placeholder="587, 465, or 2525"
                                     />
-                                    <InputError className="text-xs text-red-400" message={errors.mail_port} />
+                                    <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.mail_port} />
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="mail_encryption" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="mail_encryption" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         Encryption
                                     </Label>
                                     <select
                                         id="mail_encryption"
                                         value={data.mail_encryption}
                                         onChange={(e) => setData('mail_encryption', e.target.value)}
-                                        className="h-10 w-full rounded-xl border border-white/10 bg-[#19192A] px-3 text-xs text-white focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white"
                                     >
                                         <option value="tls">TLS (STARTTLS)</option>
                                         <option value="ssl">SSL</option>
@@ -156,20 +156,20 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="mail_username" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="mail_username" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         SMTP Username
                                     </Label>
                                     <Input
                                         id="mail_username"
                                         value={data.mail_username}
                                         onChange={(e) => setData('mail_username', e.target.value)}
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         placeholder="username or API key"
                                     />
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="mail_password" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="mail_password" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         SMTP Password
                                     </Label>
                                     <Input
@@ -177,7 +177,7 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                                         type="password"
                                         value={data.mail_password}
                                         onChange={(e) => setData('mail_password', e.target.value)}
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         placeholder={smtp?.has_password ? 'Leave unchanged or type new' : 'Enter password'}
                                     />
                                 </div>
@@ -185,15 +185,15 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                         </div>
 
                         {/* Sender Addresses */}
-                        <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
-                            <div className="mb-5 border-b border-white/[0.06] pb-3">
-                                <h3 className="text-xs font-bold uppercase tracking-wider text-white">Default Sender Identity</h3>
-                                <p className="mt-0.5 text-xs text-slate-400">Configure the default From name and address on outgoing emails</p>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
+                            <div className="mb-5 border-b border-slate-200 pb-3 dark:border-white/[0.06]">
+                                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Default Sender Identity</h3>
+                                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Configure the default From name and address on outgoing emails</p>
                             </div>
 
                             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 max-w-2xl">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="mail_from_address" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="mail_from_address" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         From Email Address
                                     </Label>
                                     <Input
@@ -202,14 +202,14 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                                         value={data.mail_from_address}
                                         onChange={(e) => setData('mail_from_address', e.target.value)}
                                         required
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         placeholder="noreply@angora.test"
                                     />
-                                    <InputError className="text-xs text-red-400" message={errors.mail_from_address} />
+                                    <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.mail_from_address} />
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="mail_from_name" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="mail_from_name" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         From Display Name
                                     </Label>
                                     <Input
@@ -217,10 +217,10 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                                         value={data.mail_from_name}
                                         onChange={(e) => setData('mail_from_name', e.target.value)}
                                         required
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         placeholder="Angora Work OS"
                                     />
-                                    <InputError className="text-xs text-red-400" message={errors.mail_from_name} />
+                                    <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.mail_from_name} />
                                 </div>
                             </div>
                         </div>
@@ -230,14 +230,14 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                             <div
                                 className={`flex items-start gap-3 rounded-xl border p-4 text-xs ${
                                     testResult.success
-                                        ? 'border-[#00c875]/30 bg-[#00c875]/10 text-white'
-                                        : 'border-red-500/30 bg-red-500/10 text-red-200'
+                                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-900 dark:border-[#00c875]/30 dark:bg-[#00c875]/10 dark:text-white'
+                                        : 'border-red-500/30 bg-red-500/10 text-red-900 dark:text-red-200'
                                 }`}
                             >
                                 {testResult.success ? (
-                                    <CheckCircle2 className="h-4 w-4 text-[#00c875] shrink-0 mt-0.5" />
+                                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-[#00c875] shrink-0 mt-0.5" />
                                 ) : (
-                                    <XCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                                    <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
                                 )}
                                 <div>
                                     <div className="font-bold">{testResult.success ? 'Connection Succeeded' : 'Connection Failed'}</div>
@@ -260,7 +260,7 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                                 variant="outline"
                                 onClick={handleTestConnection}
                                 disabled={testingConnection}
-                                className="h-9 gap-1.5 rounded-xl border-white/10 bg-white/[0.04] px-4 text-xs font-medium text-slate-200 hover:bg-white/[0.08] hover:text-white"
+                                className="h-9 gap-1.5 rounded-xl border border-slate-300 bg-white px-4 text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-200 dark:hover:bg-white/[0.08] dark:hover:text-white"
                             >
                                 {testingConnection ? (
                                     <>
@@ -269,7 +269,7 @@ export default function SmtpSettings({ smtp }: { smtp: SmtpData }) {
                                     </>
                                 ) : (
                                     <>
-                                        <Send className="h-3.5 w-3.5 text-[#fdab3d]" />
+                                        <Send className="h-3.5 w-3.5 text-orange-500 dark:text-[#fdab3d]" />
                                         <span>Test Connection</span>
                                     </>
                                 )}

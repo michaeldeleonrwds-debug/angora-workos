@@ -49,10 +49,10 @@ export default function NotificationsSettings({ preferences }: { preferences: No
             >
                 <form onSubmit={submit} className="space-y-6">
                     {/* Email Notifications */}
-                    <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
-                        <div className="mb-4 flex items-center gap-2 border-b border-white/[0.06] pb-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
+                        <div className="mb-4 flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-white/[0.06]">
                             <Mail className="h-4 w-4 text-[#fdab3d]" />
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-white">Email Notifications</h3>
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Email Notifications</h3>
                         </div>
 
                         <div className="space-y-4">
@@ -61,11 +61,11 @@ export default function NotificationsSettings({ preferences }: { preferences: No
                                     type="checkbox"
                                     checked={data.email_task_assigned}
                                     onChange={(e) => setData('email_task_assigned', e.target.checked)}
-                                    className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#1E1E30] text-[#0073ea] focus:ring-[#0073ea]"
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-white">Task Assignments</div>
-                                    <p className="text-[11px] text-slate-400">Receive an email when a card or subitem is assigned to you</p>
+                                    <div className="text-xs font-semibold text-slate-900 dark:text-white">Task Assignments</div>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Receive an email when a card or subitem is assigned to you</p>
                                 </div>
                             </label>
 
@@ -74,11 +74,11 @@ export default function NotificationsSettings({ preferences }: { preferences: No
                                     type="checkbox"
                                     checked={data.email_task_comment}
                                     onChange={(e) => setData('email_task_comment', e.target.checked)}
-                                    className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#1E1E30] text-[#0073ea] focus:ring-[#0073ea]"
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-white">Comment Replies & Mentions</div>
-                                    <p className="text-[11px] text-slate-400">Notify me by email when someone @mentions me or replies on my tasks</p>
+                                    <div className="text-xs font-semibold text-slate-900 dark:text-white">Comment Replies & Mentions</div>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Notify me by email when someone @mentions me or replies on my tasks</p>
                                 </div>
                             </label>
 
@@ -87,21 +87,21 @@ export default function NotificationsSettings({ preferences }: { preferences: No
                                     type="checkbox"
                                     checked={data.email_review_status}
                                     onChange={(e) => setData('email_review_status', e.target.checked)}
-                                    className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#1E1E30] text-[#0073ea] focus:ring-[#0073ea]"
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-white">Deliverable & Review Status</div>
-                                    <p className="text-[11px] text-slate-400">Get notified when review cycles are approved or requested</p>
+                                    <div className="text-xs font-semibold text-slate-900 dark:text-white">Deliverable & Review Status</div>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Get notified when review cycles are approved or requested</p>
                                 </div>
                             </label>
                         </div>
                     </div>
 
                     {/* In-App Notifications */}
-                    <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
-                        <div className="mb-4 flex items-center gap-2 border-b border-white/[0.06] pb-3">
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
+                        <div className="mb-4 flex items-center gap-2 border-b border-slate-200 pb-3 dark:border-white/[0.06]">
                             <Bell className="h-4 w-4 text-[#00c875]" />
-                            <h3 className="text-xs font-bold uppercase tracking-wider text-white">In-App Notification Center</h3>
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">In-App Notification Center</h3>
                         </div>
 
                         <div className="space-y-4">
@@ -110,11 +110,11 @@ export default function NotificationsSettings({ preferences }: { preferences: No
                                     type="checkbox"
                                     checked={data.in_app_mentions}
                                     onChange={(e) => setData('in_app_mentions', e.target.checked)}
-                                    className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#1E1E30] text-[#0073ea] focus:ring-[#0073ea]"
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-white">Direct Mentions & Approvals</div>
-                                    <p className="text-[11px] text-slate-400">Show notification popovers and unread indicators in top bar</p>
+                                    <div className="text-xs font-semibold text-slate-900 dark:text-white">Direct Mentions & Approvals</div>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Show notification popovers and unread indicators in top bar</p>
                                 </div>
                             </label>
 
@@ -123,11 +123,11 @@ export default function NotificationsSettings({ preferences }: { preferences: No
                                     type="checkbox"
                                     checked={data.in_app_task_moves}
                                     onChange={(e) => setData('in_app_task_moves', e.target.checked)}
-                                    className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#1E1E30] text-[#0073ea] focus:ring-[#0073ea]"
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-white">Collaborator Card Movements</div>
-                                    <p className="text-[11px] text-slate-400">Receive live push notifications when cards are moved on active boards</p>
+                                    <div className="text-xs font-semibold text-slate-900 dark:text-white">Collaborator Card Movements</div>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Receive live push notifications when cards are moved on active boards</p>
                                 </div>
                             </label>
 
@@ -136,11 +136,11 @@ export default function NotificationsSettings({ preferences }: { preferences: No
                                     type="checkbox"
                                     checked={data.sound_enabled}
                                     onChange={(e) => setData('sound_enabled', e.target.checked)}
-                                    className="mt-0.5 h-4 w-4 rounded border-white/20 bg-[#1E1E30] text-[#0073ea] focus:ring-[#0073ea]"
+                                    className="mt-0.5 h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                 />
                                 <div>
-                                    <div className="text-xs font-semibold text-white">Sound Alerts</div>
-                                    <p className="text-[11px] text-slate-400">Play subtle chime when receiving new notifications</p>
+                                    <div className="text-xs font-semibold text-slate-900 dark:text-white">Sound Alerts</div>
+                                    <p className="text-[11px] text-slate-500 dark:text-slate-400">Play subtle chime when receiving new notifications</p>
                                 </div>
                             </label>
                         </div>

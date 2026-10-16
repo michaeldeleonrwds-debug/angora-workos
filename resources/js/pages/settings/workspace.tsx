@@ -62,18 +62,18 @@ export default function WorkspaceSettings({ workspace }: { workspace: WorkspaceD
             >
                 <div className="space-y-6">
                     <form onSubmit={submit} className="space-y-5">
-                        <div className="rounded-xl border border-white/[0.08] bg-[#19192A]/40 p-5">
-                            <div className="mb-5 flex items-center justify-between border-b border-white/[0.06] pb-3">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
+                            <div className="mb-5 flex items-center justify-between border-b border-slate-200 pb-3 dark:border-white/[0.06]">
                                 <div className="flex items-center gap-2">
-                                    <Briefcase className="h-4 w-4 text-[#579bfc]" />
-                                    <h3 className="text-xs font-bold uppercase tracking-wider text-white">General Parameters</h3>
+                                    <Briefcase className="h-4 w-4 text-[#0073ea] dark:text-[#579bfc]" />
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">General Parameters</h3>
                                 </div>
-                                <span className="text-[11px] text-slate-400">Created {workspace.created_at}</span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400">Created {workspace.created_at}</span>
                             </div>
 
                             <div className="space-y-4 max-w-xl">
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="workspace_name" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="workspace_name" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         Workspace Name
                                     </Label>
                                     <Input
@@ -81,14 +81,14 @@ export default function WorkspaceSettings({ workspace }: { workspace: WorkspaceD
                                         value={data.name}
                                         onChange={(e) => setData('name', e.target.value)}
                                         required
-                                        className="h-10 rounded-xl border-white/10 bg-[#19192A] text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="h-10 rounded-xl border border-slate-300 bg-white text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         placeholder="e.g. Main Agency Workspace"
                                     />
-                                    <InputError className="text-xs text-red-400" message={errors.name} />
+                                    <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.name} />
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label htmlFor="description" className="text-xs font-semibold text-slate-300">
+                                    <Label htmlFor="description" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                                         Description
                                     </Label>
                                     <textarea
@@ -96,14 +96,14 @@ export default function WorkspaceSettings({ workspace }: { workspace: WorkspaceD
                                         value={data.description}
                                         onChange={(e) => setData('description', e.target.value)}
                                         rows={3}
-                                        className="w-full rounded-xl border border-white/10 bg-[#19192A] p-3 text-xs text-white placeholder-slate-500 focus:border-[#0073ea] focus:ring-[#0073ea]"
+                                        className="w-full rounded-xl border border-slate-300 bg-white p-3 text-xs text-slate-900 placeholder-slate-400 focus:border-[#0073ea] focus:ring-[#0073ea] dark:border-white/10 dark:bg-[#19192A] dark:text-white dark:placeholder-slate-500"
                                         placeholder="Brief summary of projects and teams in this workspace"
                                     />
-                                    <InputError className="text-xs text-red-400" message={errors.description} />
+                                    <InputError className="text-xs text-red-500 dark:text-red-400" message={errors.description} />
                                 </div>
 
                                 <div className="space-y-1.5">
-                                    <Label className="text-xs font-semibold text-slate-300">Brand Color Accent</Label>
+                                    <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Brand Color Accent</Label>
                                     <div className="flex items-center gap-3">
                                         <input
                                             type="color"
@@ -114,7 +114,7 @@ export default function WorkspaceSettings({ workspace }: { workspace: WorkspaceD
                                         <Input
                                             value={data.color}
                                             onChange={(e) => setData('color', e.target.value)}
-                                            className="h-9 w-32 rounded-xl border-white/10 bg-[#19192A] text-xs font-mono text-white"
+                                            className="h-9 w-32 rounded-xl border border-slate-300 bg-white text-xs font-mono text-slate-900 dark:border-white/10 dark:bg-[#19192A] dark:text-white"
                                         />
                                     </div>
                                 </div>

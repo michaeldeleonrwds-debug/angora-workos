@@ -175,14 +175,14 @@ export default function SettingsLayout({
     ];
 
     return (
-        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8 text-slate-900 dark:text-white">
             {/* Top Header */}
-            <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.08] pb-6">
+            <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200 dark:border-white/[0.08] pb-6">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                    <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
                         {title || 'Settings Center'}
                     </h1>
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                         {description || 'Manage your personal preferences, workspace configuration, and system parameters'}
                     </p>
                 </div>
@@ -193,10 +193,10 @@ export default function SettingsLayout({
             <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
                 {/* Left Category Navigation */}
                 <aside className="w-full shrink-0 lg:w-64">
-                    <nav className="flex flex-col gap-6 rounded-2xl border border-white/[0.08] bg-[#1E1E30]/60 p-3 shadow-xl backdrop-blur-sm">
+                    <nav className="flex flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-3 shadow-xs dark:border-white/[0.08] dark:bg-[#1E1E30]/60 dark:shadow-xl backdrop-blur-sm">
                         {navSections.map((section) => (
                             <div key={section.heading} className="space-y-1">
-                                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400/80">
+                                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400/80">
                                     {section.heading}
                                 </div>
                                 <div className="flex flex-col gap-0.5">
@@ -209,13 +209,15 @@ export default function SettingsLayout({
                                                 'group flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium transition-all duration-150',
                                                 item.isActive
                                                     ? 'bg-[#0073ea] font-semibold text-white shadow-xs'
-                                                    : 'text-slate-300 hover:bg-white/[0.06] hover:text-white',
+                                                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.06] dark:hover:text-white',
                                             )}
                                         >
                                             <item.icon
                                                 className={cn(
                                                     'h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-105',
-                                                    item.isActive ? 'text-white' : 'text-slate-400 group-hover:text-white',
+                                                    item.isActive
+                                                        ? 'text-white'
+                                                        : 'text-slate-400 group-hover:text-slate-900 dark:text-slate-400 dark:group-hover:text-white',
                                                 )}
                                             />
                                             <span className="truncate">{item.title}</span>
@@ -229,7 +231,7 @@ export default function SettingsLayout({
 
                 {/* Right Settings Content */}
                 <main className="min-w-0 flex-1">
-                    <div className="rounded-2xl border border-white/[0.08] bg-[#1E1E30]/60 p-6 sm:p-8 shadow-xl backdrop-blur-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs dark:border-white/[0.08] dark:bg-[#1E1E30]/60 dark:shadow-xl backdrop-blur-sm">
                         {children}
                     </div>
                 </main>
