@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T16:06:44.129Z",
+  "generated_at": "2026-10-16T16:52:37.449Z",
   "stats": {
-    "total_nodes": 620,
-    "total_edges": 1270,
+    "total_nodes": 627,
+    "total_edges": 1284,
     "clusters": 7
   },
   "nodes": [
@@ -2734,6 +2734,12 @@
       "file": "app/Services/HtmlSanitizerService.php"
     },
     {
+      "id": "service:ImageOptimizationService",
+      "label": "ImageOptimizationService",
+      "type": "service",
+      "file": "app/Services/ImageOptimizationService.php"
+    },
+    {
       "id": "service:IntegrationService",
       "label": "IntegrationService",
       "type": "service",
@@ -3676,6 +3682,12 @@
       "file": "app/Models/SystemNotification.php"
     },
     {
+      "id": "model:SystemSetting",
+      "label": "SystemSetting",
+      "type": "model",
+      "file": "app/Models/SystemSetting.php"
+    },
+    {
       "id": "model:TaskActivity",
       "label": "TaskActivity",
       "type": "model",
@@ -4366,6 +4378,12 @@
       "file": "tests/Feature/BoardAndViewManagementTest.php"
     },
     {
+      "id": "test:BroadcastingChannelSecurityTest",
+      "label": "BroadcastingChannelSecurityTest",
+      "type": "test",
+      "file": "tests/Feature/BroadcastingChannelSecurityTest.php"
+    },
+    {
       "id": "test:ClientPortalWorkflowTest",
       "label": "ClientPortalWorkflowTest",
       "type": "test",
@@ -4388,6 +4406,12 @@
       "label": "EnterpriseDashboardAndReportingTest",
       "type": "test",
       "file": "tests/Feature/EnterpriseDashboardAndReportingTest.php"
+    },
+    {
+      "id": "test:ImageOptimizationTest",
+      "label": "ImageOptimizationTest",
+      "type": "test",
+      "file": "tests/Feature/ImageOptimizationTest.php"
     },
     {
       "id": "test:KanbanRoleBasedUxTest",
@@ -4424,6 +4448,24 @@
       "label": "RbacSecurityTest",
       "type": "test",
       "file": "tests/Feature/RbacSecurityTest.php"
+    },
+    {
+      "id": "test:RealtimeCollaborationTest",
+      "label": "RealtimeCollaborationTest",
+      "type": "test",
+      "file": "tests/Feature/RealtimeCollaborationTest.php"
+    },
+    {
+      "id": "test:StorageMigrateCommandTest",
+      "label": "StorageMigrateCommandTest",
+      "type": "test",
+      "file": "tests/Feature/StorageMigrateCommandTest.php"
+    },
+    {
+      "id": "test:TiptapImageUploadCsrfTest",
+      "label": "TiptapImageUploadCsrfTest",
+      "type": "test",
+      "file": "tests/Feature/TiptapImageUploadCsrfTest.php"
     },
     {
       "id": "test:WorkOsAssignedTaskMovementAndFilterTest",
@@ -7858,6 +7900,12 @@
       "method": "sanitize"
     },
     {
+      "source": "service:ImageOptimizationService",
+      "target": "service_method:ImageOptimizationService::optimize",
+      "relationship": "defines_method",
+      "method": "optimize"
+    },
+    {
       "source": "service:IntegrationService",
       "target": "service_method:IntegrationService::getIntegrations",
       "relationship": "defines_method",
@@ -9495,6 +9543,11 @@
     },
     {
       "source": "component:ItemDetailDrawer",
+      "target": "component:echo",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ItemDetailDrawer",
       "target": "component:MediaPickerModal",
       "relationship": "imports"
     },
@@ -9964,6 +10017,11 @@
     {
       "source": "component:index",
       "target": "component:WorkloadView",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:echo",
       "relationship": "imports"
     },
     {
@@ -10554,6 +10612,11 @@
       "relationship": "imports"
     },
     {
+      "source": "component:NotificationCenterPopover",
+      "target": "component:echo",
+      "relationship": "imports"
+    },
+    {
       "source": "component:NotificationPreferencesModal",
       "target": "component:dialog",
       "relationship": "imports"
@@ -10874,6 +10937,32 @@
       "role": "project_manager"
     },
     {
+      "source": "test:BroadcastingChannelSecurityTest",
+      "target": "policy:TaskPolicy",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:BroadcastingChannelSecurityTest",
+      "target": "policy:BoardPolicy",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:BroadcastingChannelSecurityTest",
+      "target": "policy:WorkspacePolicy",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:BroadcastingChannelSecurityTest",
+      "target": "service:WorkOsPermissionService",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:BroadcastingChannelSecurityTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
+    },
+    {
       "source": "test:ClientPortalWorkflowTest",
       "target": "controller:KanbanController",
       "relationship": "tests"
@@ -10912,6 +11001,16 @@
     {
       "source": "test:EnterpriseDashboardAndReportingTest",
       "target": "controller:DashboardController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:ImageOptimizationTest",
+      "target": "service:ImageOptimizationService",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:ImageOptimizationTest",
+      "target": "controller:KanbanController",
       "relationship": "tests"
     },
     {
@@ -11060,6 +11159,21 @@
       "target": "role:project_manager",
       "relationship": "audits_role",
       "role": "project_manager"
+    },
+    {
+      "source": "test:RealtimeCollaborationTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:StorageMigrateCommandTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:TiptapImageUploadCsrfTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
     },
     {
       "source": "test:WorkOsAssignedTaskMovementAndFilterTest",
