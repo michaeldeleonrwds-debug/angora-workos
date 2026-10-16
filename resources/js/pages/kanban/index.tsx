@@ -24,6 +24,7 @@ import WorkflowSettingsModal from './components/WorkflowSettingsModal';
 import WorkloadView from './components/WorkloadView';
 import { AlertCircle, X } from 'lucide-react';
 import { KanbanBoard, KanbanPageProps, Task } from './types';
+import { getEcho } from '@/echo';
 
 const breadcrumbs: BreadcrumbItem[] = [
     { title: 'Workspaces', href: '/dashboard' },
@@ -218,8 +219,52 @@ export default function KanbanPage({
         }
     };
 
-    // Polling Synchronization (Phase 3.5)
-    // Runs incrementally without re-rendering or disrupting user typing
+    // Real-Time WebSockets Collaboration via Laravel Reverb (Phase 3)
+    const [liveCollaborators, setLiveCollaborators] = useState<Array<{ id: number; name: string; avatar_url?: string | null; role?: string }>>([]);
+
+    useEffect(() => {
+        if (!board.id) return;
+        const echo = getEcho();
+        if (!echo) return;
+
+        // 1. Private board channel for mutations
+        const boardChannel = echo.private(`boards.${board.id}`);
+        const handleMutation = () => {
+            router.reload({
+                only: ['activeBoard', 'boards', 'selectedTask'],
+                preserveScroll: true,
+            });
+        };
+
+        boardChannel
+            .listen('.task.created', handleMutation)
+            .listen('.task.updated', handleMutation)
+            .listen('.task.deleted', handleMutation)
+            .listen('.column.updated', handleMutation);
+
+        // 2. Presence channel for live collaborator presence
+        const presenceChannel = echo.join(`boards.${board.id}`);
+        presenceChannel
+            .here((collaborators: any[]) => {
+                setLiveCollaborators(collaborators || []);
+            })
+            .joining((user: any) => {
+                setLiveCollaborators((prev) => [...prev.filter((u) => u.id !== user.id), user]);
+            })
+            .leaving((user: any) => {
+                setLiveCollaborators((prev) => prev.filter((u) => u.id !== user.id));
+            });
+
+        return () => {
+            boardChannel.stopListening('.task.created');
+            boardChannel.stopListening('.task.updated');
+            boardChannel.stopListening('.task.deleted');
+            boardChannel.stopListening('.column.updated');
+            echo.leave(`boards.${board.id}`);
+        };
+    }, [board.id]);
+
+    // Polling Synchronization (Graceful HTTP fallback if WebSockets disconnect)
     useEffect(() => {
         if (!board.id) return;
 

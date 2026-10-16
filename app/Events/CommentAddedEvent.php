@@ -19,9 +19,15 @@ class CommentAddedEvent implements ShouldBroadcastNow
 
     public function broadcastOn(): array
     {
-        return [
+        $channels = [
             new PrivateChannel('tasks.' . $this->comment->task_id),
         ];
+
+        if ($this->comment->is_client_visible && $this->comment->task?->is_client_visible) {
+            $channels[] = new PrivateChannel('client-tasks.' . $this->comment->task_id);
+        }
+
+        return $channels;
     }
 
     public function broadcastAs(): string
@@ -31,12 +37,20 @@ class CommentAddedEvent implements ShouldBroadcastNow
 
     public function broadcastWith(): array
     {
+        $author = $this->comment->user;
+        $body = $this->comment->message ?? $this->comment->content ?? '';
+
         return [
             'id' => $this->comment->id,
             'task_id' => $this->comment->task_id,
+            'parent_id' => $this->comment->parent_id,
             'user_id' => $this->comment->user_id,
-            'user_name' => $this->comment->user?->name,
-            'content' => $this->comment->content,
+            'user_name' => $author?->name,
+            'user_avatar' => $author?->avatar_url,
+            'content' => $body,
+            'message' => $body,
+            'is_client_visible' => (bool) $this->comment->is_client_visible,
+            'reactions' => $this->comment->reactions ?? [],
             'created_at' => $this->comment->created_at?->toIso8601String(),
         ];
     }

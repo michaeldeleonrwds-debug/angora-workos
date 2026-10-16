@@ -43,6 +43,7 @@ import axios from 'axios';
 import { BoardPermissions, getTaskAssignedUsers, isProductionDeadlineHidden, isTaskInCompletedStage, isUserAssignedToTask, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
+import { getEcho } from '@/echo';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
 import EmployeeTaskPanel from './EmployeeTaskPanel';
 import { RichTextCommentEditor } from '@/components/RichTextCommentEditor';
@@ -228,6 +229,50 @@ export default function ItemDetailDrawer({
     const [depLagDays, setDepLagDays] = useState(0);
     const [isSavingDep, setIsSavingDep] = useState(false);
     const [depErrorMessage, setDepErrorMessage] = useState<string | null>(null);
+
+    // Real-Time Task Collaboration & Presence via Laravel Echo / Reverb (Phase 3)
+    const [drawerCollaborators, setDrawerCollaborators] = useState<Array<{ id: number; name: string; avatar_url?: string | null; role?: string }>>([]);
+
+    useEffect(() => {
+        if (!task.id) return;
+        const echo = getEcho();
+        if (!echo) return;
+
+        const channelName = isClientUser ? `client-tasks.${task.id}` : `tasks.${task.id}`;
+        const channel = echo.private(channelName);
+
+        const handleTaskUpdate = () => {
+            router.reload({
+                only: ['selectedTask', 'activeBoard'],
+                preserveScroll: true,
+            });
+        };
+
+        channel
+            .listen('.comment.added', handleTaskUpdate)
+            .listen('.comment.deleted', handleTaskUpdate)
+            .listen('.comment.reaction', handleTaskUpdate)
+            .listen('.task.updated', handleTaskUpdate);
+
+        // Presence channel for internal staff viewing this drawer
+        if (!isClientUser) {
+            const presence = echo.join(`tasks.${task.id}`);
+            presence
+                .here((users: any[]) => setDrawerCollaborators(users || []))
+                .joining((u: any) => setDrawerCollaborators((prev) => [...prev.filter((x) => x.id !== u.id), u]))
+                .leaving((u: any) => setDrawerCollaborators((prev) => prev.filter((x) => x.id !== u.id)));
+        }
+
+        return () => {
+            channel.stopListening('.comment.added');
+            channel.stopListening('.comment.deleted');
+            channel.stopListening('.comment.reaction');
+            channel.stopListening('.task.updated');
+            if (!isClientUser) {
+                echo.leave(`tasks.${task.id}`);
+            }
+        };
+    }, [task.id, isClientUser]);
 
     const fetchDependencies = async () => {
         setIsLoadingDependencies(true);
@@ -1045,6 +1090,28 @@ export default function ItemDetailDrawer({
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                        {drawerCollaborators.length > 1 && (
+                            <div className="flex items-center -space-x-1.5 mr-2" title={`${drawerCollaborators.length} collaborators viewing this task`}>
+                                {drawerCollaborators.slice(0, 4).map((c) => (
+                                    <div
+                                        key={c.id}
+                                        className="h-7 w-7 rounded-full ring-2 ring-background bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold overflow-hidden shadow-xs"
+                                        title={`${c.name} (${c.role || 'Member'}) is viewing this task`}
+                                    >
+                                        {c.avatar_url ? (
+                                            <img src={c.avatar_url} alt={c.name} className="h-full w-full object-cover" />
+                                        ) : (
+                                            c.name.slice(0, 2).toUpperCase()
+                                        )}
+                                    </div>
+                                ))}
+                                {drawerCollaborators.length > 4 && (
+                                    <div className="h-7 w-7 rounded-full ring-2 ring-background bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold shadow-xs">
+                                        +{drawerCollaborators.length - 4}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         <button
                             onClick={onClose}
                             className="hover:bg-muted text-muted-foreground hover:text-foreground flex h-9 w-9 items-center justify-center rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-primary/40"

@@ -21,10 +21,16 @@ class TaskUpdatedEvent implements ShouldBroadcastNow
 
     public function broadcastOn(): array
     {
-        return [
+        $channels = [
             new PrivateChannel('boards.' . $this->task->board_id),
             new PrivateChannel('tasks.' . $this->task->id),
         ];
+
+        if ($this->task->is_client_visible) {
+            $channels[] = new PrivateChannel('client-tasks.' . $this->task->id);
+        }
+
+        return $channels;
     }
 
     public function broadcastAs(): string

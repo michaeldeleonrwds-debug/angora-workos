@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { NotificationPreferencesModal } from './NotificationPreferencesModal';
 import { csrfHeaders } from '@/lib/utils';
+import { getEcho } from '@/echo';
 
 interface NotificationItem {
     id: number;
@@ -60,6 +61,40 @@ export function NotificationCenterPopover() {
             setUnreadCount(pageProps.unreadNotificationsCount);
         }
     }, [pageProps.unreadNotificationsCount]);
+
+    // Real-time notification updates via Laravel Echo / Reverb
+    useEffect(() => {
+        const userId = pageProps.auth?.user?.id;
+        if (!userId) return;
+
+        const echo = getEcho();
+        if (!echo) return;
+
+        const channel = echo.private(`users.${userId}`);
+        channel.listen('.notification.created', (event: any) => {
+            setUnreadCount((prev) => prev + 1);
+            setNotifications((prev) => {
+                const item: NotificationItem = {
+                    id: event.id,
+                    user_id: userId,
+                    actor_id: event.actor_id ?? null,
+                    title: event.title,
+                    message: event.message,
+                    type: event.type ?? 'info',
+                    category: event.category ?? 'system',
+                    link: event.link ?? null,
+                    is_read: false,
+                    created_at: event.created_at ?? new Date().toISOString(),
+                    actor: event.actor ?? null,
+                };
+                return [item, ...prev.filter((n) => n.id !== event.id)];
+            });
+        });
+
+        return () => {
+            channel.stopListening('.notification.created');
+        };
+    }, [pageProps.auth?.user?.id]);
 
     useEffect(() => {
         if (open) {

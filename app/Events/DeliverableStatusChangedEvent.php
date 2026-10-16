@@ -21,7 +21,7 @@ class DeliverableStatusChangedEvent implements ShouldBroadcastNow
     public function broadcastOn(): array
     {
         return [
-            new PrivateChannel('projects.' . $this->deliverable->project_id),
+            new PrivateChannel('client-projects.' . $this->deliverable->project_id),
         ];
     }
 

@@ -838,6 +838,8 @@ class KanbanController extends Controller
             }
         });
 
+        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'updated', $column->id, $column->title);
+
         return back()->with('success', 'Stage updated');
     }
 
@@ -900,6 +902,8 @@ class KanbanController extends Controller
             })
             ->delete();
 
+        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'deleted', $column->id, $column->title);
+
         return $request->header('X-Inertia') || $request->expectsJson()
             ? response()->json(['success' => true, 'message' => 'Stage archived'])
             : back()->with('success', 'Status archived');
@@ -923,6 +927,8 @@ class KanbanController extends Controller
         foreach ($validated['stage_ids'] as $idx => $id) {
             KanbanColumn::where('id', $id)->where('board_id', $board->id)->update(['position' => $idx]);
         }
+
+        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'reordered');
 
         return back()->with('success', 'Stages reordered');
     }
@@ -1081,7 +1087,7 @@ class KanbanController extends Controller
         $key = $prefix . strtolower(preg_replace('/[^a-zA-Z0-9]/', '_', $validated['title'])) . '_' . uniqid();
         $position = $scope === 'subtask' ? $board->subitemColumns()->count() : $board->boardColumns()->count();
 
-        BoardColumn::create([
+        $col = BoardColumn::create([
             'board_id' => $board->id,
             'key' => $key,
             'title' => $validated['title'],
@@ -1091,6 +1097,8 @@ class KanbanController extends Controller
             'width' => $validated['width'] ?? 150,
             'position' => $position,
         ]);
+
+        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'created', $col->id, $col->title);
 
         return back()->with('success', 'Column added');
     }
@@ -1110,6 +1118,10 @@ class KanbanController extends Controller
         ]);
 
         $column->update($validated);
+
+        if ($board) {
+            \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'updated', $column->id, $column->title);
+        }
 
         return back()->with('success', 'Column updated');
     }
@@ -1143,6 +1155,7 @@ class KanbanController extends Controller
                     $task->update(['custom_values' => $vals]);
                 }
             }
+            \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'created', $duplicated->id, $duplicated->title);
         }
 
         return back()->with('success', 'Column duplicated');
@@ -1155,7 +1168,14 @@ class KanbanController extends Controller
             Gate::authorize('manageColumns', $board);
         }
 
+        $boardId = $column->board_id;
+        $colId = $column->id;
+        $title = $column->title;
+
         $column->delete();
+
+        \App\Events\BoardColumnUpdatedEvent::dispatch($boardId, 'deleted', $colId, $title);
+
         return back()->with('success', 'Column deleted');
     }
 
@@ -1171,6 +1191,8 @@ class KanbanController extends Controller
         foreach ($validated['column_ids'] as $index => $colId) {
             BoardColumn::where('id', $colId)->where('board_id', $board->id)->update(['position' => $index]);
         }
+
+        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'reordered');
 
         return back()->with('success', 'Columns reordered');
     }
@@ -1287,6 +1309,8 @@ class KanbanController extends Controller
                 $this->notificationService->notifyAssignment($task, $assignee, auth()->user());
             }
         }
+
+        \App\Events\TaskCreatedEvent::dispatch($task, auth()->id());
 
         return back()->with('success', 'Task created successfully');
     }
@@ -1840,6 +1864,8 @@ class KanbanController extends Controller
     {
         Gate::authorize('delete', $task);
 
+        $boardId = $task->board_id;
+        $taskId = $task->id;
         $taskTitle = $task->title;
         $parentId = $task->parent_id;
 
@@ -1860,9 +1886,11 @@ class KanbanController extends Controller
             action: 'KANBAN_TASK_DELETED',
             department: auth()->user()->department ?? 'Operations',
             entityType: 'KanbanTask',
-            entityId: $task->id,
+            entityId: $taskId,
             description: "Deleted task: {$taskTitle}"
         );
+
+        \App\Events\TaskDeletedEvent::dispatch($boardId, $taskId, $parentId, auth()->id());
 
         return back()->with('success', 'Task deleted');
     }
@@ -2039,7 +2067,14 @@ class KanbanController extends Controller
     {
         Gate::authorize('delete', $comment);
 
+        $taskId = $comment->task_id;
+        $commentId = $comment->id;
+        $parentId = $comment->parent_id;
+
         $comment->delete();
+
+        \App\Events\CommentDeletedEvent::dispatch($taskId, $commentId, $parentId, auth()->id());
+
         return back()->with('success', 'Comment deleted');
     }
 
@@ -2072,6 +2107,8 @@ class KanbanController extends Controller
         }
 
         $comment->update(['reactions' => $reactions]);
+
+        \App\Events\CommentReactionEvent::dispatch($comment->task_id, $comment->id, $reactions, $userId);
 
         return back()->with('success', 'Reaction updated');
     }
