@@ -1,110 +1,238 @@
-import Heading from '@/components/heading';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { type NavItem, type SharedData } from '@/types';
+import { type SharedData } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
+import {
+    Activity,
+    Bell,
+    Briefcase,
+    Cpu,
+    Database,
+    FileText,
+    FolderArchive,
+    HeartPulse,
+    Image as ImageIcon,
+    LayoutDashboard,
+    Lock,
+    Mail,
+    Palette,
+    Puzzle,
+    Radio,
+    Shield,
+    Sparkles,
+    User,
+} from 'lucide-react';
+import React from 'react';
 
-const sidebarNavItems: NavItem[] = [
-    {
-        title: 'Profile',
-        url: '/settings/profile',
-        icon: null,
-    },
-    {
-        title: 'Password',
-        url: '/settings/password',
-        icon: null,
-    },
-    {
-        title: 'Appearance',
-        url: '/settings/appearance',
-        icon: null,
-    },
-];
+interface SettingsLayoutProps {
+    children: React.ReactNode;
+    title?: string;
+    description?: string;
+    headerActions?: React.ReactNode;
+}
 
-export default function SettingsLayout({ children }: { children: React.ReactNode }) {
-    const currentPath = window.location.pathname;
-    const { auth } = usePage<SharedData>().props;
-    const canManageUsers = auth?.capabilities?.canManageUsers === true;
-    const canManageRbac = auth?.capabilities?.canManageRbac === true;
+export default function SettingsLayout({
+    children,
+    title,
+    description,
+    headerActions,
+}: SettingsLayoutProps) {
+    const page = usePage<SharedData>();
+    const currentPath = page.url.split('?')[0];
+    const canManageSystem = page.props.auth?.capabilities?.canManageSystemSettings === true;
+
+    const navSections = [
+        {
+            heading: 'Overview',
+            items: [
+                {
+                    title: 'Settings Overview',
+                    url: '/settings',
+                    icon: LayoutDashboard,
+                    isActive: currentPath === '/settings',
+                },
+            ],
+        },
+        {
+            heading: 'Personal',
+            items: [
+                {
+                    title: 'Profile',
+                    url: '/settings/profile',
+                    icon: User,
+                    isActive: currentPath === '/settings/profile',
+                },
+                {
+                    title: 'Password & Security',
+                    url: '/settings/password',
+                    icon: Lock,
+                    isActive: currentPath === '/settings/password',
+                },
+                {
+                    title: 'Appearance',
+                    url: '/settings/appearance',
+                    icon: Palette,
+                    isActive: currentPath === '/settings/appearance',
+                },
+                {
+                    title: 'Notifications',
+                    url: '/settings/notifications',
+                    icon: Bell,
+                    isActive: currentPath === '/settings/notifications',
+                },
+            ],
+        },
+        {
+            heading: 'Workspace',
+            items: [
+                {
+                    title: 'General Settings',
+                    url: '/settings/workspace',
+                    icon: Briefcase,
+                    isActive: currentPath === '/settings/workspace',
+                },
+                {
+                    title: 'Branding',
+                    url: '/settings/branding',
+                    icon: Sparkles,
+                    isActive: currentPath === '/settings/branding',
+                },
+            ],
+        },
+        ...(canManageSystem
+            ? [
+                  {
+                      heading: 'System',
+                      items: [
+                          {
+                              title: 'Email / SMTP',
+                              url: '/settings/system/smtp',
+                              icon: Mail,
+                              isActive: currentPath === '/settings/system/smtp',
+                          },
+                          {
+                              title: 'Storage / S3',
+                              url: '/settings/system/storage',
+                              icon: Database,
+                              isActive: currentPath === '/settings/system/storage',
+                          },
+                          {
+                              title: 'WebSockets / Reverb',
+                              url: '/settings/system/reverb',
+                              icon: Radio,
+                              isActive: currentPath === '/settings/system/reverb',
+                          },
+                          {
+                              title: 'Image Optimization',
+                              url: '/settings/system/optimization',
+                              icon: ImageIcon,
+                              isActive: currentPath === '/settings/system/optimization',
+                          },
+                          {
+                              title: 'Background Jobs & Queues',
+                              url: '/settings/system/queues',
+                              icon: Cpu,
+                              isActive: currentPath === '/settings/system/queues',
+                          },
+                          {
+                              title: 'System Health',
+                              url: '/settings/system/health',
+                              icon: HeartPulse,
+                              isActive: currentPath === '/settings/system/health',
+                          },
+                      ],
+                  },
+              ]
+            : []),
+        {
+            heading: 'Data & Security',
+            items: [
+                {
+                    title: 'File Manager',
+                    url: '/settings/data/files',
+                    icon: FolderArchive,
+                    isActive: currentPath.startsWith('/media') || currentPath === '/settings/data/files',
+                },
+                {
+                    title: 'Audit Logs',
+                    url: '/settings/data/audit-logs',
+                    icon: FileText,
+                    isActive: currentPath.startsWith('/audit-logs') || currentPath === '/settings/data/audit-logs',
+                },
+                {
+                    title: 'Security Policies',
+                    url: '/settings/data/security',
+                    icon: Shield,
+                    isActive: currentPath === '/settings/data/security',
+                },
+                {
+                    title: 'Integrations Hub',
+                    url: '/settings/data/integrations',
+                    icon: Puzzle,
+                    isActive: currentPath.startsWith('/integrations') || currentPath === '/settings/data/integrations',
+                },
+            ],
+        },
+    ];
 
     return (
-        <div className="mx-auto w-full max-w-7xl px-4 py-6 text-[#191927] transition-colors dark:text-white">
-            <Heading title="Settings" description="Manage your profile and account settings" />
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+            {/* Top Header */}
+            <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.08] pb-6">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
+                        {title || 'Settings Center'}
+                    </h1>
+                    <p className="mt-1 text-sm text-slate-400">
+                        {description || 'Manage your personal preferences, workspace configuration, and system parameters'}
+                    </p>
+                </div>
+                {headerActions && <div className="flex items-center gap-3">{headerActions}</div>}
+            </div>
 
-            <div className="flex flex-col space-y-8 lg:flex-row lg:space-y-0 lg:space-x-12">
-                <aside className="w-full max-w-xl lg:w-48">
-                    <nav className="flex flex-col space-y-1 space-x-0">
-                        {sidebarNavItems.map((item) => (
-                            <Button
-                                key={item.url}
-                                size="sm"
-                                variant="ghost"
-                                asChild
-                                className={cn(
-                                    'w-full justify-start rounded-xl font-medium text-[#777785] hover:bg-slate-100 hover:text-[#191927] dark:text-slate-400 dark:hover:bg-[#1E1E2F] dark:hover:text-white',
-                                    {
-                                        'bg-[#D8F779] font-semibold text-[#191927] hover:bg-[#cbf066] hover:text-[#191927] dark:bg-[#D8F779] dark:text-[#191927]':
-                                            currentPath === item.url,
-                                    },
-                                )}
-                            >
-                                <Link href={item.url} prefetch>
-                                    {item.title}
-                                </Link>
-                            </Button>
-                        ))}
-
-                        {(canManageUsers || canManageRbac) && (
-                            <div className="pt-4">
-                                <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-wider text-[#777785] dark:text-slate-400">
-                                    Administration
+            {/* Two-Column Responsive Shell */}
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-start">
+                {/* Left Category Navigation */}
+                <aside className="w-full shrink-0 lg:w-64">
+                    <nav className="flex flex-col gap-6 rounded-2xl border border-white/[0.08] bg-[#1E1E30]/60 p-3 shadow-xl backdrop-blur-sm">
+                        {navSections.map((section) => (
+                            <div key={section.heading} className="space-y-1">
+                                <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400/80">
+                                    {section.heading}
                                 </div>
-                                <div className="flex flex-col space-y-1">
-                                    {canManageUsers && (
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            asChild
+                                <div className="flex flex-col gap-0.5">
+                                    {section.items.map((item) => (
+                                        <Link
+                                            key={item.url}
+                                            href={item.url}
+                                            prefetch
                                             className={cn(
-                                                'w-full justify-start rounded-xl font-medium text-[#777785] hover:bg-slate-100 hover:text-[#191927] dark:text-slate-400 dark:hover:bg-[#1E1E2F] dark:hover:text-white',
-                                                {
-                                                    'bg-[#D8F779] font-semibold text-[#191927] hover:bg-[#cbf066] hover:text-[#191927] dark:bg-[#D8F779] dark:text-[#191927]':
-                                                        currentPath === '/users',
-                                                },
+                                                'group flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-medium transition-all duration-150',
+                                                item.isActive
+                                                    ? 'bg-[#0073ea] font-semibold text-white shadow-xs'
+                                                    : 'text-slate-300 hover:bg-white/[0.06] hover:text-white',
                                             )}
                                         >
-                                            <Link href="/users">User Management</Link>
-                                        </Button>
-                                    )}
-                                    {canManageRbac && (
-                                        <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            asChild
-                                            className={cn(
-                                                'w-full justify-start rounded-xl font-medium text-[#777785] hover:bg-slate-100 hover:text-[#191927] dark:text-slate-400 dark:hover:bg-[#1E1E2F] dark:hover:text-white',
-                                                {
-                                                    'bg-[#D8F779] font-semibold text-[#191927] hover:bg-[#cbf066] hover:text-[#191927] dark:bg-[#D8F779] dark:text-[#191927]':
-                                                        currentPath === '/rbac',
-                                                },
-                                            )}
-                                        >
-                                            <Link href="/rbac">Roles & Permissions</Link>
-                                        </Button>
-                                    )}
+                                            <item.icon
+                                                className={cn(
+                                                    'h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-105',
+                                                    item.isActive ? 'text-white' : 'text-slate-400 group-hover:text-white',
+                                                )}
+                                            />
+                                            <span className="truncate">{item.title}</span>
+                                        </Link>
+                                    ))}
                                 </div>
                             </div>
-                        )}
+                        ))}
                     </nav>
                 </aside>
 
-                <Separator className="my-6 border-[#ECECF0] md:hidden dark:border-[#28283E]" />
-
-                <div className="flex-1 rounded-2xl border border-[#ECECF0] bg-white p-6 shadow-xs md:max-w-2xl dark:border-[#28283E] dark:bg-[#1E1E2F]">
-                    <section className="max-w-xl space-y-12">{children}</section>
-                </div>
+                {/* Right Settings Content */}
+                <main className="min-w-0 flex-1">
+                    <div className="rounded-2xl border border-white/[0.08] bg-[#1E1E30]/60 p-6 sm:p-8 shadow-xl backdrop-blur-sm">
+                        {children}
+                    </div>
+                </main>
             </div>
         </div>
     );

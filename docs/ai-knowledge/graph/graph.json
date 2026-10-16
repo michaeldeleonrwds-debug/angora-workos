@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T17:51:34.022Z",
+  "generated_at": "2026-10-16T18:09:04.946Z",
   "stats": {
-    "total_nodes": 628,
-    "total_edges": 1286,
+    "total_nodes": 640,
+    "total_edges": 1397,
     "clusters": 7
   },
   "nodes": [
@@ -2650,6 +2650,82 @@
       "page": "settings/profile"
     },
     {
+      "id": "controller:SettingsCenterController",
+      "label": "SettingsCenterController",
+      "type": "controller",
+      "file": "app/Http/Controllers/Settings/SettingsCenterController.php"
+    },
+    {
+      "id": "component:notifications",
+      "label": "notifications",
+      "type": "component",
+      "file": "resources/js/pages/settings/notifications.tsx",
+      "page": "settings/notifications"
+    },
+    {
+      "id": "component:workspace",
+      "label": "workspace",
+      "type": "component",
+      "file": "resources/js/pages/settings/workspace.tsx",
+      "page": "settings/workspace"
+    },
+    {
+      "id": "component:branding",
+      "label": "branding",
+      "type": "component",
+      "file": "resources/js/pages/settings/branding.tsx",
+      "page": "settings/branding"
+    },
+    {
+      "id": "component:smtp",
+      "label": "smtp",
+      "type": "component",
+      "file": "resources/js/pages/settings/system/smtp.tsx",
+      "page": "settings/system/smtp"
+    },
+    {
+      "id": "component:storage",
+      "label": "storage",
+      "type": "component",
+      "file": "resources/js/pages/settings/system/storage.tsx",
+      "page": "settings/system/storage"
+    },
+    {
+      "id": "component:reverb",
+      "label": "reverb",
+      "type": "component",
+      "file": "resources/js/pages/settings/system/reverb.tsx",
+      "page": "settings/system/reverb"
+    },
+    {
+      "id": "component:optimization",
+      "label": "optimization",
+      "type": "component",
+      "file": "resources/js/pages/settings/system/optimization.tsx",
+      "page": "settings/system/optimization"
+    },
+    {
+      "id": "component:queues",
+      "label": "queues",
+      "type": "component",
+      "file": "resources/js/pages/settings/system/queues.tsx",
+      "page": "settings/system/queues"
+    },
+    {
+      "id": "component:health",
+      "label": "health",
+      "type": "component",
+      "file": "resources/js/pages/settings/system/health.tsx",
+      "page": "settings/system/health"
+    },
+    {
+      "id": "component:security",
+      "label": "security",
+      "type": "component",
+      "file": "resources/js/pages/settings/security.tsx",
+      "page": "settings/security"
+    },
+    {
       "id": "controller:TaskReviewController",
       "label": "TaskReviewController",
       "type": "controller",
@@ -4460,6 +4536,12 @@
       "label": "RealtimeCollaborationTest",
       "type": "test",
       "file": "tests/Feature/RealtimeCollaborationTest.php"
+    },
+    {
+      "id": "test:SettingsCenterTest",
+      "label": "SettingsCenterTest",
+      "type": "test",
+      "file": "tests/Feature/SettingsCenterTest.php"
     },
     {
       "id": "test:StorageMigrateCommandTest",
@@ -7207,6 +7289,83 @@
       "target": "component:profile",
       "relationship": "renders",
       "page": "settings/profile"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "$workspace",
+      "relationship": "authorizes_with",
+      "ability": "update"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:index",
+      "relationship": "renders",
+      "page": "settings/index"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:notifications",
+      "relationship": "renders",
+      "page": "settings/notifications"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:workspace",
+      "relationship": "renders",
+      "page": "settings/workspace"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:branding",
+      "relationship": "renders",
+      "page": "settings/branding"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:smtp",
+      "relationship": "renders",
+      "page": "settings/system/smtp"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:storage",
+      "relationship": "renders",
+      "page": "settings/system/storage"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:reverb",
+      "relationship": "renders",
+      "page": "settings/system/reverb"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:optimization",
+      "relationship": "renders",
+      "page": "settings/system/optimization"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:queues",
+      "relationship": "renders",
+      "page": "settings/system/queues"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:health",
+      "relationship": "renders",
+      "page": "settings/system/health"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "component:security",
+      "relationship": "renders",
+      "page": "settings/security"
+    },
+    {
+      "source": "controller:SettingsCenterController",
+      "target": "model:Workspace",
+      "relationship": "queries_model"
     },
     {
       "source": "controller:TaskReviewController",
@@ -10091,7 +10250,12 @@
     },
     {
       "source": "component:appearance",
-      "target": "component:heading-small",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:appearance",
+      "target": "component:layout",
       "relationship": "imports"
     },
     {
@@ -10101,13 +10265,9 @@
     },
     {
       "source": "component:appearance",
-      "target": "component:app-layout",
-      "relationship": "imports"
-    },
-    {
-      "source": "component:appearance",
-      "target": "component:layout",
-      "relationship": "imports"
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
     },
     {
       "source": "component:appearance",
@@ -10116,28 +10276,199 @@
       "uri": "/settings/appearance"
     },
     {
-      "source": "component:password",
+      "source": "component:branding",
       "target": "component:input-error",
       "relationship": "imports"
     },
     {
-      "source": "component:password",
+      "source": "component:branding",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:branding",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:branding",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:branding",
       "target": "component:app-layout",
       "relationship": "imports"
     },
     {
-      "source": "component:password",
+      "source": "component:branding",
       "target": "component:layout",
       "relationship": "imports"
     },
     {
-      "source": "component:password",
+      "source": "component:branding",
       "target": "component:types",
       "relationship": "imports"
     },
     {
+      "source": "component:branding",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:branding",
+      "target": "route:CALL:/settings/branding",
+      "relationship": "calls_route",
+      "uri": "/settings/branding"
+    },
+    {
+      "source": "component:index",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/system/health",
+      "relationship": "calls_route",
+      "uri": "/settings/system/health"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/profile",
+      "relationship": "calls_route",
+      "uri": "/settings/profile"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/password",
+      "relationship": "calls_route",
+      "uri": "/settings/password"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/appearance",
+      "relationship": "calls_route",
+      "uri": "/settings/appearance"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/notifications",
+      "relationship": "calls_route",
+      "uri": "/settings/notifications"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/workspace",
+      "relationship": "calls_route",
+      "uri": "/settings/workspace"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/branding",
+      "relationship": "calls_route",
+      "uri": "/settings/branding"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/system/smtp",
+      "relationship": "calls_route",
+      "uri": "/settings/system/smtp"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/system/storage",
+      "relationship": "calls_route",
+      "uri": "/settings/system/storage"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/system/reverb",
+      "relationship": "calls_route",
+      "uri": "/settings/system/reverb"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/system/optimization",
+      "relationship": "calls_route",
+      "uri": "/settings/system/optimization"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/system/queues",
+      "relationship": "calls_route",
+      "uri": "/settings/system/queues"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/data/files",
+      "relationship": "calls_route",
+      "uri": "/settings/data/files"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/data/audit-logs",
+      "relationship": "calls_route",
+      "uri": "/settings/data/audit-logs"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/data/security",
+      "relationship": "calls_route",
+      "uri": "/settings/data/security"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/data/integrations",
+      "relationship": "calls_route",
+      "uri": "/settings/data/integrations"
+    },
+    {
+      "source": "component:notifications",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:notifications",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:notifications",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:notifications",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:notifications",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:notifications",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:notifications",
+      "target": "route:CALL:/settings/notifications",
+      "relationship": "calls_route",
+      "uri": "/settings/notifications"
+    },
+    {
       "source": "component:password",
-      "target": "component:heading-small",
+      "target": "component:input-error",
       "relationship": "imports"
     },
     {
@@ -10154,6 +10485,27 @@
       "source": "component:password",
       "target": "component:label",
       "relationship": "imports"
+    },
+    {
+      "source": "component:password",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:password",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:password",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:password",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
     },
     {
       "source": "component:password",
@@ -10163,22 +10515,17 @@
     },
     {
       "source": "component:profile",
-      "target": "component:types",
-      "relationship": "imports"
-    },
-    {
-      "source": "component:profile",
       "target": "component:delete-user",
       "relationship": "imports"
     },
     {
       "source": "component:profile",
-      "target": "component:heading-small",
+      "target": "component:input-error",
       "relationship": "imports"
     },
     {
       "source": "component:profile",
-      "target": "component:input-error",
+      "target": "component:ProfileAvatarSection",
       "relationship": "imports"
     },
     {
@@ -10208,14 +10555,356 @@
     },
     {
       "source": "component:profile",
-      "target": "component:ProfileAvatarSection",
+      "target": "component:types",
       "relationship": "imports"
+    },
+    {
+      "source": "component:profile",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
     },
     {
       "source": "component:profile",
       "target": "route:CALL:/settings/profile",
       "relationship": "calls_route",
       "uri": "/settings/profile"
+    },
+    {
+      "source": "component:security",
+      "target": "component:input-error",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:security",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:security",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:security",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:security",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:security",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:security",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:security",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:security",
+      "target": "route:CALL:/settings/data/security",
+      "relationship": "calls_route",
+      "uri": "/settings/data/security"
+    },
+    {
+      "source": "component:health",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:health",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:health",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:health",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:health",
+      "target": "route:CALL:/settings/system/health",
+      "relationship": "calls_route",
+      "uri": "/settings/system/health"
+    },
+    {
+      "source": "component:optimization",
+      "target": "component:input-error",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:optimization",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:optimization",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:optimization",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:optimization",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:optimization",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:optimization",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:optimization",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:optimization",
+      "target": "route:CALL:/settings/system/optimization",
+      "relationship": "calls_route",
+      "uri": "/settings/system/optimization"
+    },
+    {
+      "source": "component:queues",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:queues",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:queues",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:queues",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:queues",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:queues",
+      "target": "route:CALL:/settings/system/queues",
+      "relationship": "calls_route",
+      "uri": "/settings/system/queues"
+    },
+    {
+      "source": "component:reverb",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:reverb",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:reverb",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:reverb",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:reverb",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:reverb",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:reverb",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:reverb",
+      "target": "route:CALL:/settings/system/reverb",
+      "relationship": "calls_route",
+      "uri": "/settings/system/reverb"
+    },
+    {
+      "source": "component:smtp",
+      "target": "component:input-error",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:smtp",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:smtp",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:smtp",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:smtp",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:smtp",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:smtp",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:smtp",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:smtp",
+      "target": "route:CALL:/settings/system/smtp",
+      "relationship": "calls_route",
+      "uri": "/settings/system/smtp"
+    },
+    {
+      "source": "component:storage",
+      "target": "component:input-error",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:storage",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:storage",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:storage",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:storage",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:storage",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:storage",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:storage",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:storage",
+      "target": "route:CALL:/settings/system/storage",
+      "relationship": "calls_route",
+      "uri": "/settings/system/storage"
+    },
+    {
+      "source": "component:workspace",
+      "target": "component:input-error",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:workspace",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:workspace",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:workspace",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:workspace",
+      "target": "component:app-layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:workspace",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:workspace",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:workspace",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:workspace",
+      "target": "route:CALL:/settings/workspace",
+      "relationship": "calls_route",
+      "uri": "/settings/workspace"
     },
     {
       "source": "component:index",
@@ -10424,12 +11113,6 @@
       "target": "route:CALL:/settings",
       "relationship": "calls_route",
       "uri": "/settings"
-    },
-    {
-      "source": "component:app-sidebar",
-      "target": "route:CALL:/users",
-      "relationship": "calls_route",
-      "uri": "/users"
     },
     {
       "source": "component:appearance-dropdown",
@@ -10886,6 +11569,12 @@
       "source": "component:user-menu-content",
       "target": "component:types",
       "relationship": "imports"
+    },
+    {
+      "source": "component:user-menu-content",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
     },
     {
       "source": "component:user-menu-content",

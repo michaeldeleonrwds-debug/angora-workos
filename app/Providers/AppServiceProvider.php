@@ -38,5 +38,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(KanbanTask::class, TaskPolicy::class);
         Gate::policy(KanbanComment::class, CommentPolicy::class);
         Gate::policy(KanbanAttachment::class, AttachmentPolicy::class);
+
+        Gate::define('manage-system-settings', function (User $user) {
+            return $user->isSuperAdmin() || $user->hasPermission('system.settings.manage');
+        });
     }
 }
