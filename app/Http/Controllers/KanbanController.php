@@ -2055,8 +2055,10 @@ class KanbanController extends Controller
             'mime_type' => $file->getClientMimeType() ?: 'image/jpeg',
             'is_client_visible' => $isClient ? true : $request->boolean('is_client_visible', true),
             'disk' => $diskName,
-            'processing_status' => 'ready',
+            'processing_status' => 'pending',
         ]);
+
+        \App\Jobs\OptimizeImageJob::dispatch($attachment);
 
         return response()->json([
             'success' => true,
@@ -2140,8 +2142,12 @@ class KanbanController extends Controller
             'mime_type' => $file->getClientMimeType() ?: 'application/octet-stream',
             'is_client_visible' => $isClient ? true : $request->boolean('is_client_visible', true),
             'disk' => $diskName,
-            'processing_status' => 'ready',
+            'processing_status' => $file->getClientMimeType() && str_starts_with($file->getClientMimeType(), 'image/') ? 'pending' : 'ready',
         ]);
+
+        if ($attachment->isImage()) {
+            \App\Jobs\OptimizeImageJob::dispatch($attachment);
+        }
 
         TaskActivityService::log(
             task: $task,
