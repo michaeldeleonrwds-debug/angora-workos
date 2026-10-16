@@ -40,7 +40,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
-import { BoardPermissions, getTaskAssignedUsers, isUserAssignedToTask, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
+import { BoardPermissions, getTaskAssignedUsers, isProductionDeadlineHidden, isUserAssignedToTask, KanbanBoard, MediaAsset, Task, TaskRecurrenceLog, TaskRecurrenceRule, TaskReviewCycle, User } from '../types';
 import MultiPeoplePicker from './MultiPeoplePicker';
 import ImageCell from './ImageCell';
 import MediaPickerModal from '@/components/media/MediaPickerModal';
@@ -100,7 +100,9 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     // no_deadline, the stage-aware override suppressed overdue/due_today/due_soon
     // because the task sits outside an actionable production stage. Drop the
     // relative countdown in that case so no warning leaks into review/reporting.
-    const deadlineSuppressed = Boolean(task.due_date) && task.deadline_status === 'no_deadline';
+    const currentColumn = (board.columns || []).find((c) => c.id === task.column_id) || task.column;
+    const isDeadlineHidden = isProductionDeadlineHidden(task, currentColumn);
+    const deadlineSuppressed = isDeadlineHidden || (Boolean(task.due_date) && task.deadline_status === 'no_deadline');
 
     const exactRemaining = useMemo(
         () => (deadlineSuppressed ? null : getExactTimeRemaining(task.due_date, task.due_time)),
@@ -839,7 +841,7 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                             </div>
 
                             {/* Deadline Status Badge */}
-                            {task.due_date && (
+                            {!isDeadlineHidden && task.due_date && (
                                 <div className="grid grid-cols-3 items-center">
                                     <Label className="text-muted-foreground font-medium">Deadline Status</Label>
                                     <div className="col-span-2 flex flex-wrap items-center gap-1.5">
@@ -917,27 +919,29 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                             </div>
 
                             {/* Due Date & Time */}
-                            <div className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-1 sm:gap-0">
-                                <Label className="text-muted-foreground font-medium">Due Date & Time</Label>
-                                <div className="sm:col-span-2 flex items-center gap-2 min-w-0">
-                                    <Input
-                                        type="date"
-                                        key={`due-date-${task.id}-${task.due_date || ''}`}
-                                        defaultValue={task.due_date || ''}
-                                        disabled={!canChangeDeadlines}
-                                        onChange={(e) => handleUpdateField('due_date', e.target.value || null)}
-                                        className="h-8 flex-1 min-w-0 px-2 text-xs"
-                                    />
-                                    <Input
-                                        type="time"
-                                        key={`due-time-${task.id}-${task.due_time || ''}`}
-                                        defaultValue={task.due_time ? task.due_time.slice(0, 5) : ''}
-                                        disabled={!canChangeDeadlines}
-                                        onChange={(e) => handleUpdateField('due_time', e.target.value || null)}
-                                        className="h-8 w-[118px] shrink-0 px-2 text-xs"
-                                    />
+                            {!isDeadlineHidden && (
+                                <div className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-1 sm:gap-0">
+                                    <Label className="text-muted-foreground font-medium">Due Date & Time</Label>
+                                    <div className="sm:col-span-2 flex items-center gap-2 min-w-0">
+                                        <Input
+                                            type="date"
+                                            key={`due-date-${task.id}-${task.due_date || ''}`}
+                                            defaultValue={task.due_date || ''}
+                                            disabled={!canChangeDeadlines}
+                                            onChange={(e) => handleUpdateField('due_date', e.target.value || null)}
+                                            className="h-8 flex-1 min-w-0 px-2 text-xs"
+                                        />
+                                        <Input
+                                            type="time"
+                                            key={`due-time-${task.id}-${task.due_time || ''}`}
+                                            defaultValue={task.due_time ? task.due_time.slice(0, 5) : ''}
+                                            disabled={!canChangeDeadlines}
+                                            onChange={(e) => handleUpdateField('due_time', e.target.value || null)}
+                                            className="h-8 w-[118px] shrink-0 px-2 text-xs"
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Milestone & Deadline Reminders */}
                             <div className="grid grid-cols-3 items-center">

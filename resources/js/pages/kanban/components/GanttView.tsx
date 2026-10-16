@@ -5,7 +5,7 @@ import { formatTime } from '@/lib/utils';
 import { router, usePage } from '@inertiajs/react';
 import { ChevronDown, ChevronRight, CornerDownRight, Link2 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
-import { isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
+import { isProductionDeadlineHidden, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
 interface GanttViewProps {
     board: KanbanBoard;
@@ -228,7 +228,7 @@ export default function GanttView({ board, searchTerm, personFilter, priorityFil
                         const hasSubtasks = (task.subitems || []).length > 0;
                         const isExpanded = !!expandedTasks[task.id];
                         const { leftPercent, widthPercent } = getBarMetrics(task.start_date, task.due_date);
-                        const isDone = !!task.completed_at;
+                        const isDone = isProductionDeadlineHidden(task);
 
                         return (
                             <React.Fragment key={task.id}>
@@ -281,7 +281,7 @@ export default function GanttView({ board, searchTerm, personFilter, priorityFil
                                                     left: `${leftPercent}%`,
                                                     backgroundColor: isDone ? '#00c875' : '#f59e0b',
                                                 }}
-                                                title={`Milestone: ${task.title} (Due: ${task.due_date || 'N/A'}${task.due_time ? ' ' + formatTime(task.due_time) : ''})`}
+                                                title={isDone ? `Milestone: ${task.title} (Completed)` : `Milestone: ${task.title} (Due: ${task.due_date || 'N/A'}${task.due_time ? ' ' + formatTime(task.due_time) : ''})`}
                                             />
                                         ) : (
                                             <div
@@ -291,7 +291,7 @@ export default function GanttView({ board, searchTerm, personFilter, priorityFil
                                                     width: `${widthPercent}%`,
                                                     backgroundColor: isDone ? '#00c875' : task.priority === 'Urgent' ? '#e2445c' : '#579bfc',
                                                 }}
-                                                title={`${task.title} (${task.start_date || ''}${task.start_time ? ' ' + formatTime(task.start_time) : ''} – ${task.due_date || ''}${task.due_time ? ' ' + formatTime(task.due_time) : ''})`}
+                                                title={isDone ? `${task.title} (Completed)` : `${task.title} (${task.start_date || ''}${task.start_time ? ' ' + formatTime(task.start_time) : ''} – ${task.due_date || ''}${task.due_time ? ' ' + formatTime(task.due_time) : ''})`}
                                             >
                                                 <span className="truncate">{task.title}</span>
 

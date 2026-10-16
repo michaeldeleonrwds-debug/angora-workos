@@ -3,7 +3,7 @@ import { formatTime } from '@/lib/utils';
 import { usePage } from '@inertiajs/react';
 import { ChevronLeft, ChevronRight, Clock, Plus, Star, User as UserIcon } from 'lucide-react';
 import React, { useState } from 'react';
-import { isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
+import { isProductionDeadlineHidden, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
 interface CalendarViewProps {
     board: KanbanBoard;
@@ -221,7 +221,13 @@ export default function CalendarView({
                     {/* Days Grid */}
                     <div className="divide-border/40 grid auto-rows-fr grid-cols-7 divide-x divide-y">
                         {daysGrid.map((day, idx) => {
-                            const dayTasks = allTasks.filter((t) => t.due_date === day.dateStr || t.start_date === day.dateStr);
+                            const dayTasks = allTasks.filter((t) => {
+                                if (t.start_date === day.dateStr) return true;
+                                if (t.due_date === day.dateStr) {
+                                    return !isProductionDeadlineHidden(t);
+                                }
+                                return false;
+                            });
 
                             return (
                                 <div
@@ -256,7 +262,7 @@ export default function CalendarView({
                                     {/* Task Cards on this date */}
                                     <div className="scrollbar-none max-h-[120px] flex-1 space-y-1.5 overflow-y-auto">
                                         {dayTasks.slice(0, 3).map((task) => {
-                                            const isDone = !!task.completed_at || (task.progress ?? 0) === 100;
+                                            const isDone = isProductionDeadlineHidden(task);
                                             const isOverdue = !isDone && task.deadline_status === 'overdue';
 
                                             return (
@@ -287,7 +293,7 @@ export default function CalendarView({
                                                     </div>
 
                                                     <div className="flex items-center gap-1 flex-shrink-0">
-                                                        {task.due_time && (
+                                                        {!isDone && task.due_time && (
                                                             <span className="text-muted-foreground text-[9px] font-normal">
                                                                 {formatTime(task.due_time)}
                                                             </span>

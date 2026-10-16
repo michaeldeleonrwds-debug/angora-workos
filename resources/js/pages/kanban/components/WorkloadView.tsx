@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { usePage } from '@inertiajs/react';
 import React, { useMemo, useState } from 'react';
-import { getTaskAssignedUserIds, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
+import { getTaskAssignedUserIds, isProductionDeadlineHidden, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
 
 interface WorkloadViewProps {
     board: KanbanBoard;
@@ -120,8 +120,8 @@ export default function WorkloadView({
                 ? round(rawHours / assignedIds.length, 1)
                 : rawHours;
 
-            const isCompleted = !!t.completed_at || (t.column?.title || '').toLowerCase() === 'done';
-            const isOverdue = !isCompleted && !!t.due_date && t.due_date < today;
+            const isCompleted = isProductionDeadlineHidden(t);
+            const isOverdue = !isCompleted && (t.deadline_status ? t.deadline_status === 'overdue' : (!!t.due_date && t.due_date < today));
 
             assignedIds.forEach((uid) => {
                 if (!memberMap[uid]) {

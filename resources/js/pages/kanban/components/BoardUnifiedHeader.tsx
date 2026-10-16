@@ -50,7 +50,7 @@ import {
     Zap,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
-import { BoardPermissions, BoardView, KanbanBoard, User, Workspace } from '../types';
+import { BoardPermissions, BoardView, isProductionDeadlineHidden, KanbanBoard, User, Workspace } from '../types';
 
 interface BoardUnifiedHeaderProps {
     workspaces: Workspace[];
@@ -203,10 +203,12 @@ export default function BoardUnifiedHeader({
         const uniqueTasks = Array.from(new Map(rawTasks.filter((t) => !t.parent_id).map((t) => [t.id, t])).values());
 
         const total = uniqueTasks.length;
-        const completed = uniqueTasks.filter((t) => t.completed_at || t.progress === 100).length;
+        const completed = uniqueTasks.filter((t) => isProductionDeadlineHidden(t)).length;
         const overdue = uniqueTasks.filter((t) => {
-            if (t.completed_at || t.progress === 100) return false;
-            if (t.deadline_status === 'overdue') return true;
+            if (isProductionDeadlineHidden(t)) return false;
+            if (t.deadline_status !== undefined) {
+                return t.deadline_status === 'overdue';
+            }
             if (!t.due_date) return false;
             const timeStr = t.due_time ? t.due_time : '23:59:59';
             return new Date(`${t.due_date}T${timeStr}`) < new Date();

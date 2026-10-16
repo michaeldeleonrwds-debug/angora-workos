@@ -219,6 +219,7 @@ export interface Task {
     deadline_status?: 'overdue' | 'due_today' | 'due_soon' | 'upcoming' | 'completed_on_time' | 'completed_late' | 'no_deadline';
     time_remaining?: string | null;
     is_blocked?: boolean;
+    is_completed_stage?: boolean;
     estimated_hours?: number | null;
     actual_hours?: number | null;
     progress: number;
@@ -623,5 +624,33 @@ export const getTaskAssignedUsers = (task: Task, allUsers: User[] = []): User[] 
     return Array.from(userMap.values());
 };
 
+/**
+ * Check if a task is in a Complete workflow stage using stable workflow semantics.
+ * Respects semantic_category === 'completed', completed_at timestamp, or progress === 100.
+ */
+export const isTaskInCompletedStage = (task: Task, column?: KanbanColumn): boolean => {
+    if (task.is_completed_stage) return true;
+    if (column?.semantic_category === 'completed') return true;
+    if (task.column?.semantic_category === 'completed') return true;
+    if (Boolean(task.completed_at)) return true;
+    if ((task.progress ?? 0) === 100) return true;
+    return false;
+};
 
+/**
+ * Stage-aware production deadline visibility.
+ * When in a Complete workflow stage, production deadline is hidden ENTIRELY from the UI.
+ * When in Review or Active Production, production deadline remains visible.
+ */
+export const isProductionDeadlineHidden = (task: Task, column?: KanbanColumn): boolean => {
+    return isTaskInCompletedStage(task, column);
+};
 
+/**
+ * Check if production urgency warnings (overdue, due today, due soon) apply.
+ * Strictly driven by server deadline_status and suppressed outside active production.
+ */
+export const isProductionUrgencyActive = (task: Task, column?: KanbanColumn): boolean => {
+    if (isProductionDeadlineHidden(task, column)) return false;
+    return task.deadline_status === 'overdue' || task.deadline_status === 'due_today' || task.deadline_status === 'due_soon';
+};

@@ -58,6 +58,7 @@ class KanbanTask extends Model
         'deadline_status',
         'time_remaining',
         'is_blocked',
+        'is_completed_stage',
     ];
 
     public function getIsBlockedAttribute(): bool
@@ -382,11 +383,10 @@ class KanbanTask extends Model
 
         $now = now()->setTimezone('UTC');
 
-        // Check if completed
+        // Check if completed: production deadline countdown is hidden from UI
         $isCompleted = !empty($this->completed_at) || $this->column?->isCompletionStatus();
         if ($isCompleted) {
-            $completedAt = $this->completed_at ? \Illuminate\Support\Carbon::parse($this->completed_at)->setTimezone('UTC') : $now;
-            return $completedAt->lte($dueUtc) ? 'Completed On Time' : 'Completed Late';
+            return null;
         }
 
         $isOverdue = $now->gt($dueUtc);
@@ -603,6 +603,20 @@ class KanbanTask extends Model
     public function isInActiveProductionStage(): bool
     {
         return $this->column?->semantic_category === 'in_progress';
+    }
+
+    /**
+     * Completed stage predicate. Production deadlines are hidden entirely
+     * once work enters the Complete workflow stage.
+     */
+    public function isInCompletedStage(): bool
+    {
+        return (bool) ($this->column?->isCompletionStatus() || !empty($this->completed_at));
+    }
+
+    public function getIsCompletedStageAttribute(): bool
+    {
+        return $this->isInCompletedStage();
     }
 
     /**

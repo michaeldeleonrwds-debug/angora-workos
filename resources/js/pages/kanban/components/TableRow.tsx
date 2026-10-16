@@ -3,7 +3,7 @@ import { formatDate, formatTime } from '@/lib/utils';
 import { router, usePage } from '@inertiajs/react';
 import { Check, ChevronDown, ChevronRight, Copy, Edit2, Link2, MessageCircle, MoreHorizontal, Plus, Repeat, ShieldAlert, Star, Trash2, User as UserIcon } from 'lucide-react';
 import { useState } from 'react';
-import { BoardColumn, BoardGroup, BoardPermissions, DEFAULT_TASK_TYPES, isUserAssignedToTask, KanbanColumn, Task, User } from '../types';
+import { BoardColumn, BoardGroup, BoardPermissions, DEFAULT_TASK_TYPES, isProductionDeadlineHidden, isUserAssignedToTask, KanbanColumn, Task, User } from '../types';
 import ConnectBoardsModal from './ConnectBoardsModal';
 import DatePickerCell from './DatePickerCell';
 import EditableDropdownCell from './EditableDropdownCell';
@@ -431,6 +431,21 @@ export default function TableRow({
                     // 4. Date Column
                     if (col.type === 'date') {
                         const isMainDueDateCol = col.key === 'due_date' || col.key === 'deadline';
+                        const currentColumn = statusColumns.find((c) => c.id === task.column_id) || task.column;
+                        const isDeadlineHidden = isMainDueDateCol && isProductionDeadlineHidden(task, currentColumn);
+
+                        if (isDeadlineHidden) {
+                            return (
+                                <div
+                                    key={col.id}
+                                    className="border-border/40 text-muted-foreground/40 border-r px-1 py-1 flex items-center justify-center min-w-0 h-full overflow-hidden"
+                                    title="Production deadline hidden (Task completed)"
+                                >
+                                    <span className="text-xs select-none">–</span>
+                                </div>
+                            );
+                        }
+
                         let dateVal: string | null = null;
                         let timeVal: string | null = null;
 

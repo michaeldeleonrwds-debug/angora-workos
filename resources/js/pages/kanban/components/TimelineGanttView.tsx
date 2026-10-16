@@ -1,7 +1,7 @@
 import { formatDate, formatTime } from '@/lib/utils';
 import { usePage } from '@inertiajs/react';
 import { Clock } from 'lucide-react';
-import { isUserAssignedToTask, KanbanBoard, Task } from '../types';
+import { isProductionDeadlineHidden, isUserAssignedToTask, KanbanBoard, Task } from '../types';
 
 interface TimelineGanttViewProps {
     board: KanbanBoard;
@@ -38,7 +38,7 @@ export default function TimelineGanttView({ board, searchTerm, personFilter, pri
 
             <div className="space-y-3">
                 {tasks.map((task) => {
-                    const isDone = !!task.completed_at;
+                    const isDone = isProductionDeadlineHidden(task);
                     return (
                         <div
                             key={task.id}
@@ -74,8 +74,14 @@ export default function TimelineGanttView({ board, searchTerm, personFilter, pri
                                 </div>
 
                                 <div className="text-muted-foreground min-w-[120px] text-right text-[11px] font-semibold">
-                                    {task.start_date ? formatDate(task.start_date) : 'Start'} –{' '}
-                                    {task.due_date ? `${formatDate(task.due_date)}${task.due_time ? ' · ' + formatTime(task.due_time) : ''}` : 'Due date'}
+                                    {isDone ? (
+                                        <span>Completed</span>
+                                    ) : (
+                                        <>
+                                            {task.start_date ? formatDate(task.start_date) : 'Start'} –{' '}
+                                            {task.due_date ? `${formatDate(task.due_date)}${task.due_time ? ' · ' + formatTime(task.due_time) : ''}` : 'Due date'}
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>

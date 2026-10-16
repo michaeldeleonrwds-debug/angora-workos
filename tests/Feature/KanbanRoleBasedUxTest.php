@@ -148,6 +148,105 @@ class KanbanRoleBasedUxTest extends TestCase
         $this->assertNotEquals('overdue', $task->deadline_status);
     }
 
+    public function test_completed_stage_hides_deadline_while_preserving_stored_dates(): void
+    {
+        $task = $this->makeTask($this->completed, [
+            'due_date' => '2026-10-10',
+            'due_time' => '17:00:00',
+            'completed_at' => now(),
+        ]);
+
+        $this->actingAs($this->manager);
+
+        // Stable stage semantics predicates
+        $this->assertTrue($task->isInCompletedStage());
+        $this->assertTrue($task->is_completed_stage);
+        $this->assertFalse($task->isInActiveProductionStage());
+
+        // Relative countdown text is suppressed (hidden from UI)
+        $this->assertNull($task->time_remaining);
+
+        // Never reports urgency warnings in completed stage
+        $this->assertNotEquals('overdue', $task->deadline_status);
+        $this->assertNotEquals('due_today', $task->deadline_status);
+        $this->assertNotEquals('due_soon', $task->deadline_status);
+
+        // Stored dates in database remain intact for history/audit
+        $this->assertEquals('2026-10-10', $task->fresh()->due_date);
+        $this->assertEquals('17:00:00', $task->fresh()->due_time);
+    }
+
+    public function test_reopening_task_from_complete_to_active_production_restores_deadline_display_and_urgency(): void
+    {
+        $pastDate = now()->subDays(2)->toDateString();
+        $task = $this->makeTask($this->completed, [
+            'due_date' => $pastDate,
+            'completed_at' => now()->subDay(),
+        ]);
+
+        $this->assertTrue($task->isInCompletedStage());
+        $this->assertNull($task->time_remaining);
+
+        // Authorized Project Manager reopens the task back to active production (In Progress)
+        $response = $this->actingAs($this->pm)->patchJson("/kanban/tasks/{$task->id}/column", [
+            'column_id' => $this->production->id,
+        ]);
+        $response->assertRedirect();
+
+        $fresh = $task->fresh();
+        $this->assertEquals($this->production->id, $fresh->column_id);
+        $this->assertNull($fresh->completed_at);
+        $this->assertFalse($fresh->isInCompletedStage());
+        $this->assertTrue($fresh->isInActiveProductionStage());
+
+        // Stored deadline was preserved throughout the completion lifecycle
+        $this->assertEquals($pastDate, $fresh->due_date);
+
+        // Urgency warnings and countdown are restored immediately upon reopening
+        $this->assertEquals('overdue', $fresh->deadline_status);
+        $this->assertStringStartsWith('Overdue by', (string) $fresh->time_remaining);
+    }
+
+    public function test_reopening_task_from_complete_to_review_restores_deadline_date_with_suppressed_urgency(): void
+    {
+        $pastDate = now()->subDays(2)->toDateString();
+        $task = $this->makeTask($this->completed, [
+            'due_date' => $pastDate,
+            'completed_at' => now(),
+        ]);
+
+        // Reopen to For Review
+        $response = $this->actingAs($this->pm)->patchJson("/kanban/tasks/{$task->id}/column", [
+            'column_id' => $this->review->id,
+        ]);
+        $response->assertRedirect();
+
+        $fresh = $task->fresh();
+        $this->assertEquals($this->review->id, $fresh->column_id);
+        $this->assertNull($fresh->completed_at);
+        $this->assertFalse($fresh->isInCompletedStage());
+        $this->assertFalse($fresh->isInActiveProductionStage());
+
+        // Stored deadline remains visible but urgency warnings are suppressed
+        $this->assertEquals($pastDate, $fresh->due_date);
+        $this->assertEquals('no_deadline', $fresh->deadline_status);
+        $this->assertNull($fresh->time_remaining);
+    }
+
+    public function test_for_revision_stage_is_active_production_and_shows_urgency(): void
+    {
+        $revision = $this->createColumn('For Revision', 'in_progress');
+        $pastDate = now()->subDay()->toDateString();
+        $task = $this->makeTask($revision, ['due_date' => $pastDate]);
+
+        $this->actingAs($this->manager);
+
+        $this->assertTrue($task->isInActiveProductionStage());
+        $this->assertFalse($task->isInCompletedStage());
+        $this->assertEquals('overdue', $task->deadline_status);
+        $this->assertStringStartsWith('Overdue by', (string) $task->time_remaining);
+    }
+
     // ------------------------------------------------------------------
     // 1b. Client Deadline role gating
     // ------------------------------------------------------------------

@@ -26,7 +26,7 @@ import {
     User as UserIcon,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { BoardPermissions, getTaskAssignedUsers, isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
+import { BoardPermissions, getTaskAssignedUsers, isProductionDeadlineHidden, isProductionUrgencyActive, isTaskInCompletedStage, isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
 
 // Words of the vertical add-stage label. Each word is rendered as its own
 // single column of individual characters, so the label always forms one
@@ -249,14 +249,19 @@ export default function KanbanBoardView({
         setDraggingTaskId(null);
     };
 
-    const isOverdue = (task: Task) => {
-        if (task.completed_at || (task.progress ?? 0) === 100) return false;
+    const isOverdue = (task: Task, column?: KanbanColumn) => {
+        if (isTaskInCompletedStage(task, column)) return false;
         return task.deadline_status === 'overdue';
     };
 
-    const isDueToday = (task: Task) => {
-        if (task.completed_at || (task.progress ?? 0) === 100) return false;
+    const isDueToday = (task: Task, column?: KanbanColumn) => {
+        if (isTaskInCompletedStage(task, column)) return false;
         return task.deadline_status === 'due_today';
+    };
+
+    const isDueSoon = (task: Task, column?: KanbanColumn) => {
+        if (isTaskInCompletedStage(task, column)) return false;
+        return task.deadline_status === 'due_soon';
     };
 
     const getPriorityBadgeClass = (priority: string) => {
@@ -358,10 +363,12 @@ export default function KanbanBoardView({
                                 const subitems = task.subitems || [];
                                 const completedSubitems = subitems.filter((s) => s.completed_at || s.progress === 100).length;
                                 const isSubExpanded = !!expandedCards[task.id];
-                                const exactRemaining = getExactTimeRemaining(task.due_date, task.due_time);
-                                const overdue = isOverdue(task) || (exactRemaining?.isOverdue ?? false);
-                                const isDueSoonOrToday = !overdue && exactRemaining && exactRemaining.hours < 24;
-                                const dueToday = isDueToday(task) || Boolean(isDueSoonOrToday);
+                                const deadlineHidden = isProductionDeadlineHidden(task, col);
+                                const overdue = isOverdue(task, col);
+                                const dueToday = isDueToday(task, col);
+                                const dueSoon = isDueSoon(task, col);
+                                const urgencyActive = isProductionUrgencyActive(task, col);
+                                const exactRemaining = urgencyActive ? getExactTimeRemaining(task.due_date, task.due_time) : null;
                                 const commentCount = (task.comments || []).length;
 
                                 // Extract cover image if present (attachments or media usages)
@@ -412,10 +419,10 @@ export default function KanbanBoardView({
                                                     </span>
                                                 )}
 
-                                                {!overdue && exactRemaining && exactRemaining.hours < 24 && (
+                                                {!overdue && (dueToday || dueSoon) && (
                                                     <span className="flex items-center gap-0.5 rounded border border-amber-500/25 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
                                                         <Clock className="h-2.5 w-2.5" />
-                                                        <span>{exactRemaining.formattedRemaining}</span>
+                                                        <span>{exactRemaining ? exactRemaining.formattedRemaining : (dueToday ? 'Due Today' : 'Due Soon')}</span>
                                                     </span>
                                                 )}
 
@@ -614,7 +621,7 @@ export default function KanbanBoardView({
                                         {/* Card Footer: Due Date, Comments, Assignees */}
                                         <div className="flex items-center justify-between border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
                                             <div className="flex items-center gap-2">
-                                                {task.due_date && (
+                                                {!deadlineHidden && task.due_date && (
                                                     <div
                                                         className={`flex items-center gap-1 font-medium ${
                                                             overdue ? 'font-bold text-rose-600 dark:text-rose-400' : dueToday ? 'font-bold text-amber-600 dark:text-amber-400' : ''

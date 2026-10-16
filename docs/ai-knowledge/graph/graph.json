@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-15T15:23:45.435Z",
+  "generated_at": "2026-10-16T12:29:23.753Z",
   "stats": {
-    "total_nodes": 573,
-    "total_edges": 1129,
+    "total_nodes": 589,
+    "total_edges": 1172,
     "clusters": 7
   },
   "nodes": [
@@ -286,6 +286,26 @@
       "uri": "/kanban/boards/{board}/stages/reorder",
       "name": "kanban.stages.reorder",
       "action": "reorderWorkflowStages"
+    },
+    {
+      "id": "route:GET:/kanban/boards/{board}/workflow",
+      "label": "GET /kanban/boards/{board}/workflow",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/kanban/boards/{board}/workflow",
+      "name": "kanban.boards.workflow.get",
+      "action": "getWorkflowSettings"
+    },
+    {
+      "id": "route:PATCH:/kanban/boards/{board}/workflow/transitions",
+      "label": "PATCH /kanban/boards/{board}/workflow/transitions",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "patch",
+      "uri": "/kanban/boards/{board}/workflow/transitions",
+      "name": "kanban.boards.workflow.transitions.update",
+      "action": "updateWorkflowTransitions"
     },
     {
       "id": "route:POST:/kanban/boards/{board}/columns",
@@ -2608,6 +2628,12 @@
       "file": "app/Services/WebhookService.php"
     },
     {
+      "id": "service:WorkflowService",
+      "label": "WorkflowService",
+      "type": "service",
+      "file": "app/Services/WorkflowService.php"
+    },
+    {
       "id": "service:WorkloadCapacityService",
       "label": "WorkloadCapacityService",
       "type": "service",
@@ -3130,6 +3156,12 @@
       "file": "app/Models/BoardView.php"
     },
     {
+      "id": "model:BoardWorkflowTransition",
+      "label": "BoardWorkflowTransition",
+      "type": "model",
+      "file": "app/Models/BoardWorkflowTransition.php"
+    },
+    {
       "id": "model:ClientContact",
       "label": "ClientContact",
       "type": "model",
@@ -3598,6 +3630,18 @@
       "file": "resources/js/pages/dashboards/widgets/WorkloadWidget.tsx"
     },
     {
+      "id": "component:403",
+      "label": "403",
+      "type": "component",
+      "file": "resources/js/pages/errors/403.tsx"
+    },
+    {
+      "id": "component:422",
+      "label": "422",
+      "type": "component",
+      "file": "resources/js/pages/errors/422.tsx"
+    },
+    {
       "id": "component:AddColumnModal",
       "label": "AddColumnModal",
       "type": "component",
@@ -3730,6 +3774,12 @@
       "file": "resources/js/pages/kanban/components/WorkflowBlueprintModal.tsx"
     },
     {
+      "id": "component:WorkflowSettingsModal",
+      "label": "WorkflowSettingsModal",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/WorkflowSettingsModal.tsx"
+    },
+    {
       "id": "component:WorkloadView",
       "label": "WorkloadView",
       "type": "component",
@@ -3826,6 +3876,12 @@
       "file": "resources/js/components/delete-user.tsx"
     },
     {
+      "id": "component:ErrorShell",
+      "label": "ErrorShell",
+      "type": "component",
+      "file": "resources/js/components/ErrorShell.tsx"
+    },
+    {
       "id": "component:heading-small",
       "label": "heading-small",
       "type": "component",
@@ -3890,6 +3946,12 @@
       "label": "text-link",
       "type": "component",
       "file": "resources/js/components/text-link.tsx"
+    },
+    {
+      "id": "component:toast",
+      "label": "toast",
+      "type": "component",
+      "file": "resources/js/components/toast.tsx"
     },
     {
       "id": "component:alert",
@@ -4084,6 +4146,12 @@
       "file": "tests/Feature/EnterpriseDashboardAndReportingTest.php"
     },
     {
+      "id": "test:KanbanRoleBasedUxTest",
+      "label": "KanbanRoleBasedUxTest",
+      "type": "test",
+      "file": "tests/Feature/KanbanRoleBasedUxTest.php"
+    },
+    {
       "id": "test:Phase10SecurityHardeningAndEndToEndTest",
       "label": "Phase10SecurityHardeningAndEndToEndTest",
       "type": "test",
@@ -4120,6 +4188,12 @@
       "file": "tests/Feature/WorkOsBoardTest.php"
     },
     {
+      "id": "test:WorkOsBoardViewIdentityTest",
+      "label": "WorkOsBoardViewIdentityTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsBoardViewIdentityTest.php"
+    },
+    {
       "id": "test:WorkOsCategoryAssignedMovementTest",
       "label": "WorkOsCategoryAssignedMovementTest",
       "type": "test",
@@ -4136,6 +4210,12 @@
       "label": "WorkOsEmployeeTaskModalTest",
       "type": "test",
       "file": "tests/Feature/WorkOsEmployeeTaskModalTest.php"
+    },
+    {
+      "id": "test:WorkOsPermissionErrorUXTest",
+      "label": "WorkOsPermissionErrorUXTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsPermissionErrorUXTest.php"
     },
     {
       "id": "test:WorkOsPhase2SecurityAuditTest",
@@ -4234,10 +4314,34 @@
       "file": "tests/Feature/WorkOsRoleSimplificationTest.php"
     },
     {
+      "id": "test:WorkOsStep1bTransitionEnforcementTest",
+      "label": "WorkOsStep1bTransitionEnforcementTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsStep1bTransitionEnforcementTest.php"
+    },
+    {
+      "id": "test:WorkOsStep1bWorkflowMigrationTest",
+      "label": "WorkOsStep1bWorkflowMigrationTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsStep1bWorkflowMigrationTest.php"
+    },
+    {
+      "id": "test:WorkOsTableViewGroupingTest",
+      "label": "WorkOsTableViewGroupingTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsTableViewGroupingTest.php"
+    },
+    {
       "id": "test:WorkOsUserManagementTest",
       "label": "WorkOsUserManagementTest",
       "type": "test",
       "file": "tests/Feature/WorkOsUserManagementTest.php"
+    },
+    {
+      "id": "test:WorkOsWorkflowSettingsTest",
+      "label": "WorkOsWorkflowSettingsTest",
+      "type": "test",
+      "file": "tests/Feature/WorkOsWorkflowSettingsTest.php"
     },
     {
       "id": "doc:00-START-HERE",
@@ -4456,6 +4560,18 @@
       "target": "controller:KanbanController",
       "relationship": "routes_to",
       "action": "reorderWorkflowStages"
+    },
+    {
+      "source": "route:GET:/kanban/boards/{board}/workflow",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "getWorkflowSettings"
+    },
+    {
+      "source": "route:PATCH:/kanban/boards/{board}/workflow/transitions",
+      "target": "controller:KanbanController",
+      "relationship": "routes_to",
+      "action": "updateWorkflowTransitions"
     },
     {
       "source": "route:POST:/kanban/boards/{board}/columns",
@@ -6038,6 +6154,18 @@
       "source": "controller:KanbanController",
       "target": "$board",
       "relationship": "authorizes_with",
+      "ability": "manageStatuses"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "$board",
+      "relationship": "authorizes_with",
+      "ability": "manageStatuses"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "$board",
+      "relationship": "authorizes_with",
       "ability": "manageGroups"
     },
     {
@@ -6099,6 +6227,12 @@
       "target": "$task",
       "relationship": "authorizes_with",
       "ability": "update"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "$task, $status",
+      "relationship": "authorizes_with",
+      "ability": "changeStatus"
     },
     {
       "source": "controller:KanbanController",
@@ -6328,6 +6462,11 @@
     },
     {
       "source": "controller:KanbanController",
+      "target": "service:WorkflowService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:KanbanController",
       "target": "model:Workspace",
       "relationship": "queries_model"
     },
@@ -6369,6 +6508,11 @@
     {
       "source": "controller:KanbanController",
       "target": "model:KanbanColumn",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "model:BoardWorkflowTransition",
       "relationship": "queries_model"
     },
     {
@@ -7626,6 +7770,40 @@
       "relationship": "uses_model"
     },
     {
+      "source": "service:WorkflowService",
+      "target": "service_method:WorkflowService::applyTemplate",
+      "relationship": "defines_method",
+      "method": "applyTemplate"
+    },
+    {
+      "source": "service:WorkflowService",
+      "target": "service_method:WorkflowService::boardIsConfigured",
+      "relationship": "defines_method",
+      "method": "boardIsConfigured"
+    },
+    {
+      "source": "service:WorkflowService",
+      "target": "service_method:WorkflowService::contributorMayTransition",
+      "relationship": "defines_method",
+      "method": "contributorMayTransition"
+    },
+    {
+      "source": "service:WorkflowService",
+      "target": "service_method:WorkflowService::syncTransitions",
+      "relationship": "defines_method",
+      "method": "syncTransitions"
+    },
+    {
+      "source": "service:WorkflowService",
+      "target": "model:KanbanColumn",
+      "relationship": "uses_model"
+    },
+    {
+      "source": "service:WorkflowService",
+      "target": "model:BoardWorkflowTransition",
+      "relationship": "uses_model"
+    },
+    {
       "source": "service:WorkloadCapacityService",
       "target": "service_method:WorkloadCapacityService::calculateBoardWorkload",
       "relationship": "defines_method",
@@ -8296,6 +8474,26 @@
       "relationship": "imports"
     },
     {
+      "source": "component:403",
+      "target": "component:ErrorShell",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:403",
+      "target": "component:permission-errors",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:422",
+      "target": "component:ErrorShell",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:422",
+      "target": "component:permission-errors",
+      "relationship": "imports"
+    },
+    {
       "source": "component:builder",
       "target": "component:button",
       "relationship": "imports"
@@ -8463,6 +8661,11 @@
     {
       "source": "component:BoardUnifiedHeader",
       "target": "component:sidebar",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:BoardUnifiedHeader",
+      "target": "component:toast",
       "relationship": "imports"
     },
     {
@@ -8876,6 +9079,11 @@
     },
     {
       "source": "component:TableView",
+      "target": "component:toast",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:TableView",
       "target": "component:types",
       "relationship": "imports"
     },
@@ -8927,6 +9135,41 @@
     },
     {
       "source": "component:WorkflowBlueprintModal",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkflowSettingsModal",
+      "target": "component:badge",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkflowSettingsModal",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkflowSettingsModal",
+      "target": "component:dialog",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkflowSettingsModal",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkflowSettingsModal",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkflowSettingsModal",
+      "target": "component:select",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:WorkflowSettingsModal",
       "target": "component:types",
       "relationship": "imports"
     },
@@ -9065,6 +9308,11 @@
     {
       "source": "component:index",
       "target": "component:WorkflowBlueprintModal",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "component:WorkflowSettingsModal",
       "relationship": "imports"
     },
     {
@@ -9522,6 +9770,17 @@
       "relationship": "imports"
     },
     {
+      "source": "component:ErrorShell",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:ErrorShell",
+      "target": "route:CALL:/dashboard",
+      "relationship": "calls_route",
+      "uri": "/dashboard"
+    },
+    {
       "source": "component:icon",
       "target": "component:utils",
       "relationship": "imports"
@@ -9911,6 +10170,22 @@
       "relationship": "tests"
     },
     {
+      "source": "test:KanbanRoleBasedUxTest",
+      "target": "service:WorkOsPermissionService",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:KanbanRoleBasedUxTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:KanbanRoleBasedUxTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
+    },
+    {
       "source": "test:Phase10SecurityHardeningAndEndToEndTest",
       "target": "service:WebhookService",
       "relationship": "tests"
@@ -10080,6 +10355,18 @@
     },
     {
       "source": "test:WorkOsEmployeeTaskModalTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
+    },
+    {
+      "source": "test:WorkOsPermissionErrorUXTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsPermissionErrorUXTest",
       "target": "role:project_manager",
       "relationship": "audits_role",
       "role": "project_manager"
@@ -10321,6 +10608,40 @@
       "role": "project_manager"
     },
     {
+      "source": "test:WorkOsStep1bTransitionEnforcementTest",
+      "target": "service:WorkflowService",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:WorkOsStep1bTransitionEnforcementTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsStep1bTransitionEnforcementTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
+    },
+    {
+      "source": "test:WorkOsStep1bWorkflowMigrationTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsStep1bWorkflowMigrationTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
+    },
+    {
+      "source": "test:WorkOsTableViewGroupingTest",
+      "target": "service:WorkflowService",
+      "relationship": "tests"
+    },
+    {
       "source": "test:WorkOsUserManagementTest",
       "target": "controller:DashboardController",
       "relationship": "tests"
@@ -10333,6 +10654,23 @@
     },
     {
       "source": "test:WorkOsUserManagementTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
+    },
+    {
+      "source": "test:WorkOsWorkflowSettingsTest",
+      "target": "service:WorkflowService",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:WorkOsWorkflowSettingsTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
+    },
+    {
+      "source": "test:WorkOsWorkflowSettingsTest",
       "target": "role:project_manager",
       "relationship": "audits_role",
       "role": "project_manager"
