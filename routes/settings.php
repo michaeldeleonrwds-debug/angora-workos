@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SettingsCenterController;
@@ -59,7 +60,7 @@ Route::middleware('auth')->group(function () {
     // 5. Data & Security Shortcuts / Policies
     Route::get('settings/data/security', [SettingsCenterController::class, 'security'])->name('settings.data.security');
     Route::patch('settings/data/security', [SettingsCenterController::class, 'updateSecurity'])->name('settings.data.security.update');
-    Route::get('settings/data/files', fn () => redirect()->route('media.index'))->name('settings.data.files');
+    Route::get('settings/data/files', [MediaController::class, 'index'])->name('settings.data.files');
     Route::get('settings/data/audit-logs', fn () => redirect()->route('audit-logs.index'))->name('settings.data.audit-logs');
     Route::get('settings/data/integrations', fn () => redirect()->route('integrations.index'))->name('settings.data.integrations');
 });

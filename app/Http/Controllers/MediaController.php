@@ -9,6 +9,8 @@ use App\Services\MediaAssetService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class MediaController extends Controller
 {
@@ -22,15 +24,27 @@ class MediaController extends Controller
     /**
      * List media assets accessible to the user in the given workspace.
      */
-    public function index(Request $request): JsonResponse
+    public function index(Request $request): JsonResponse|Response
     {
         $workspaceId = $request->integer('workspace_id') ?: session('active_workspace_id');
         $search = $request->string('search')->trim()->value() ?: null;
-        $perPage = min($request->integer('per_page', 30), 100);
+        $perPage = min($request->integer('per_page', 24), 100);
 
         $assets = $this->mediaService->listAssets($workspaceId, $search, $perPage);
 
-        return response()->json($assets);
+        // When requested via Axios / API client expecting raw JSON
+        if ($request->wantsJson() && ! $request->header('X-Inertia')) {
+            return response()->json($assets);
+        }
+
+        return Inertia::render('media/index', [
+            'assets' => $assets,
+            'filters' => [
+                'search' => $search,
+                'workspace_id' => $workspaceId,
+            ],
+            'storageDisk' => config('filesystems.media_disk', env('MEDIA_DISK', config('filesystems.default', 'public'))),
+        ]);
     }
 
     /**
@@ -159,21 +173,33 @@ class MediaController extends Controller
     /**
      * Safely delete a media asset.
      */
-    public function destroy(Request $request, MediaAsset $mediaAsset): JsonResponse
+    public function destroy(Request $request, MediaAsset $mediaAsset): JsonResponse|\Illuminate\Http\RedirectResponse
     {
         $user = $request->user();
 
         // Must be the owner or an admin
-        if ($mediaAsset->user_id !== $user->id && !$user->hasRole(['super_admin', 'workspace_admin', 'admin'])) {
+        if ($mediaAsset->user_id !== $user->id && ! $user->hasRole(['super_admin', 'workspace_admin', 'admin'])) {
+            if ($request->header('X-Inertia')) {
+                return back()->withErrors(['message' => 'Unauthorized to delete this media asset.']);
+            }
             return response()->json(['message' => 'Unauthorized to delete this media asset.'], 403);
         }
 
         try {
             $this->mediaService->safeDelete($mediaAsset, $request->boolean('force', false));
+            if ($request->header('X-Inertia')) {
+                return back()->with('success', 'Media asset deleted successfully.');
+            }
             return response()->json(['success' => true, 'message' => 'Media asset deleted successfully.']);
         } catch (\RuntimeException $e) {
+            if ($request->header('X-Inertia')) {
+                return back()->withErrors(['message' => $e->getMessage()]);
+            }
             return response()->json(['message' => $e->getMessage()], 409);
         } catch (\Throwable $e) {
+            if ($request->header('X-Inertia')) {
+                return back()->withErrors(['message' => 'Delete failed: ' . $e->getMessage()]);
+            }
             return response()->json(['message' => 'Delete failed: ' . $e->getMessage()], 500);
         }
     }

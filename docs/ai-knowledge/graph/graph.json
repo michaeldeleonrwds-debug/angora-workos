@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T18:29:46.104Z",
+  "generated_at": "2026-10-16T18:39:10.682Z",
   "stats": {
     "total_nodes": 640,
-    "total_edges": 1397,
+    "total_edges": 1398,
     "clusters": 7
   },
   "nodes": [
@@ -7149,6 +7149,12 @@
     },
     {
       "source": "controller:MediaController",
+      "target": "component:index",
+      "relationship": "renders",
+      "page": "media/index"
+    },
+    {
+      "source": "controller:MediaController",
       "target": "service:MediaAssetService",
       "relationship": "calls_service"
     },
@@ -10214,6 +10220,23 @@
     },
     {
       "source": "component:index",
+      "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings",
+      "relationship": "calls_route",
+      "uri": "/settings"
+    },
+    {
+      "source": "component:index",
+      "target": "route:CALL:/settings/data/files",
+      "relationship": "calls_route",
+      "uri": "/settings/data/files"
+    },
+    {
+      "source": "component:index",
       "target": "component:textarea",
       "relationship": "imports"
     },
@@ -10324,17 +10347,6 @@
     },
     {
       "source": "component:index",
-      "target": "component:layout",
-      "relationship": "imports"
-    },
-    {
-      "source": "component:index",
-      "target": "route:CALL:/settings",
-      "relationship": "calls_route",
-      "uri": "/settings"
-    },
-    {
-      "source": "component:index",
       "target": "route:CALL:/settings/system/health",
       "relationship": "calls_route",
       "uri": "/settings/system/health"
@@ -10404,12 +10416,6 @@
       "target": "route:CALL:/settings/system/queues",
       "relationship": "calls_route",
       "uri": "/settings/system/queues"
-    },
-    {
-      "source": "component:index",
-      "target": "route:CALL:/settings/data/files",
-      "relationship": "calls_route",
-      "uri": "/settings/data/files"
     },
     {
       "source": "component:index",

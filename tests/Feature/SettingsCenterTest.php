@@ -229,4 +229,34 @@ class SettingsCenterTest extends TestCase
         $this->assertEquals('Renamed Settings Workspace', $this->workspace->name);
         $this->assertEquals('#00c875', $this->workspace->color);
     }
+
+    public function test_file_manager_route_renders_inertia_page(): void
+    {
+        $response = $this->actingAs($this->employee)->get('/settings/data/files');
+        $response->assertSuccessful();
+        $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->component('media/index')
+            ->has('assets')
+            ->has('filters')
+            ->has('storageDisk')
+        );
+
+        $mediaResponse = $this->actingAs($this->employee)->get('/media');
+        $mediaResponse->assertSuccessful();
+        $mediaResponse->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
+            ->component('media/index')
+        );
+    }
+
+    public function test_media_index_returns_raw_json_when_requested_via_api(): void
+    {
+        $response = $this->actingAs($this->employee)->getJson('/media');
+        $response->assertSuccessful();
+        $response->assertJsonStructure([
+            'current_page',
+            'data',
+            'total',
+        ]);
+    }
 }
+
