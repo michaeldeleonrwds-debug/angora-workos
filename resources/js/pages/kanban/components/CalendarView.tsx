@@ -277,7 +277,7 @@ export default function CalendarView({
                                                         <span
                                                             className="h-2 w-2 flex-shrink-0 rounded-full"
                                                             style={{
-                                                                backgroundColor: isDone ? '#00c875' : isOverdue ? '#e2445c' : '#579bfc',
+                                                                backgroundColor: isDone ? (task.column?.color || '#00c875') : isOverdue ? '#e2445c' : (task.column?.color || '#579bfc'),
                                                             }}
                                                         />
                                                         {task.is_milestone && (

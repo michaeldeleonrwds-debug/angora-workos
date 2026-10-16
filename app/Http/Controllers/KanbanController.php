@@ -1345,18 +1345,26 @@ class KanbanController extends Controller
             }
         }
 
-        if (isset($validated['column_id'])) {
-            $status = KanbanColumn::where('board_id', $task->board_id)->findOrFail($validated['column_id']);
-            abort_if($status->is_archived && $status->id !== $task->column_id, 422, 'Archived statuses cannot be assigned.');
-            // Column changes made through the general update endpoint obey the
-            // same workflow transition rules as the dedicated movement endpoint.
-            if ((int) $status->id !== (int) $task->column_id) {
-                if ($status->stage_key === null && $this->workflowService->boardIsConfigured($task->board)) {
-                    abort(422, 'This stage is not part of the board workflow.');
+        if (array_key_exists('column_id', $validated)) {
+            if (empty($validated['column_id'])) {
+                if ($task->parent_id) {
+                    Gate::authorize('changeStatus', [$task, null]);
+                    $task->column_id = null;
+                    $task->completed_at = null;
                 }
-                Gate::authorize('changeStatus', [$task, $status]);
+            } else {
+                $status = KanbanColumn::where('board_id', $task->board_id)->findOrFail($validated['column_id']);
+                abort_if($status->is_archived && $status->id !== $task->column_id, 422, 'Archived statuses cannot be assigned.');
+                // Column changes made through the general update endpoint obey the
+                // same workflow transition rules as the dedicated movement endpoint.
+                if ((int) $status->id !== (int) $task->column_id) {
+                    if ($status->stage_key === null && $this->workflowService->boardIsConfigured($task->board)) {
+                        abort(422, 'This stage is not part of the board workflow.');
+                    }
+                    Gate::authorize('changeStatus', [$task, $status]);
+                }
+                $task->applyWorkflowStatus($status);
             }
-            $task->applyWorkflowStatus($status);
         }
         if (isset($validated['group_id'])) {
             abort_unless(BoardGroup::where('board_id', $task->board_id)->whereKey($validated['group_id'])->exists(), 422);
@@ -1547,9 +1555,48 @@ class KanbanController extends Controller
     public function updateTaskColumn(Request $request, KanbanTask $task)
     {
         $validated = $request->validate([
-            'column_id' => 'required|exists:kanban_columns,id',
+            'column_id' => $task->parent_id ? 'nullable|exists:kanban_columns,id' : 'required|exists:kanban_columns,id',
             'position' => 'nullable|integer',
         ]);
+
+        if (empty($validated['column_id'])) {
+            abort_unless($task->parent_id, 422, 'Main tasks must always belong to a workflow stage.');
+            Gate::authorize('changeStatus', [$task, null]);
+
+            $prevColumn = $task->column?->title;
+            $task->column_id = null;
+            $task->completed_at = null;
+            if (isset($validated['position'])) {
+                $task->position = $validated['position'];
+            }
+            $task->save();
+
+            if ($task->parent_id) {
+                $task->parent?->recalculateProgressFromSubtasks();
+            }
+
+            if ($prevColumn) {
+                TaskActivityService::log(
+                    task: $task,
+                    eventType: 'status_changed',
+                    description: auth()->user()->name . " cleared Status (was '{$prevColumn}')",
+                    fieldName: 'column_id',
+                    oldValue: $prevColumn,
+                    newValue: null
+                );
+            }
+
+            $task->load('column', 'group', 'board');
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => 'Status cleared',
+                    'task' => $task,
+                ]);
+            }
+
+            return back()->with('success', 'Status cleared');
+        }
 
         $status = KanbanColumn::findOrFail($validated['column_id']);
         if ((int) $status->board_id !== (int) $task->board_id) {
@@ -1765,7 +1812,7 @@ class KanbanController extends Controller
             'board_id' => $task->board_id,
             'group_id' => $task->group_id,
             'parent_id' => $task->id,
-            'column_id' => $validated['column_id'] ?? $task->column_id,
+            'column_id' => $validated['column_id'] ?? null,
             'title' => $validated['title'],
             'assigned_to' => $validated['assigned_to'] ?? null,
             'due_date' => $validated['due_date'] ?? null,

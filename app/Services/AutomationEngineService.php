@@ -342,7 +342,7 @@ class AutomationEngineService
                         'board_id' => $task->board_id,
                         'group_id' => $task->group_id,
                         'parent_id' => $task->id,
-                        'column_id' => $task->column_id,
+                        'column_id' => $action['column_id'] ?? null,
                         'title' => $action['title'],
                         'assigned_to' => $action['assigned_to'] ?? $task->assigned_to,
                         'priority' => $action['priority'] ?? 'Medium',

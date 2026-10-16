@@ -136,7 +136,22 @@ export default function SubitemTable({
         }
     };
 
-    const handleUpdateStatus = (sub: Task, columnIdOrLabel: number | string, colKey: string) => {
+    const handleClearStatus = (sub: Task, colKey: string) => {
+        router.patch(
+            `/kanban/tasks/${sub.id}`,
+            {
+                column_id: null,
+                custom_values: { [colKey]: null },
+            },
+            { preserveScroll: true }
+        );
+    };
+
+    const handleUpdateStatus = (sub: Task, columnIdOrLabel: number | string | null, colKey: string) => {
+        if (columnIdOrLabel === null) {
+            handleClearStatus(sub, colKey);
+            return;
+        }
         if (typeof columnIdOrLabel === 'number') {
             router.patch(
                 `/kanban/tasks/${sub.id}/column`,
@@ -146,21 +161,17 @@ export default function SubitemTable({
         } else {
             // Check if matches a board column title
             const matchedCol = columns.find((c) => c.title.toLowerCase() === columnIdOrLabel.toLowerCase());
+            const payload: any = {
+                custom_values: { [colKey]: columnIdOrLabel },
+            };
             if (matchedCol) {
-                router.patch(
-                    `/kanban/tasks/${sub.id}/column`,
-                    { column_id: matchedCol.id },
-                    { preserveScroll: true },
-                );
-            } else {
-                router.patch(
-                    `/kanban/tasks/${sub.id}`,
-                    {
-                        custom_values: { [colKey]: columnIdOrLabel },
-                    },
-                    { preserveScroll: true },
-                );
+                payload.column_id = matchedCol.id;
             }
+            router.patch(
+                `/kanban/tasks/${sub.id}`,
+                payload,
+                { preserveScroll: true },
+            );
         }
     };
 
@@ -517,18 +528,24 @@ export default function SubitemTable({
                                             // 3. Status
                                             if (col.type === 'status' || col.key.includes('status')) {
                                                 const currentLabel =
-                                                    sub.custom_values?.[col.key] || sub.column?.title || 'New Task';
-                                                const meta = getStatusStyle(currentLabel);
+                                                    (sub.custom_values?.[col.key] as string) || sub.column?.title || null;
+                                                const meta = currentLabel ? getStatusStyle(currentLabel) : null;
 
-                                                // Options from config or board columns
-                                                const options =
-                                                    col.config?.status_options || [
-                                                        { label: 'New Task', color: '#0086C0' },
-                                                        { label: 'Working on it', color: '#FDAB3D' },
-                                                        { label: 'For Review', color: '#A25DDC' },
-                                                        { label: 'Needs Revision', color: '#FF642E' },
-                                                        { label: 'Done', color: '#00C875' },
-                                                    ];
+                                                // Options from config or standard subtask status options
+                                                const rawOptions = col.config?.status_options;
+                                                const options = Array.isArray(rawOptions)
+                                                    ? rawOptions
+                                                    : [
+                                                          { label: 'New Task', color: '#0086C0' },
+                                                          { label: 'Working on it', color: '#FDAB3D' },
+                                                          { label: 'For Review', color: '#A25DDC' },
+                                                          { label: 'Needs Revision', color: '#FF642E' },
+                                                          { label: 'Done', color: '#00C875' },
+                                                      ];
+
+                                                const activeColor = currentLabel
+                                                    ? (options.find((o: any) => (typeof o === 'string' ? o : o.label) === currentLabel)?.color || sub.column?.color || meta?.bg || '#64748b')
+                                                    : undefined;
 
                                                 return (
                                                     <div
@@ -538,29 +555,61 @@ export default function SubitemTable({
                                                     >
                                                         <DropdownMenu>
                                                             <DropdownMenuTrigger asChild>
-                                                                <button
-                                                                    className="w-full truncate rounded py-1 px-1.5 text-center text-[11px] font-bold tracking-tight text-white shadow-2xs transition-all hover:brightness-105 active:scale-95"
-                                                                    style={{ backgroundColor: meta.bg }}
-                                                                >
-                                                                    {meta.label}
-                                                                </button>
+                                                                {currentLabel ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="w-full truncate rounded py-1 px-1.5 text-center text-[11px] font-bold tracking-tight text-white shadow-2xs transition-all hover:brightness-105 active:scale-95"
+                                                                        style={{ backgroundColor: activeColor }}
+                                                                    >
+                                                                        {currentLabel}
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        className="w-full truncate rounded py-1 px-1.5 text-center text-[11px] font-medium tracking-tight text-muted-foreground border border-dashed border-border/80 hover:border-border hover:bg-muted/40 transition-all flex items-center justify-center gap-1 cursor-pointer"
+                                                                        title="Add status"
+                                                                    >
+                                                                        <Plus className="h-3 w-3 opacity-60" />
+                                                                        <span>Add status</span>
+                                                                    </button>
+                                                                )}
                                                             </DropdownMenuTrigger>
                                                             <DropdownMenuContent align="center" className="w-40 space-y-1 rounded-xl p-1.5">
-                                                                {options.map((opt: any) => {
-                                                                    const optLabel = typeof opt === 'string' ? opt : opt.label;
-                                                                    const optColor = typeof opt === 'string' ? getStatusStyle(opt).bg : opt.color;
-                                                                    return (
+                                                                {options.length === 0 ? (
+                                                                    <div className="py-2 text-center text-[11px] text-muted-foreground">
+                                                                        No status options configured
+                                                                    </div>
+                                                                ) : (
+                                                                    options.map((opt: any) => {
+                                                                        const optLabel = typeof opt === 'string' ? opt : opt.label;
+                                                                        const optColor = typeof opt === 'string' ? getStatusStyle(opt).bg : opt.color;
+                                                                        return (
+                                                                            <button
+                                                                                key={optLabel}
+                                                                                type="button"
+                                                                                onClick={() => handleUpdateStatus(sub, optLabel, col.key)}
+                                                                                className="flex w-full items-center justify-between rounded px-2 py-1 text-center text-[11px] font-bold text-white transition-opacity hover:opacity-90"
+                                                                                style={{ backgroundColor: optColor }}
+                                                                            >
+                                                                                <span className="truncate">{optLabel}</span>
+                                                                                {currentLabel === optLabel && <Check className="h-3 w-3 shrink-0" />}
+                                                                            </button>
+                                                                        );
+                                                                    })
+                                                                )}
+                                                                {currentLabel && (
+                                                                    <>
+                                                                        <DropdownMenuSeparator className="my-1 bg-border/40" />
                                                                         <button
-                                                                            key={optLabel}
                                                                             type="button"
-                                                                            onClick={() => handleUpdateStatus(sub, optLabel, col.key)}
-                                                                            className="w-full rounded py-1 text-center text-[11px] font-bold text-white transition-opacity hover:opacity-90"
-                                                                            style={{ backgroundColor: optColor }}
+                                                                            onClick={() => handleClearStatus(sub, col.key)}
+                                                                            className="w-full rounded py-1 px-1.5 text-center text-[11px] font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors flex items-center justify-center gap-1 cursor-pointer"
                                                                         >
-                                                                            {optLabel}
+                                                                            <X className="h-3 w-3" />
+                                                                            <span>Clear status</span>
                                                                         </button>
-                                                                    );
-                                                                })}
+                                                                    </>
+                                                                )}
                                                             </DropdownMenuContent>
                                                         </DropdownMenu>
                                                     </div>

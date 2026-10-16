@@ -70,6 +70,7 @@ export default function EmployeeTaskPanel({
 
     const boardColumns = board.board_columns || [];
     const statusColumns = board.columns || [];
+    const currentColumn = statusColumns.find((c) => c.id === task.column_id) || task.column;
     const subitems = task.subitems || [];
 
     // Client Deadline is management-only (mirrors the server-side
@@ -440,9 +441,9 @@ export default function EmployeeTaskPanel({
                                     <button
                                         type="button"
                                         className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold text-white shadow-2xs hover:brightness-105 transition-all cursor-pointer"
-                                        style={{ backgroundColor: task.column?.color || '#64748b' }}
+                                        style={{ backgroundColor: currentColumn?.color || task.column?.color || '#64748b' }}
                                     >
-                                        <span>{task.column?.title || 'Not Started'}</span>
+                                        <span>{currentColumn?.title || task.column?.title || 'Not Started'}</span>
                                         <ChevronDown className="h-3 w-3 opacity-80" />
                                     </button>
                                 </DropdownMenuTrigger>
@@ -464,9 +465,9 @@ export default function EmployeeTaskPanel({
                         ) : (
                             <span
                                 className="inline-block rounded-lg px-3 py-1 text-xs font-bold text-white shadow-2xs"
-                                style={{ backgroundColor: task.column?.color || '#64748b' }}
+                                style={{ backgroundColor: currentColumn?.color || task.column?.color || '#64748b' }}
                             >
-                                {task.column?.title || 'Not Started'}
+                                {currentColumn?.title || task.column?.title || 'Not Started'}
                             </span>
                         )}
                     </div>
@@ -627,9 +628,16 @@ export default function EmployeeTaskPanel({
                                                 )}
                                             </div>
                                         )}
-                                        {sub.column?.title && (
-                                            <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0">
+                                        {sub.column?.title ? (
+                                            <span
+                                                className="rounded-full px-2 py-0.5 text-[10px] font-bold shrink-0 text-white"
+                                                style={{ backgroundColor: sub.column.color || '#64748b' }}
+                                            >
                                                 {sub.column.title}
+                                            </span>
+                                        ) : (
+                                            <span className="border border-dashed border-border/80 text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0">
+                                                No status
                                             </span>
                                         )}
                                     </div>

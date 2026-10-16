@@ -175,7 +175,9 @@ export default function TableRow({
         }
     };
 
-    const statusMeta = getStatusStyle(task.column?.title);
+    const activeColumn = statusColumns.find((c) => c.id === task.column_id) || task.column;
+    const taskStatusTitle = activeColumn?.title || 'No Stage';
+    const taskStatusColor = activeColumn?.color || '#64748b';
     const priorityMeta = getPriorityStyle(task.priority);
 
     return (
@@ -341,23 +343,22 @@ export default function TableRow({
                                             className={`h-7 w-full truncate rounded px-2 text-center text-xs font-bold text-white shadow-2xs transition-all ${
                                                 canChangeStatus ? 'hover:brightness-105 cursor-pointer' : 'cursor-default opacity-90'
                                             }`}
-                                            style={{ backgroundColor: statusMeta.bg }}
+                                            style={{ backgroundColor: taskStatusColor }}
                                         >
-                                            {statusMeta.label}
+                                            {taskStatusTitle}
                                         </button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="center" className="w-44 space-y-1 rounded-xl p-1.5">
                                         {statusColumns.map((sc) => {
                                             const isRestrictedTarget = !permissions?.canChangeStatus && ['completed', 'done', 'cancelled', 'archive', 'closed'].includes(sc.category || sc.title.toLowerCase());
                                             if (isRestrictedTarget) return null;
-                                            const meta = getStatusStyle(sc.title);
                                             return (
                                                 <button
                                                     key={sc.id}
                                                     type="button"
                                                     onClick={() => handleUpdateStatus(sc.id)}
                                                     className="flex w-full items-center justify-between rounded px-2 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
-                                                    style={{ backgroundColor: sc.color || meta.bg }}
+                                                    style={{ backgroundColor: sc.color || '#64748b' }}
                                                 >
                                                     <span className="truncate">{sc.title}</span>
                                                     {sc.id === task.column_id && <Check className="h-3 w-3 shrink-0" />}
@@ -527,7 +528,7 @@ export default function TableRow({
                                 <div
                                     onClick={() => onSelectTask(task)}
                                     className="flex h-6 w-full cursor-pointer items-center justify-center gap-1 rounded-full px-2 text-[10px] font-bold text-white shadow-2xs hover:brightness-105"
-                                    style={{ backgroundColor: statusMeta.bg }}
+                                    style={{ backgroundColor: taskStatusColor }}
                                     title="Click to edit schedule in Item Details"
                                 >
                                     <span className="truncate">

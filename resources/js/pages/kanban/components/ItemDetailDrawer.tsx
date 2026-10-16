@@ -1235,9 +1235,9 @@ export default function ItemDetailDrawer({
                                                 className={`rounded-lg px-3 py-1.5 text-center text-xs font-bold text-white shadow-2xs transition-all ${
                                                     canChangeStatus ? 'hover:brightness-105 cursor-pointer' : 'cursor-default opacity-90'
                                                 }`}
-                                                style={{ backgroundColor: task.column?.color || '#64748b' }}
+                                                style={{ backgroundColor: currentColumn?.color || task.column?.color || '#64748b' }}
                                             >
-                                                {task.column?.title || 'Not Started'}
+                                                {currentColumn?.title || task.column?.title || 'Not Started'}
                                             </button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent className="w-40 space-y-1 rounded-xl p-1.5">
@@ -1753,9 +1753,18 @@ export default function ItemDetailDrawer({
                                                         )}
                                                     </div>
                                                 )}
-                                                <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-bold">
-                                                    {sub.column?.title || 'Active'}
-                                                </span>
+                                                {sub.column?.title ? (
+                                                    <span
+                                                        className="rounded-full px-2 py-0.5 text-[10px] font-bold text-white shrink-0"
+                                                        style={{ backgroundColor: sub.column.color || '#64748b' }}
+                                                    >
+                                                        {sub.column.title}
+                                                    </span>
+                                                ) : (
+                                                    <span className="border border-dashed border-border/80 text-muted-foreground rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0">
+                                                        No status
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     );

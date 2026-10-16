@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T15:53:22.435Z",
+  "generated_at": "2026-10-16T16:06:44.129Z",
   "stats": {
-    "total_nodes": 619,
-    "total_edges": 1266,
+    "total_nodes": 620,
+    "total_edges": 1270,
     "clusters": 7
   },
   "nodes": [
@@ -4396,6 +4396,12 @@
       "file": "tests/Feature/KanbanRoleBasedUxTest.php"
     },
     {
+      "id": "test:MainTaskAndSubitemStatusTest",
+      "label": "MainTaskAndSubitemStatusTest",
+      "type": "test",
+      "file": "tests/Feature/MainTaskAndSubitemStatusTest.php"
+    },
+    {
       "id": "test:NotificationAndCollaborationTest",
       "label": "NotificationAndCollaborationTest",
       "type": "test",
@@ -6629,7 +6635,19 @@
     },
     {
       "source": "controller:KanbanController",
+      "target": "$task, null",
+      "relationship": "authorizes_with",
+      "ability": "changeStatus"
+    },
+    {
+      "source": "controller:KanbanController",
       "target": "$task, $status",
+      "relationship": "authorizes_with",
+      "ability": "changeStatus"
+    },
+    {
+      "source": "controller:KanbanController",
+      "target": "$task, null",
       "relationship": "authorizes_with",
       "ability": "changeStatus"
     },
@@ -10908,6 +10926,17 @@
     },
     {
       "source": "test:KanbanRoleBasedUxTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
+    },
+    {
+      "source": "test:MainTaskAndSubitemStatusTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:MainTaskAndSubitemStatusTest",
       "target": "role:project_manager",
       "relationship": "audits_role",
       "role": "project_manager"
