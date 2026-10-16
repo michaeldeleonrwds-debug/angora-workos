@@ -30,11 +30,15 @@ class OptimizeImageJob implements ShouldQueue
 
         // Broadcast task updated event so collaborators receive optimized variant without refresh
         if ($this->attachment->task) {
-            TaskUpdatedEvent::dispatch(
-                $this->attachment->task,
-                'attachment_optimized',
-                $this->attachment->user_id
-            );
+            try {
+                TaskUpdatedEvent::dispatch(
+                    $this->attachment->task,
+                    'attachment_optimized',
+                    $this->attachment->user_id
+                );
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning("Failed to broadcast TaskUpdatedEvent from OptimizeImageJob: " . $e->getMessage());
+            }
         }
     }
 }

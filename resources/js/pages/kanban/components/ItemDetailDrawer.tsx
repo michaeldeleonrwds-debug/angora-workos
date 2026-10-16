@@ -244,7 +244,6 @@ export default function ItemDetailDrawer({
         const handleTaskUpdate = () => {
             router.reload({
                 only: ['selectedTask', 'activeBoard'],
-                preserveScroll: true,
             });
         };
 

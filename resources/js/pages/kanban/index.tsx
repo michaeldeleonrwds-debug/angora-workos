@@ -232,7 +232,6 @@ export default function KanbanPage({
         const handleMutation = () => {
             router.reload({
                 only: ['activeBoard', 'boards', 'selectedTask'],
-                preserveScroll: true,
             });
         };
 
