@@ -139,7 +139,7 @@ class SettingsCenterController extends Controller
         ]);
     }
 
-    public function updateNotifications(Request $request): RedirectResponse
+    public function updateNotifications(Request $request): \Symfony\Component\HttpFoundation\Response
     {
         $validated = $request->validate([
             'email_task_assigned' => 'nullable|boolean',
@@ -188,6 +188,13 @@ class SettingsCenterController extends Controller
         }
 
         SystemSetting::set('user_notifications_' . $user->id, $validated, 'notifications', false, $user->id, 'User notification preferences');
+
+        if ($request->expectsJson() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Notification preferences updated successfully',
+            ]);
+        }
 
         return back()->with('success', 'Notification preferences updated successfully');
     }

@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T20:00:41.803Z",
+  "generated_at": "2026-10-16T20:12:03.652Z",
   "stats": {
-    "total_nodes": 654,
-    "total_edges": 1435,
+    "total_nodes": 655,
+    "total_edges": 1439,
     "clusters": 7
   },
   "nodes": [
@@ -4342,6 +4342,12 @@
       "label": "NotificationCenterPopover",
       "type": "component",
       "file": "resources/js/components/NotificationCenterPopover.tsx"
+    },
+    {
+      "id": "component:NotificationOnboardingPrompt",
+      "label": "NotificationOnboardingPrompt",
+      "type": "component",
+      "file": "resources/js/components/NotificationOnboardingPrompt.tsx"
     },
     {
       "id": "component:NotificationPreferencesModal",
@@ -10702,6 +10708,11 @@
     },
     {
       "source": "component:notifications",
+      "target": "component:utils",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:notifications",
       "target": "route:CALL:/settings",
       "relationship": "calls_route",
       "uri": "/settings"
@@ -11586,6 +11597,21 @@
     },
     {
       "source": "component:NotificationCenterPopover",
+      "target": "component:desktop-notifications",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:NotificationCenterPopover",
+      "target": "component:use-notification-title",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:NotificationOnboardingPrompt",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:NotificationOnboardingPrompt",
       "target": "component:desktop-notifications",
       "relationship": "imports"
     },

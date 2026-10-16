@@ -3,7 +3,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useInitials } from '@/hooks/use-initials';
 import { cn } from '@/lib/utils';
 
-export type UserAvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+export type UserAvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
 
 export interface UserAvatarUser {
     id?: number | string;
@@ -52,6 +52,11 @@ const sizeConfig: Record<UserAvatarSize, { root: string; text: string; status: s
         text: 'text-xl font-bold',
         status: 'h-4 w-4 ring-2',
     },
+    '2xl': {
+        root: 'h-24 w-24',
+        text: 'text-2xl font-bold',
+        status: 'h-5 w-5 ring-3',
+    },
 };
 
 export function UserAvatar({
@@ -71,8 +76,8 @@ export function UserAvatar({
     const initials = user?.name ? getInitials(user.name) : 'U';
 
     return (
-        <div className={cn('relative inline-flex shrink-0 items-center justify-center', className)}>
-            <Avatar className={cn('overflow-hidden rounded-full border border-white/10 ring-1 ring-white/10 shadow-sm', config.root, className)}>
+        <div className="relative inline-flex shrink-0 items-center justify-center rounded-full">
+            <Avatar className={cn('overflow-hidden rounded-full border border-black/5 dark:border-white/10 shadow-xs', config.root, className)}>
                 {avatarSrc ? (
                     <AvatarImage
                         src={avatarSrc}

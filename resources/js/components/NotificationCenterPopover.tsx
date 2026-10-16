@@ -23,6 +23,7 @@ import { NotificationPreferencesModal } from './NotificationPreferencesModal';
 import { csrfHeaders } from '@/lib/utils';
 import { getEcho } from '@/echo';
 import { displayDesktopNotification, registerServiceWorker } from '@/services/desktop-notifications';
+import { broadcastUnreadCount } from '@/hooks/use-notification-title';
 
 interface NotificationItem {
     id: number;
@@ -62,6 +63,18 @@ export function NotificationCenterPopover() {
             setUnreadCount(pageProps.unreadNotificationsCount);
         }
     }, [pageProps.unreadNotificationsCount]);
+
+    // Cross-tab synchronization listener
+    useEffect(() => {
+        const handleCountSync = (e: Event) => {
+            const count = (e as CustomEvent).detail?.count;
+            if (typeof count === 'number') {
+                setUnreadCount(count);
+            }
+        };
+        window.addEventListener('angora:unread-count', handleCountSync);
+        return () => window.removeEventListener('angora:unread-count', handleCountSync);
+    }, []);
 
     // Register Service Worker on mount
     useEffect(() => {
@@ -135,6 +148,7 @@ export function NotificationCenterPopover() {
                 setNotifications(data.notifications?.data || []);
                 if (typeof data.unread_count === 'number') {
                     setUnreadCount(data.unread_count);
+                    broadcastUnreadCount(data.unread_count);
                 }
             }
         } catch (err) {
@@ -161,6 +175,13 @@ export function NotificationCenterPopover() {
                 );
                 if (typeof data.unread_count === 'number') {
                     setUnreadCount(data.unread_count);
+                    broadcastUnreadCount(data.unread_count);
+                } else {
+                    setUnreadCount((prev) => {
+                        const next = Math.max(0, prev - 1);
+                        broadcastUnreadCount(next);
+                        return next;
+                    });
                 }
             }
         } catch (err) {
@@ -180,6 +201,7 @@ export function NotificationCenterPopover() {
             if (res.ok) {
                 setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
                 setUnreadCount(0);
+                broadcastUnreadCount(0);
             }
         } catch (err) {
             console.error('Failed to mark all read:', err);
@@ -201,6 +223,7 @@ export function NotificationCenterPopover() {
                 setNotifications((prev) => prev.filter((n) => n.id !== notifId));
                 if (typeof data.unread_count === 'number') {
                     setUnreadCount(data.unread_count);
+                    broadcastUnreadCount(data.unread_count);
                 }
             }
         } catch (err) {

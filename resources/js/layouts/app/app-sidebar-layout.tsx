@@ -2,6 +2,8 @@ import { AppContent } from '@/components/app-content';
 import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { AppSidebarHeader } from '@/components/app-sidebar-header';
+import { NotificationOnboardingPrompt } from '@/components/NotificationOnboardingPrompt';
+import { useNotificationTitle } from '@/hooks/use-notification-title';
 import { type BreadcrumbItem } from '@/types';
 
 export default function AppSidebarLayout({
@@ -15,6 +17,8 @@ export default function AppSidebarLayout({
     header?: React.ReactNode;
     hideHeader?: boolean;
 }) {
+    useNotificationTitle();
+
     return (
         <AppShell variant="sidebar">
             <AppSidebar />
@@ -22,6 +26,7 @@ export default function AppSidebarLayout({
                 {!hideHeader && (header ?? <AppSidebarHeader breadcrumbs={breadcrumbs} />)}
                 {children}
             </AppContent>
+            <NotificationOnboardingPrompt />
         </AppShell>
     );
 }

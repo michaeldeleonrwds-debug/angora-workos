@@ -195,4 +195,32 @@ class DesktopAndWebPushNotificationTest extends TestCase
                 ->has('soundEnabled')
             );
     }
+
+    public function test_user_can_auto_save_settings_notifications_via_json(): void
+    {
+        $response = $this->actingAs($this->user)->putJson(route('settings.notifications.update'), [
+            'desktop_enabled' => true,
+            'push_enabled' => true,
+            'sound_enabled' => true,
+            'category_preferences' => [
+                [
+                    'category' => 'assignments',
+                    'in_app_enabled' => true,
+                    'desktop_enabled' => true,
+                    'push_enabled' => true,
+                    'email_enabled' => true,
+                ],
+            ],
+        ]);
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+            ]);
+
+        $this->user->refresh();
+        $this->assertTrue($this->user->desktop_notifications_enabled);
+        $this->assertTrue($this->user->push_notifications_enabled);
+        $this->assertTrue($this->user->sound_notifications_enabled);
+    }
 }

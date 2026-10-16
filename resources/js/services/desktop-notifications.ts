@@ -221,6 +221,116 @@ export async function unsubscribeFromPush(): Promise<boolean> {
     }
 }
 
+const ONBOARDING_DISMISSED_KEY = 'angora_notif_onboarding_dismissed';
+
+/**
+ * Check if the user has dismissed the notification onboarding prompt.
+ */
+export function hasDismissedNotificationOnboarding(): boolean {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem(ONBOARDING_DISMISSED_KEY) === 'true';
+}
+
+/**
+ * Mark the notification onboarding prompt as dismissed.
+ */
+export function dismissNotificationOnboarding(): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(ONBOARDING_DISMISSED_KEY, 'true');
+}
+
+/**
+ * One-click onboarding flow triggered when user clicks "Enable Notifications".
+ * Requests permission, registers service worker, subscribes to push, persists default settings.
+ */
+export async function enableNotificationsAutomatically(vapidPublicKey?: string): Promise<{
+    success: boolean;
+    permission: NotificationPermission | 'unsupported';
+    error?: string;
+}> {
+    if (!isNotificationSupported()) {
+        return { success: false, permission: 'unsupported', error: 'Notifications are not supported in this browser.' };
+    }
+
+    try {
+        const permission = await requestNotificationPermission();
+        if (permission !== 'granted') {
+            return { success: false, permission, error: 'Permission was not granted.' };
+        }
+
+        // Register service worker
+        await registerServiceWorker();
+
+        // Subscribe to Web Push
+        const pushRes = await subscribeToPush(vapidPublicKey);
+        if (!pushRes.success) {
+            console.warn('[Notifications] Web push subscription warning:', pushRes.error);
+        }
+
+        // Persist default notification settings directly to backend without requiring a manual save button
+        try {
+            await fetch('/settings/notifications', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    ...csrfHeaders(),
+                },
+                body: JSON.stringify({
+                    desktop_enabled: true,
+                    push_enabled: true,
+                    sound_enabled: true,
+                    category_preferences: [
+                        { category: 'assignments', in_app_enabled: true, desktop_enabled: true, push_enabled: true, email_enabled: true },
+                        { category: 'mentions', in_app_enabled: true, desktop_enabled: true, push_enabled: true, email_enabled: true },
+                        { category: 'reviews', in_app_enabled: true, desktop_enabled: true, push_enabled: true, email_enabled: true },
+                        { category: 'deadlines', in_app_enabled: true, desktop_enabled: true, push_enabled: true, email_enabled: true },
+                        { category: 'automations', in_app_enabled: true, desktop_enabled: false, push_enabled: false, email_enabled: false },
+                        { category: 'system', in_app_enabled: true, desktop_enabled: false, push_enabled: false, email_enabled: false },
+                    ],
+                }),
+            });
+        } catch (settingsErr) {
+            console.warn('[Notifications] Could not save initial notification settings:', settingsErr);
+        }
+
+        // Mark onboarding prompt as dismissed
+        dismissNotificationOnboarding();
+
+        // Fire a welcoming desktop confirmation notification
+        displayDesktopNotification({
+            id: 'onboarding-welcome',
+            title: 'Angora Work OS',
+            message: 'Desktop alerts are active. You will receive updates even when Chrome is minimized.',
+            link: '/dashboard',
+            soundEnabled: true,
+        });
+
+        return { success: true, permission: 'granted' };
+    } catch (err: any) {
+        return { success: false, permission: Notification.permission, error: err.message };
+    }
+}
+
+/**
+ * Background silent sync for returning users who already granted permission.
+ * Verifies that the service worker is active and current browser has an active push subscription.
+ */
+export async function syncPushSubscriptionIfNeeded(vapidPublicKey?: string): Promise<void> {
+    if (!isPushSupported() || Notification.permission !== 'granted') return;
+
+    try {
+        await registerServiceWorker();
+        const activeSub = await getActivePushSubscription();
+        if (!activeSub) {
+            // Push subscription missing or expired, re-subscribe in background
+            await subscribeToPush(vapidPublicKey);
+        }
+    } catch (e) {
+        console.debug('[WebPush] Silent sync skipped or failed:', e);
+    }
+}
+
 /**
  * Display a native operating-system desktop notification when appropriate.
  *

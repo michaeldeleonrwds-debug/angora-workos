@@ -70,13 +70,6 @@ export function AppSidebar() {
             color: '#fdab3d',
         },
         {
-            title: 'Notifications',
-            url: '/client-portal/notifications',
-            icon: Bell,
-            color: '#00c875',
-            badge: (page.props as any).unreadNotificationsCount > 0 ? String((page.props as any).unreadNotificationsCount) : undefined,
-        },
-        {
             title: 'Account / Settings',
             url: '/settings/profile',
             icon: Settings,

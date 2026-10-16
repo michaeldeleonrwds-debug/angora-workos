@@ -290,8 +290,8 @@ export function ProfileAvatarSection({ user, className, showHeading = true }: Pr
                 </div>
             )}
 
-            <div className="flex flex-col sm:flex-row items-center gap-6">
-                {/* Avatar Preview with click to upload */}
+            <div className="flex flex-col items-center gap-5">
+                {/* Centered Avatar Preview with hover action */}
                 <div
                     onClick={() => fileInputRef.current?.click()}
                     className="group relative cursor-pointer"
@@ -299,74 +299,73 @@ export function ProfileAvatarSection({ user, className, showHeading = true }: Pr
                 >
                     <UserAvatar
                         user={user}
-                        size="xl"
-                        className="ring-2 ring-white/15 transition-transform group-hover:scale-105"
+                        size="2xl"
+                        className="h-24 w-24 ring-4 ring-slate-100 shadow-md transition-transform group-hover:scale-105 dark:ring-[#28283E]"
                     />
                     <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">
                         <Camera className="h-6 w-6 text-white" />
-                        <span className="text-[10px] font-semibold text-white">Change</span>
+                        <span className="text-[10px] font-semibold text-white mt-0.5">Change</span>
                     </div>
                 </div>
 
-                {/* Dropzone & Actions */}
-                <div className="flex-1 w-full space-y-3">
-                    <div
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onDrop={handleDrop}
+                {/* Action Buttons */}
+                <div className="flex items-center gap-2.5">
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
                         onClick={() => fileInputRef.current?.click()}
-                        className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition-colors cursor-pointer ${
-                            dragActive
-                                ? 'border-[#0073ea] bg-[#0073ea]/5 dark:border-[#D8F779] dark:bg-[#D8F779]/5'
-                                : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-[#28283E]/50 dark:hover:border-white/20'
-                        }`}
+                        className="h-8 gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-2xs hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:bg-[#28283E] dark:text-white dark:hover:bg-[#353550]"
                     >
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            onChange={handleFileChange}
-                            className="hidden"
-                        />
-                        <Upload className="mb-1.5 h-5 w-5 text-slate-400" />
-                        <span className="text-xs font-semibold text-slate-900 dark:text-white">
-                            Click to upload or drag & drop photo here
-                        </span>
-                        <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                            Square crop with zoom & circular preview
-                        </span>
-                    </div>
+                        <Camera className="h-3.5 w-3.5" />
+                        <span>{hasAvatar ? 'Change Photo' : 'Upload Photo'}</span>
+                    </Button>
 
-                    <div className="flex items-center gap-2">
+                    {hasAvatar && (
                         <Button
                             type="button"
-                            variant="secondary"
+                            variant="ghost"
                             size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                            className="h-8 gap-1.5 text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:bg-[#28283E] dark:text-white dark:hover:bg-[#353550]"
+                            onClick={handleRemoveAvatar}
+                            disabled={isDeleting}
+                            className="h-8 gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
                         >
-                            <Camera className="h-3.5 w-3.5" />
-                            <span>{hasAvatar ? 'Change Photo' : 'Upload Photo'}</span>
+                            {isDeleting ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                                <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                            <span>Remove</span>
                         </Button>
+                    )}
+                </div>
 
-                        {hasAvatar && (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleRemoveAvatar}
-                                disabled={isDeleting}
-                                className="h-8 gap-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-300"
-                            >
-                                {isDeleting ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                )}
-                                <span>Remove Photo</span>
-                            </Button>
-                        )}
-                    </div>
+                {/* Full-width Dropzone */}
+                <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`w-full flex flex-col items-center justify-center rounded-xl border border-dashed p-4 text-center transition-colors cursor-pointer ${
+                        dragActive
+                            ? 'border-[#0073ea] bg-[#0073ea]/5 dark:border-[#D8F779] dark:bg-[#D8F779]/5'
+                            : 'border-slate-200 bg-slate-50/60 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-[#28283E]/40 dark:hover:border-white/20 dark:hover:bg-[#28283E]/60'
+                    }`}
+                >
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        onChange={handleFileChange}
+                        className="hidden"
+                    />
+                    <Upload className="mb-1.5 h-4 w-4 text-slate-400 dark:text-slate-500" />
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        Drag and drop photo here, or browse
+                    </span>
+                    <span className="mt-0.5 text-[11px] text-slate-400 dark:text-slate-500">
+                        Square crop with zoom & live circular preview
+                    </span>
                 </div>
             </div>
 

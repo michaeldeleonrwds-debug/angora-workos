@@ -29,6 +29,7 @@ import {
     displayDesktopNotification,
     playNotificationChime,
 } from '@/services/desktop-notifications';
+import { csrfHeaders } from '@/lib/utils';
 
 interface CategoryPref {
     category: string;
@@ -115,6 +116,8 @@ export default function NotificationsSettings({
     const [isPushSubscribing, setIsPushSubscribing] = useState(false);
     const [isSendingTest, setIsSendingTest] = useState(false);
     const [testFeedback, setTestFeedback] = useState<string | null>(null);
+    const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const [autoSaveError, setAutoSaveError] = useState<string | null>(null);
 
     // Form state for updating backend preferences
     const { data, setData, put, processing, recentlySuccessful } = useForm<NotificationFormData>({
@@ -140,6 +143,41 @@ export default function NotificationsSettings({
         setBrowserPerm(getNotificationPermission());
     }, []);
 
+    // Instant auto-save to backend
+    const triggerAutoSave = async (updatedFields: Partial<NotificationFormData>) => {
+        setAutoSaveState('saving');
+        setAutoSaveError(null);
+        try {
+            const payload = {
+                ...data,
+                ...updatedFields,
+            };
+            const res = await fetch('/settings/notifications', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    ...csrfHeaders(),
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.message || 'Failed to save changes');
+            }
+
+            setAutoSaveState('saved');
+            setTimeout(() => {
+                setAutoSaveState((curr) => (curr === 'saved' ? 'idle' : curr));
+            }, 2500);
+        } catch (err: any) {
+            console.error('Auto-save error:', err);
+            setAutoSaveState('error');
+            setAutoSaveError(err.message || 'Failed to save changes');
+        }
+    };
+
     // Explicit user action: Request browser notification permission
     const handleEnableDesktop = async () => {
         try {
@@ -147,7 +185,9 @@ export default function NotificationsSettings({
             setBrowserPerm(perm);
 
             if (perm === 'granted') {
-                setData((prev) => ({ ...prev, desktop_enabled: true }));
+                setData('desktop_enabled', true);
+                triggerAutoSave({ desktop_enabled: true });
+
                 // Fire friendly native notification immediately to confirm
                 displayDesktopNotification({
                     id: 'welcome',
@@ -173,13 +213,15 @@ export default function NotificationsSettings({
                     setData((prev) => ({ ...prev, push_enabled: true, desktop_enabled: true }));
                     setBrowserPerm('granted');
                     setTestFeedback('Web Push subscribed successfully for this browser!');
+                    triggerAutoSave({ push_enabled: true, desktop_enabled: true });
                 } else {
                     setTestFeedback(res.error || 'Failed to enable Web Push');
                 }
             } else {
                 await unsubscribeFromPush();
-                setData((prev) => ({ ...prev, push_enabled: false }));
+                setData('push_enabled', false);
                 setTestFeedback('Web Push disabled on this browser.');
+                triggerAutoSave({ push_enabled: false });
             }
         } finally {
             setIsPushSubscribing(false);
@@ -210,7 +252,7 @@ export default function NotificationsSettings({
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
-                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                    ...csrfHeaders(),
                 },
             });
 
@@ -227,21 +269,20 @@ export default function NotificationsSettings({
     };
 
     const handleCategoryToggle = (catIndex: number, channel: 'in_app' | 'desktop' | 'email') => {
-        setData((prev) => {
-            const currentList = prev.category_preferences || [];
-            const updated = [...currentList];
-            const item = { ...updated[catIndex] };
-            if (channel === 'in_app') {
-                item.in_app_enabled = !item.in_app_enabled;
-            } else if (channel === 'desktop') {
-                item.desktop_enabled = !item.desktop_enabled;
-                item.push_enabled = item.desktop_enabled;
-            } else if (channel === 'email') {
-                item.email_enabled = !item.email_enabled;
-            }
-            updated[catIndex] = item;
-            return { ...prev, category_preferences: updated };
-        });
+        const currentList = data.category_preferences || [];
+        const updated = [...currentList];
+        const item = { ...updated[catIndex] };
+        if (channel === 'in_app') {
+            item.in_app_enabled = !item.in_app_enabled;
+        } else if (channel === 'desktop') {
+            item.desktop_enabled = !item.desktop_enabled;
+            item.push_enabled = item.desktop_enabled;
+        } else if (channel === 'email') {
+            item.email_enabled = !item.email_enabled;
+        }
+        updated[catIndex] = item;
+        setData('category_preferences', updated);
+        triggerAutoSave({ category_preferences: updated });
     };
 
     const submit: FormEventHandler = (e) => {
@@ -277,8 +318,27 @@ export default function NotificationsSettings({
                                 </div>
                             </div>
 
-                            {/* Browser Permission Pill */}
-                            <div className="flex items-center gap-2">
+                            {/* Auto-save & Browser Permission Pill */}
+                            <div className="flex items-center gap-3">
+                                {autoSaveState === 'saving' && (
+                                    <span className="inline-flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin text-[#0073ea]" />
+                                        <span>Saving...</span>
+                                    </span>
+                                )}
+                                {autoSaveState === 'saved' && (
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#00c875]">
+                                        <CheckCircle2 className="h-3.5 w-3.5" />
+                                        <span>Saved</span>
+                                    </span>
+                                )}
+                                {autoSaveState === 'error' && (
+                                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-500">
+                                        <AlertCircle className="h-3.5 w-3.5" />
+                                        <span>{autoSaveError || 'Save failed'}</span>
+                                    </span>
+                                )}
+
                                 {browserPerm === 'granted' && (
                                     <span className="inline-flex items-center gap-1.5 rounded-full bg-[#00c875]/10 px-2.5 py-1 text-xs font-semibold text-[#00c875]">
                                         <CheckCircle2 className="h-3.5 w-3.5" />
@@ -349,7 +409,11 @@ export default function NotificationsSettings({
                                             <input
                                                 type="checkbox"
                                                 checked={Boolean(data.desktop_enabled)}
-                                                onChange={(e) => setData('desktop_enabled', e.target.checked)}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setData('desktop_enabled', checked);
+                                                    triggerAutoSave({ desktop_enabled: checked });
+                                                }}
                                                 className="h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                             />
                                             <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -423,7 +487,11 @@ export default function NotificationsSettings({
                                     <input
                                         type="checkbox"
                                         checked={Boolean(data.sound_enabled)}
-                                        onChange={(e) => setData('sound_enabled', e.target.checked)}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setData('sound_enabled', checked);
+                                            triggerAutoSave({ sound_enabled: checked });
+                                        }}
                                         className="h-4 w-4 rounded border-slate-300 bg-white text-[#0073ea] focus:ring-[#0073ea] dark:border-white/20 dark:bg-[#1E1E30]"
                                     />
                                     <span className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-slate-300">
