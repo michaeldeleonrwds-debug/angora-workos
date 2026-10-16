@@ -49,6 +49,15 @@ const VIEW_TYPES = [
     { value: 'files', label: 'Files & Assets' },
 ];
 
+const DEFAULT_BOARD_COLUMNS: BoardColumn[] = [
+    { id: -1, board_id: 0, key: 'task', title: 'Task Name', type: 'text', position: 0, is_visible: true, width: 220 },
+    { id: -2, board_id: 0, key: 'status', title: 'Status', type: 'status', position: 1, is_visible: true, width: 140 },
+    { id: -3, board_id: 0, key: 'person', title: 'Assignee', type: 'person', position: 2, is_visible: true, width: 140 },
+    { id: -4, board_id: 0, key: 'priority', title: 'Priority', type: 'priority', position: 3, is_visible: true, width: 120 },
+    { id: -5, board_id: 0, key: 'due_date', title: 'Due Date', type: 'date', position: 4, is_visible: true, width: 130 },
+    { id: -6, board_id: 0, key: 'progress', title: 'Progress', type: 'progress', position: 5, is_visible: true, width: 120 },
+];
+
 export default function ViewSettingsModal({
     view,
     boardColumns = [],
@@ -57,6 +66,10 @@ export default function ViewSettingsModal({
     canManage = true,
 }: ViewSettingsModalProps) {
     if (!view) return null;
+
+    const effectiveColumns = boardColumns && boardColumns.length > 0 && Boolean(boardColumns[0]?.key)
+        ? boardColumns
+        : DEFAULT_BOARD_COLUMNS;
 
     const [name, setName] = useState(view.name);
     const [type, setType] = useState(view.type);
@@ -76,7 +89,7 @@ export default function ViewSettingsModal({
         if (view.settings?.visible_columns && Array.isArray(view.settings.visible_columns)) {
             return view.settings.visible_columns;
         }
-        return boardColumns.filter((c) => c.is_visible !== false).map((c) => c.key);
+        return effectiveColumns.filter((c) => c.is_visible !== false).map((c) => c.key);
     });
 
     const [isSaving, setIsSaving] = useState(false);
@@ -94,10 +107,10 @@ export default function ViewSettingsModal({
             if (view.settings?.visible_columns && Array.isArray(view.settings.visible_columns)) {
                 setVisibleColumnKeys(view.settings.visible_columns);
             } else {
-                setVisibleColumnKeys(boardColumns.filter((c) => c.is_visible !== false).map((c) => c.key));
+                setVisibleColumnKeys(effectiveColumns.filter((c) => c.is_visible !== false).map((c) => c.key));
             }
         }
-    }, [isOpen, view, boardColumns]);
+    }, [isOpen, view, effectiveColumns]);
 
     const handleToggleColumnKey = (key: string) => {
         setVisibleColumnKeys((prev) =>
@@ -253,7 +266,7 @@ export default function ViewSettingsModal({
                             Visible Columns in this View
                         </Label>
                         <div className="max-h-36 overflow-y-auto rounded-xl border border-white/10 bg-[#28283E]/50 p-2 space-y-1">
-                            {boardColumns.map((col) => {
+                            {effectiveColumns.map((col) => {
                                 const isChecked = visibleColumnKeys.includes(col.key);
                                 return (
                                     <label

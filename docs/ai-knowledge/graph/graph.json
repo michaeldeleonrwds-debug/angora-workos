@@ -1,6 +1,6 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T20:31:26.120Z",
+  "generated_at": "2026-10-16T20:46:54.498Z",
   "stats": {
     "total_nodes": 655,
     "total_edges": 1439,
@@ -7028,7 +7028,7 @@
       "source": "controller:KanbanController",
       "target": "$board",
       "relationship": "authorizes_with",
-      "ability": "update"
+      "ability": "view"
     },
     {
       "source": "controller:KanbanController",

@@ -56,6 +56,7 @@ export default function KanbanPage({
         canFilterPersonalTasks: true,
         canManageBoard: true,
         canManageColumns: true,
+        canManageViews: true,
         canManageGroups: true,
         canManageAutomations: true,
         canManageBlueprints: true,

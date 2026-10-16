@@ -2305,7 +2305,14 @@ class KanbanController extends Controller
     {
         $board = $view->board;
         if ($board) {
-            Gate::authorize('update', $board);
+            $canUpdateBoard = auth()->user()->can('update', $board);
+            if (! $canUpdateBoard) {
+                Gate::authorize('view', $board);
+                $isPersonal = $request->boolean('settings.is_personal');
+                if (! $isPersonal) {
+                    abort(403, 'Unauthorized to modify shared board views.');
+                }
+            }
         }
 
         $validated = $request->validate([

@@ -176,7 +176,7 @@ export default function BoardUnifiedHeader({
     const visibleViews = views.filter((v) => !v.is_hidden);
     const hiddenViews = views.filter((v) => v.is_hidden);
 
-    const canManageViews = permissions?.canManageColumns !== false;
+    const canManageViews = permissions?.canManageViews ?? (permissions?.canManageColumns !== false);
     const isViewDeletable = (v: BoardView) => !v.is_system && views.length > 1;
     const isViewReorderable = (v: BoardView) => !v.is_system;
 
@@ -630,6 +630,14 @@ export default function BoardUnifiedHeader({
                 </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48 rounded-xl p-1 text-xs shadow-lg">
+                <DropdownMenuItem
+                    onClick={(e) => handleOpenViewSettings(v, e)}
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium"
+                >
+                    <Settings className="h-3.5 w-3.5" />
+                    View Settings
+                </DropdownMenuItem>
+
                 {canManageViews && (
                     <>
                         <DropdownMenuItem
@@ -645,13 +653,6 @@ export default function BoardUnifiedHeader({
                         >
                             <Copy className="h-3.5 w-3.5" />
                             Duplicate View
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                            onClick={(e) => handleOpenViewSettings(v, e)}
-                            className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 font-medium"
-                        >
-                            <Settings className="h-3.5 w-3.5" />
-                            View Settings
                         </DropdownMenuItem>
                         {isViewReorderable(v) && (
                             <>
@@ -1358,7 +1359,9 @@ export default function BoardUnifiedHeader({
                                     <span>{getFormattedViewName(v)}</span>
                                     {v.is_default && <span className="h-1.5 w-1.5 rounded-full bg-primary" title="Default View" />}
                                 </button>
-                                <div className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover/tab:opacity-100">
+                                <div className={`absolute right-1 top-1/2 -translate-y-1/2 transition-opacity ${
+                                    isActive ? 'opacity-90 hover:opacity-100' : 'opacity-0 group-hover/tab:opacity-100'
+                                }`}>
                                     {getViewMenu(v)}
                                 </div>
                             </div>
@@ -1437,17 +1440,35 @@ export default function BoardUnifiedHeader({
                     )}
                 </div>
 
-                {/* Right: Quick "+ View" action if permitted */}
-                {permissions?.canManageColumns !== false && (
-                    <button
-                        onClick={() => setIsAddViewModalOpen(true)}
-                        className="hidden sm:flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors shrink-0"
-                        title="Add new board view"
-                    >
-                        <Plus className="h-3 w-3" />
-                        <span>Add View</span>
-                    </button>
-                )}
+                {/* Right: Quick View Settings & "+ View" actions */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                    {(() => {
+                        const activeV = views.find((x) => x.id === activeViewId) || visibleViews[0];
+                        if (!activeV) return null;
+                        return (
+                            <button
+                                type="button"
+                                onClick={(e) => handleOpenViewSettings(activeV, e)}
+                                className="flex items-center gap-1 rounded-md border border-border/60 bg-background/50 px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors shrink-0"
+                                title={`Customize settings for ${activeV.name}`}
+                            >
+                                <SlidersHorizontal className="h-3 w-3" />
+                                <span className="hidden sm:inline">Customize View</span>
+                            </button>
+                        );
+                    })()}
+                    {canManageViews && (
+                        <button
+                            type="button"
+                            onClick={() => setIsAddViewModalOpen(true)}
+                            className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-colors shrink-0"
+                            title="Add new board view"
+                        >
+                            <Plus className="h-3 w-3" />
+                            <span>Add View</span>
+                        </button>
+                    )}
+                </div>
             </div>
 
             {/* ============================================================ */}

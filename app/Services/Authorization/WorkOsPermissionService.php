@@ -41,6 +41,7 @@ class WorkOsPermissionService
             'canArchiveBoard' => $canView && $user->can('archive', $board),
             'canDuplicateBoard' => $canView && $user->can('duplicate', $board),
             'canManageColumns' => $canManageBoard,
+            'canManageViews' => $canView && ! $user->isClientUser(),
             'canManageGroups' => $canManageBoard,
             'canManageAutomations' => $canManageBoard,
             'canManageBlueprints' => $canManageBoard,

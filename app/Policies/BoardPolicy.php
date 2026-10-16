@@ -112,6 +112,10 @@ class BoardPolicy
             return false;
         }
 
+        if ($user->hasAnyRole(['super_admin', 'admin'])) {
+            return true;
+        }
+
         if ($board->created_by === $user->id) {
             return true;
         }
@@ -127,7 +131,12 @@ class BoardPolicy
                 return true;
             }
             $membership = $workspace->members()->where('user_id', $user->id)->first();
-            return $membership && in_array($membership->role, ['owner', 'admin'], true);
+            if ($membership && in_array($membership->role, ['owner', 'admin'], true)) {
+                return true;
+            }
+            if ($membership && $user->hasPermission('workos.boards.manage')) {
+                return true;
+            }
         }
 
         return false;

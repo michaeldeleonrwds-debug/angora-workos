@@ -428,6 +428,7 @@ export interface BoardPermissions {
     canFilterPersonalTasks?: boolean;
     canManageBoard: boolean;
     canManageColumns: boolean;
+    canManageViews?: boolean;
     canManageGroups: boolean;
     canManageAutomations: boolean;
     canManageBlueprints: boolean;
