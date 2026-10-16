@@ -493,7 +493,7 @@ class ClientPortalController extends Controller
             description: "Client {$customer->name} submitted {$statusLabel} on deliverable '{$deliverable->title}'"
         );
 
-        \App\Events\DeliverableStatusChangedEvent::dispatch($deliverable, 'client');
+        \App\Support\SafeBroadcast::dispatch(new \App\Events\DeliverableStatusChangedEvent($deliverable, 'client'));
 
         return back()->with('success', 'Feedback submitted successfully. Our team has been notified!');
     }

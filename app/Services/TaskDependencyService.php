@@ -138,8 +138,8 @@ class TaskDependencyService
             ]
         );
 
-        TaskUpdatedEvent::dispatch($task, 'dependency_added', $user->id);
-        TaskUpdatedEvent::dispatch($targetTask, 'dependency_added', $user->id);
+        \App\Support\SafeBroadcast::dispatch(new TaskUpdatedEvent($task, 'dependency_added', $user->id));
+        \App\Support\SafeBroadcast::dispatch(new TaskUpdatedEvent($targetTask, 'dependency_added', $user->id));
 
         return $dependency;
     }
@@ -169,11 +169,11 @@ class TaskDependencyService
                     'target_title' => $targetTitle,
                 ]
             );
-            TaskUpdatedEvent::dispatch($task, 'dependency_removed', $user->id);
+            \App\Support\SafeBroadcast::dispatch(new TaskUpdatedEvent($task, 'dependency_removed', $user->id));
         }
 
         if ($targetTask) {
-            TaskUpdatedEvent::dispatch($targetTask, 'dependency_removed', $user->id);
+            \App\Support\SafeBroadcast::dispatch(new TaskUpdatedEvent($targetTask, 'dependency_removed', $user->id));
         }
 
         return true;

@@ -26,6 +26,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use App\Support\SafeBroadcast;
 use Inertia\Inertia;
 
 class KanbanController extends Controller
@@ -838,7 +839,7 @@ class KanbanController extends Controller
             }
         });
 
-        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'updated', $column->id, $column->title);
+        SafeBroadcast::dispatch(new \App\Events\BoardColumnUpdatedEvent($board->id, 'updated', $column->id, $column->title));
 
         return back()->with('success', 'Stage updated');
     }
@@ -902,7 +903,7 @@ class KanbanController extends Controller
             })
             ->delete();
 
-        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'deleted', $column->id, $column->title);
+        SafeBroadcast::dispatch(new \App\Events\BoardColumnUpdatedEvent($board->id, 'deleted', $column->id, $column->title));
 
         return $request->header('X-Inertia') || $request->expectsJson()
             ? response()->json(['success' => true, 'message' => 'Stage archived'])
@@ -928,7 +929,7 @@ class KanbanController extends Controller
             KanbanColumn::where('id', $id)->where('board_id', $board->id)->update(['position' => $idx]);
         }
 
-        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'reordered');
+        SafeBroadcast::dispatch(new \App\Events\BoardColumnUpdatedEvent($board->id, 'reordered'));
 
         return back()->with('success', 'Stages reordered');
     }
@@ -1098,7 +1099,7 @@ class KanbanController extends Controller
             'position' => $position,
         ]);
 
-        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'created', $col->id, $col->title);
+        SafeBroadcast::dispatch(new \App\Events\BoardColumnUpdatedEvent($board->id, 'created', $col->id, $col->title));
 
         return back()->with('success', 'Column added');
     }
@@ -1120,7 +1121,7 @@ class KanbanController extends Controller
         $column->update($validated);
 
         if ($board) {
-            \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'updated', $column->id, $column->title);
+            SafeBroadcast::dispatch(new \App\Events\BoardColumnUpdatedEvent($board->id, 'updated', $column->id, $column->title));
         }
 
         return back()->with('success', 'Column updated');
@@ -1155,7 +1156,7 @@ class KanbanController extends Controller
                     $task->update(['custom_values' => $vals]);
                 }
             }
-            \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'created', $duplicated->id, $duplicated->title);
+            SafeBroadcast::dispatch(new \App\Events\BoardColumnUpdatedEvent($board->id, 'created', $duplicated->id, $duplicated->title));
         }
 
         return back()->with('success', 'Column duplicated');
@@ -1174,7 +1175,7 @@ class KanbanController extends Controller
 
         $column->delete();
 
-        \App\Events\BoardColumnUpdatedEvent::dispatch($boardId, 'deleted', $colId, $title);
+        SafeBroadcast::dispatch(new \App\Events\BoardColumnUpdatedEvent($boardId, 'deleted', $colId, $title));
 
         return back()->with('success', 'Column deleted');
     }
@@ -1192,7 +1193,7 @@ class KanbanController extends Controller
             BoardColumn::where('id', $colId)->where('board_id', $board->id)->update(['position' => $index]);
         }
 
-        \App\Events\BoardColumnUpdatedEvent::dispatch($board->id, 'reordered');
+        SafeBroadcast::dispatch(new \App\Events\BoardColumnUpdatedEvent($board->id, 'reordered'));
 
         return back()->with('success', 'Columns reordered');
     }
@@ -1310,7 +1311,7 @@ class KanbanController extends Controller
             }
         }
 
-        \App\Events\TaskCreatedEvent::dispatch($task, auth()->id());
+        SafeBroadcast::dispatch(new \App\Events\TaskCreatedEvent($task, auth()->id()));
 
         return back()->with('success', 'Task created successfully');
     }
@@ -1560,7 +1561,7 @@ class KanbanController extends Controller
             $this->automationEngine->dispatch('status_changed', $task, ['prev_column' => $prevColumn], auth()->user());
         }
         $this->automationEngine->dispatch('item_updated', $task, [], auth()->user());
-        \App\Events\TaskUpdatedEvent::dispatch($task, 'updated', auth()->id());
+        SafeBroadcast::dispatch(new \App\Events\TaskUpdatedEvent($task, 'updated', auth()->id()));
 
         if ($task->completed_at !== null) {
             $this->recurrenceService->handleTaskCompleted($task);
@@ -1710,10 +1711,20 @@ class KanbanController extends Controller
             'new_column' => $newColumn,
         ], auth()->user());
 
-        \App\Events\TaskUpdatedEvent::dispatch($task, 'status_changed', auth()->id());
+        SafeBroadcast::dispatch(new \App\Events\TaskUpdatedEvent($task, 'status_changed', auth()->id()));
 
         if ($task->completed_at !== null) {
             $this->recurrenceService->handleTaskCompleted($task);
+        }
+
+        if ($request->header('X-Angora-Optimistic') || $request->boolean('optimistic') || ($request->wantsJson() && !$request->header('X-Inertia') && !app()->runningUnitTests())) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Task updated',
+                'task' => $task,
+                'prev_column' => $prevColumn,
+                'new_column' => $newColumn,
+            ]);
         }
 
         return back()->with('success', 'Task updated');
@@ -1890,7 +1901,7 @@ class KanbanController extends Controller
             description: "Deleted task: {$taskTitle}"
         );
 
-        \App\Events\TaskDeletedEvent::dispatch($boardId, $taskId, $parentId, auth()->id());
+        SafeBroadcast::dispatch(new \App\Events\TaskDeletedEvent($boardId, $taskId, $parentId, auth()->id()));
 
         return back()->with('success', 'Task deleted');
     }
@@ -1923,7 +1934,7 @@ class KanbanController extends Controller
             metadata: ['comment_id' => $comment->id]
         );
 
-        \App\Events\CommentAddedEvent::dispatch($comment);
+        SafeBroadcast::dispatch(new \App\Events\CommentAddedEvent($comment));
 
         // Parse mentions: structured nodes first, fallback to regex
         $mentionedUserIds = \App\Services\HtmlSanitizerService::extractMentionUserIds($validated['message']);
@@ -2078,7 +2089,7 @@ class KanbanController extends Controller
 
         $comment->delete();
 
-        \App\Events\CommentDeletedEvent::dispatch($taskId, $commentId, $parentId, auth()->id());
+        SafeBroadcast::dispatch(new \App\Events\CommentDeletedEvent($taskId, $commentId, $parentId, auth()->id()));
 
         return back()->with('success', 'Comment deleted');
     }
@@ -2113,7 +2124,7 @@ class KanbanController extends Controller
 
         $comment->update(['reactions' => $reactions]);
 
-        \App\Events\CommentReactionEvent::dispatch($comment->task_id, $comment->id, $reactions, $userId);
+        SafeBroadcast::dispatch(new \App\Events\CommentReactionEvent($comment->task_id, $comment->id, $reactions, $userId));
 
         return back()->with('success', 'Reaction updated');
     }

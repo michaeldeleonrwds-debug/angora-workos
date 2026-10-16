@@ -31,18 +31,19 @@ export function getEcho(): Echo<any> | null {
         return echoInstance;
     }
 
-    const host = import.meta.env.VITE_REVERB_HOST || window.location.hostname;
+    const rawHost = import.meta.env.VITE_REVERB_HOST || window.location.hostname;
+    const host = rawHost === 'localhost' ? '127.0.0.1' : rawHost;
     const port = import.meta.env.VITE_REVERB_PORT ? parseInt(import.meta.env.VITE_REVERB_PORT, 10) : 8080;
-    const scheme = import.meta.env.VITE_REVERB_SCHEME || (window.location.protocol === 'https:' ? 'https' : 'http');
-    const isTls = scheme === 'https' || window.location.protocol === 'https:';
+    const scheme = import.meta.env.VITE_REVERB_SCHEME || 'http';
+    const isTls = scheme === 'https';
 
     try {
         echoInstance = new Echo({
             broadcaster: 'reverb',
             key: key,
             wsHost: host,
-            wsPort: isTls ? (import.meta.env.VITE_REVERB_PORT ? port : 443) : port,
-            wssPort: isTls ? (import.meta.env.VITE_REVERB_PORT ? port : 443) : port,
+            wsPort: port,
+            wssPort: port,
             forceTLS: isTls,
             enabledTransports: isTls ? ['wss', 'ws'] : ['ws'],
             authorizer: (channel: { name: string }) => {

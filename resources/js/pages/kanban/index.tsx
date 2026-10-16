@@ -222,6 +222,22 @@ export default function KanbanPage({
     // Real-Time WebSockets Collaboration via Laravel Reverb (Phase 3)
     const [liveCollaborators, setLiveCollaborators] = useState<Array<{ id: number; name: string; avatar_url?: string | null; role?: string }>>([]);
 
+    // Track recent client mutations to suppress duplicate echoes
+    const recentLocalMutationsRef = React.useRef<Map<number, number>>(new Map());
+
+    const handleLocalTaskMove = (taskId: number, _targetColumnId: number) => {
+        recentLocalMutationsRef.current.set(taskId, Date.now());
+        setTimeout(() => {
+            recentLocalMutationsRef.current.delete(taskId);
+        }, 10000);
+    };
+
+    const isRecentLocalMutation = (taskId: number): boolean => {
+        const timestamp = recentLocalMutationsRef.current.get(taskId);
+        if (!timestamp) return false;
+        return Date.now() - timestamp < 8000;
+    };
+
     useEffect(() => {
         if (!board.id) return;
         const echo = getEcho();
@@ -229,7 +245,14 @@ export default function KanbanPage({
 
         // 1. Private board channel for mutations
         const boardChannel = echo.private(`boards.${board.id}`);
-        const handleMutation = () => {
+        const handleMutation = (event?: any) => {
+            // Ignore self-dispatched mutations to prevent duplicate real-time updates and unnecessary page reloads
+            if (event?.updated_by && currentUser?.id && Number(event.updated_by) === Number(currentUser.id)) {
+                return;
+            }
+            if (event?.task_id && isRecentLocalMutation(Number(event.task_id))) {
+                return;
+            }
             router.reload({
                 only: ['activeBoard', 'boards', 'selectedTask'],
             });
@@ -514,6 +537,7 @@ export default function KanbanPage({
                             permissions={userPermissions}
                             onSelectTask={handleOpenTask}
                             onQuickAddTask={handleQuickAddKanban}
+                            onTaskMoveOptimistic={handleLocalTaskMove}
                         />
                     </div>
                 )}

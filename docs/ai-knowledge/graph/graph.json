@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T16:52:37.449Z",
+  "generated_at": "2026-10-16T17:19:23.999Z",
   "stats": {
-    "total_nodes": 627,
-    "total_edges": 1284,
+    "total_nodes": 628,
+    "total_edges": 1286,
     "clusters": 7
   },
   "nodes": [
@@ -4412,6 +4412,12 @@
       "label": "ImageOptimizationTest",
       "type": "test",
       "file": "tests/Feature/ImageOptimizationTest.php"
+    },
+    {
+      "id": "test:KanbanDragAndDropReliabilityTest",
+      "label": "KanbanDragAndDropReliabilityTest",
+      "type": "test",
+      "file": "tests/Feature/KanbanDragAndDropReliabilityTest.php"
     },
     {
       "id": "test:KanbanRoleBasedUxTest",
@@ -9598,6 +9604,11 @@
     },
     {
       "source": "component:KanbanBoardView",
+      "target": "component:toast",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:KanbanBoardView",
       "target": "component:utils",
       "relationship": "imports"
     },
@@ -11010,6 +11021,11 @@
     },
     {
       "source": "test:ImageOptimizationTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:KanbanDragAndDropReliabilityTest",
       "target": "controller:KanbanController",
       "relationship": "tests"
     },

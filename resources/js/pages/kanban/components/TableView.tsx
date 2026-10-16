@@ -195,7 +195,7 @@ export default function TableView({
         }
     };
 
-    const handleStageDrop = (e: React.DragEvent, targetColumnId: number | undefined) => {
+    const handleStageDrop = async (e: React.DragEvent, targetColumnId: number | undefined) => {
         e.preventDefault();
         setDragOverGroupKey(null);
         const taskIdStr = e.dataTransfer.getData('text/plain');
@@ -212,17 +212,19 @@ export default function TableView({
             return;
         }
 
-        router.patch(
-            `/kanban/tasks/${taskId}/column`,
-            { column_id: targetColumnId },
-            {
-                preserveScroll: true,
-                onError: () => {
-                    showToast({ variant: 'error', title: 'Task move failed' });
-                },
-            },
-        );
         setDraggingTaskId(null);
+
+        try {
+            await axios.patch(`/kanban/tasks/${taskId}/column`, {
+                column_id: targetColumnId,
+            });
+            router.reload({
+                only: ['activeBoard', 'boards'],
+            });
+        } catch (error: any) {
+            const msg = error.response?.data?.message || 'Task move failed';
+            showToast({ variant: 'error', title: 'Task move failed', message: msg });
+        }
     };
 
     // Dynamic Columns Management

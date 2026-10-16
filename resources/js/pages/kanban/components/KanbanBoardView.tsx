@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDate, formatTime, getExactTimeRemaining } from '@/lib/utils';
+import { showToast } from '@/components/toast';
+import { formatDate, formatTime, getCsrfToken, getExactTimeRemaining } from '@/lib/utils';
 import { router, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
@@ -25,7 +26,7 @@ import {
     Trash2,
     User as UserIcon,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { BoardPermissions, getTaskAssignedUsers, isProductionDeadlineHidden, isProductionUrgencyActive, isTaskInCompletedStage, isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
 
 // Words of the vertical add-stage label. Each word is rendered as its own
@@ -45,6 +46,7 @@ interface KanbanBoardViewProps {
     permissions?: BoardPermissions;
     onSelectTask: (task: Task) => void;
     onQuickAddTask: (columnId: number) => void;
+    onTaskMoveOptimistic?: (taskId: number, targetColumnId: number) => void;
 }
 
 export default function KanbanBoardView({
@@ -58,6 +60,7 @@ export default function KanbanBoardView({
     permissions,
     onSelectTask,
     onQuickAddTask,
+    onTaskMoveOptimistic,
 }: KanbanBoardViewProps) {
     const { auth } = usePage<any>().props;
     const effectiveCurrentUser = currentUser || auth?.user;
@@ -76,7 +79,15 @@ export default function KanbanBoardView({
     const [editingStage, setEditingStage] = useState<KanbanColumn | null>(null);
     const [editStageTitle, setEditStageTitle] = useState('');
 
-    const columns = (board.columns || []).filter((c) => !c.is_archived);
+    const [localColumns, setLocalColumns] = useState<KanbanColumn[]>(() =>
+        (board.columns || []).filter((c) => !c.is_archived)
+    );
+
+    useEffect(() => {
+        setLocalColumns((board.columns || []).filter((c) => !c.is_archived));
+    }, [board.columns]);
+
+    const columns = localColumns;
 
     const toggleSubtasks = (taskId: number, e: React.MouseEvent) => {
         e.stopPropagation();
@@ -215,7 +226,7 @@ export default function KanbanBoardView({
         }
     };
 
-    const handleDrop = (e: React.DragEvent, targetColumnId: number) => {
+    const handleDrop = async (e: React.DragEvent, targetColumnId: number) => {
         e.preventDefault();
         setDragOverColumnId(null);
         const taskIdStr = e.dataTransfer.getData('text/plain');
@@ -223,7 +234,7 @@ export default function KanbanBoardView({
 
         if (!taskId) return;
 
-        const allTasks = columns.flatMap((c) => c.tasks || []);
+        const allTasks = localColumns.flatMap((c) => c.tasks || []);
         const task = allTasks.find((t) => t.id === taskId);
         if (!task || !canMoveTask(task)) {
             setDraggingTaskId(null);
@@ -235,19 +246,98 @@ export default function KanbanBoardView({
             return;
         }
 
-        router.patch(
-            `/kanban/tasks/${taskId}/column`,
-            {
-                column_id: targetColumnId,
-            },
-            {
-                preserveScroll: true,
-                onError: (errors) => {
-                    console.error('Task move failed:', errors);
-                },
-            },
-        );
+        const sourceColumnId = task.column_id;
+        const targetColumn = localColumns.find((c) => c.id === targetColumnId);
+        if (!targetColumn) {
+            setDraggingTaskId(null);
+            return;
+        }
+
+        // Snapshot previous state for instant rollback if server rejects
+        const previousColumns = localColumns;
+
+        // Optimistic local state update (0ms UI latency, no scroll jump, no page reload)
+        const updatedTask: Task = {
+            ...task,
+            column_id: targetColumnId,
+            column: targetColumn,
+        };
+
+        const nextColumns = localColumns.map((col) => {
+            if (col.id === sourceColumnId) {
+                return {
+                    ...col,
+                    tasks: (col.tasks || []).filter((t) => t.id !== taskId),
+                };
+            }
+            if (col.id === targetColumnId) {
+                return {
+                    ...col,
+                    tasks: [...(col.tasks || []).filter((t) => t.id !== taskId), updatedTask],
+                };
+            }
+            return col;
+        });
+
+        setLocalColumns(nextColumns);
         setDraggingTaskId(null);
+
+        if (onTaskMoveOptimistic) {
+            onTaskMoveOptimistic(taskId, targetColumnId);
+        }
+
+        // Background persistence via lightweight JSON PATCH
+        try {
+            const res = await fetch(`/kanban/tasks/${taskId}/column`, {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Angora-Optimistic': 'true',
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    column_id: targetColumnId,
+                    optimistic: true,
+                }),
+            });
+
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                setLocalColumns(previousColumns);
+                showToast({
+                    variant: 'error',
+                    title: 'Task move rejected',
+                    message: errData.message || 'Workflow transition not allowed.',
+                });
+            } else {
+                const data = await res.json().catch(() => ({}));
+                if (data.task) {
+                    setLocalColumns((current) =>
+                        current.map((col) => {
+                            if (col.id === targetColumnId) {
+                                return {
+                                    ...col,
+                                    tasks: (col.tasks || []).map((t) =>
+                                        t.id === taskId ? { ...t, ...data.task } : t
+                                    ),
+                                };
+                            }
+                            return col;
+                        })
+                    );
+                }
+            }
+        } catch {
+            setLocalColumns(previousColumns);
+            showToast({
+                variant: 'error',
+                title: 'Connection error',
+                message: 'Unable to save task position. Position restored.',
+            });
+        }
     };
 
     const isOverdue = (task: Task, column?: KanbanColumn) => {

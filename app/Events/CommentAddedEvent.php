@@ -5,17 +5,31 @@ namespace App\Events;
 use App\Models\KanbanComment;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Log;
 
-class CommentAddedEvent implements ShouldBroadcastNow
+class CommentAddedEvent implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable, InteractsWithSockets, SerializesModels, Queueable;
+
+    public int $tries = 3;
+    public int $backoff = 3;
+    public int $timeout = 10;
+    public int $maxExceptions = 3;
 
     public function __construct(
         public KanbanComment $comment
-    ) {}
+    ) {
+        $this->afterCommit = true;
+    }
+
+    public function failed(?\Throwable $e = null): void
+    {
+        Log::warning('[Broadcasting] CommentAddedEvent broadcast failed: ' . ($e ? $e->getMessage() : 'unknown error'));
+    }
 
     public function broadcastOn(): array
     {

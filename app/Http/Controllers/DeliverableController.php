@@ -143,7 +143,7 @@ class DeliverableController extends Controller
             description: "Review decision '{$action}' recorded on '{$deliverable->title}'"
         );
 
-        \App\Events\DeliverableStatusChangedEvent::dispatch($deliverable, 'internal');
+        \App\Support\SafeBroadcast::dispatch(new \App\Events\DeliverableStatusChangedEvent($deliverable, 'internal'));
 
         return back()->with('success', 'Deliverable review updated');
     }
