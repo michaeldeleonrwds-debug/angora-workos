@@ -41,7 +41,7 @@ import {
     PopoverTrigger,
 } from '@/components/ui/popover';
 import { Input } from '@/components/ui/input';
-import { csrfHeaders } from '@/lib/utils';
+import { csrfHeaders, getCsrfToken } from '@/lib/utils';
 import { User } from '@/pages/kanban/types';
 import { createPortal } from 'react-dom';
 import { UserAvatar } from '@/components/UserAvatar';
@@ -145,14 +145,20 @@ export function RichTextCommentEditor({
 
         setIsUploadingImage(true);
         try {
+            const token = getCsrfToken();
             const formData = new FormData();
             formData.append('image', file);
+            if (token) {
+                formData.append('_token', token);
+            }
 
             const res = await fetch(`/kanban/tasks/${taskId}/comments/upload-image`, {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     Accept: 'application/json',
-                    ...csrfHeaders(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
                 },
                 body: formData,
             });

@@ -2042,7 +2042,8 @@ class KanbanController extends Controller
 
         $file = $request->file('image');
         $fileName = $file->getClientOriginalName();
-        $filePath = $file->store('attachments/kanban/comments', 'public');
+        $diskName = config('filesystems.default', 'public');
+        $filePath = $file->store('attachments/kanban/comments', $diskName);
 
         $isClient = auth()->user() && auth()->user()->isClientUser();
         $attachment = KanbanAttachment::create([
@@ -2053,6 +2054,8 @@ class KanbanController extends Controller
             'file_size_bytes' => $file->getSize(),
             'mime_type' => $file->getClientMimeType() ?: 'image/jpeg',
             'is_client_visible' => $isClient ? true : $request->boolean('is_client_visible', true),
+            'disk' => $diskName,
+            'processing_status' => 'ready',
         ]);
 
         return response()->json([
@@ -2124,7 +2127,8 @@ class KanbanController extends Controller
 
         $file = $request->file('file');
         $fileName = $file->getClientOriginalName();
-        $filePath = $file->store('attachments/kanban', 'public');
+        $diskName = config('filesystems.default', 'public');
+        $filePath = $file->store('attachments/kanban', $diskName);
 
         $isClient = auth()->user() && auth()->user()->isClientUser();
         $attachment = KanbanAttachment::create([
@@ -2135,6 +2139,8 @@ class KanbanController extends Controller
             'file_size_bytes' => $file->getSize(),
             'mime_type' => $file->getClientMimeType() ?: 'application/octet-stream',
             'is_client_visible' => $isClient ? true : $request->boolean('is_client_visible', true),
+            'disk' => $diskName,
+            'processing_status' => 'ready',
         ]);
 
         TaskActivityService::log(
@@ -2161,10 +2167,23 @@ class KanbanController extends Controller
 
         $task = $attachment->task;
         $fileName = $attachment->file_name;
+        $disk = Storage::disk($attachment->getStorageDisk());
 
-        if (Storage::disk('public')->exists($attachment->file_path)) {
+        if ($disk->exists($attachment->file_path)) {
+            $disk->delete($attachment->file_path);
+        } elseif (Storage::disk('public')->exists($attachment->file_path)) {
             Storage::disk('public')->delete($attachment->file_path);
         }
+
+        // Clean up any optimized variants
+        if (!empty($attachment->optimized_variants)) {
+            foreach ($attachment->optimized_variants as $variantPath) {
+                if ($disk->exists($variantPath)) {
+                    $disk->delete($variantPath);
+                }
+            }
+        }
+
         $attachment->delete();
 
         if ($task) {
@@ -2181,11 +2200,17 @@ class KanbanController extends Controller
     {
         Gate::authorize('view', $attachment);
 
-        if (!$attachment->file_path || !Storage::disk('public')->exists($attachment->file_path)) {
+        $diskName = $attachment->getStorageDisk();
+        $disk = Storage::disk($diskName);
+
+        if (!$attachment->file_path || !$disk->exists($attachment->file_path)) {
+            if ($diskName !== 'public' && Storage::disk('public')->exists($attachment->file_path)) {
+                return Storage::disk('public')->download($attachment->file_path, $attachment->file_name);
+            }
             abort(404, 'Attachment file not found on storage.');
         }
 
-        return Storage::disk('public')->download($attachment->file_path, $attachment->file_name);
+        return $disk->download($attachment->file_path, $attachment->file_name);
     }
 
     /**
@@ -2195,11 +2220,33 @@ class KanbanController extends Controller
     {
         Gate::authorize('view', $attachment);
 
-        if (!$attachment->file_path || !Storage::disk('public')->exists($attachment->file_path)) {
+        $diskName = $attachment->getStorageDisk();
+        $disk = Storage::disk($diskName);
+
+        if (!$attachment->file_path || !$disk->exists($attachment->file_path)) {
+            if ($diskName !== 'public' && Storage::disk('public')->exists($attachment->file_path)) {
+                return Storage::disk('public')->response($attachment->file_path, $attachment->file_name, [
+                    'Content-Type' => $attachment->mime_type ?: 'image/jpeg',
+                    'Content-Disposition' => 'inline; filename="' . $attachment->file_name . '"',
+                ]);
+            }
             abort(404, 'Attachment file not found on storage.');
         }
 
-        return Storage::disk('public')->response($attachment->file_path, $attachment->file_name, [
+        // For S3, generate temporary signed URL if supported, or stream
+        if ($diskName === 's3') {
+            try {
+                $signedUrl = $disk->temporaryUrl($attachment->file_path, now()->addMinutes(30));
+                return redirect()->away($signedUrl);
+            } catch (\Throwable $e) {
+                return $disk->response($attachment->file_path, $attachment->file_name, [
+                    'Content-Type' => $attachment->mime_type ?: 'image/jpeg',
+                    'Content-Disposition' => 'inline; filename="' . $attachment->file_name . '"',
+                ]);
+            }
+        }
+
+        return $disk->response($attachment->file_path, $attachment->file_name, [
             'Content-Type' => $attachment->mime_type ?: 'image/jpeg',
             'Content-Disposition' => 'inline; filename="' . $attachment->file_name . '"',
         ]);

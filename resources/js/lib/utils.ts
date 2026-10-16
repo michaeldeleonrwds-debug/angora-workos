@@ -100,7 +100,7 @@ export function csrfHeaders(): Record<string, string> {
     const token = getCsrfToken();
     return {
         'X-CSRF-TOKEN': token,
-        'X-XSRF-TOKEN': token,
+        'X-Requested-With': 'XMLHttpRequest',
     };
 }
 
