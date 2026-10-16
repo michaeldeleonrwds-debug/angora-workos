@@ -2054,7 +2054,10 @@ class KanbanController extends Controller
         $file = $request->file('image');
         $fileName = $file->getClientOriginalName();
         $diskName = config('filesystems.default', 'public');
-        $filePath = $file->store('attachments/kanban/comments', $diskName);
+        $extension = $file->getClientOriginalExtension() ?: 'png';
+        $projectId = $task->board?->workspace_id ?? 1;
+        $filePath = \App\Services\StorageKeyService::taskAttachmentKey($projectId, $task->id, $extension);
+        Storage::disk($diskName)->put($filePath, $file->getContent());
 
         $isClient = auth()->user() && auth()->user()->isClientUser();
         $attachment = KanbanAttachment::create([
@@ -2141,7 +2144,10 @@ class KanbanController extends Controller
         $file = $request->file('file');
         $fileName = $file->getClientOriginalName();
         $diskName = config('filesystems.default', 'public');
-        $filePath = $file->store('attachments/kanban', $diskName);
+        $extension = $file->getClientOriginalExtension() ?: 'bin';
+        $projectId = $task->board?->workspace_id ?? 1;
+        $filePath = \App\Services\StorageKeyService::taskAttachmentKey($projectId, $task->id, $extension);
+        Storage::disk($diskName)->put($filePath, $file->getContent());
 
         $isClient = auth()->user() && auth()->user()->isClientUser();
         $attachment = KanbanAttachment::create([

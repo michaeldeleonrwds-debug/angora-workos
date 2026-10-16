@@ -37,6 +37,14 @@ class MediaAsset extends Model
 
     public function getUrlAttribute(): string
     {
+        if ($this->disk === 's3') {
+            try {
+                return Storage::disk('s3')->temporaryUrl($this->file_path, now()->addMinutes(60));
+            } catch (\Throwable $e) {
+                return Storage::disk('s3')->url($this->file_path);
+            }
+        }
+
         return Storage::disk($this->disk)->url($this->file_path);
     }
 

@@ -28,9 +28,15 @@ class DeliverableController extends Controller
         $fileUrl = null;
 
         if ($request->hasFile('file')) {
-            $path = $request->file('file')->store('deliverables', 'public');
+            $file = $request->file('file');
+            $extension = $file->getClientOriginalExtension() ?: 'bin';
+            $diskName = config('filesystems.default', 'public');
+            $path = \App\Services\StorageKeyService::deliverableKey($project->id, $extension);
+            Storage::disk($diskName)->put($path, $file->getContent());
             $filePath = $path;
-            $fileUrl = Storage::url($path);
+            $fileUrl = $diskName === 's3'
+                ? Storage::disk('s3')->temporaryUrl($path, now()->addHours(24))
+                : Storage::disk($diskName)->url($path);
         }
 
         $deliverable = ProjectDeliverable::create([
@@ -203,11 +209,17 @@ class DeliverableController extends Controller
 
         abort_unless($isAuthorized, 403, 'Unauthorized access to deliverable asset.');
 
-        if (!$deliverable->file_path || !Storage::disk('public')->exists($deliverable->file_path)) {
-            abort(404, 'Deliverable file not found on storage.');
+        $diskName = config('filesystems.default', 'public');
+        $disk = Storage::disk($diskName);
+        if (!$deliverable->file_path || !$disk->exists($deliverable->file_path)) {
+            if ($diskName !== 'public' && Storage::disk('public')->exists($deliverable->file_path)) {
+                $disk = Storage::disk('public');
+            } else {
+                abort(404, 'Deliverable file not found on storage.');
+            }
         }
 
-        return Storage::disk('public')->download($deliverable->file_path, basename($deliverable->file_path));
+        return $disk->download($deliverable->file_path, basename($deliverable->file_path));
     }
 }
 

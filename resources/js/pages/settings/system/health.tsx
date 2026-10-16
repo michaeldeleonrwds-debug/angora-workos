@@ -11,6 +11,8 @@ interface DiagnosticsData {
     environment: string;
     database_connected: boolean;
     database_version: string;
+    redis_connected?: boolean;
+    minio_connected?: boolean;
     reverb_running: boolean;
     reverb_endpoint: string;
     storage_driver: string;
@@ -42,6 +44,22 @@ export default function SystemHealthSettings({ diagnostics }: { diagnostics: Dia
             status: diagnostics.database_connected,
             detail: `${diagnostics.database_version} (Connected via PDO)`,
             icon: Database,
+        },
+        {
+            name: 'Redis Queue & Cache',
+            status: diagnostics.redis_connected ?? false,
+            detail: diagnostics.redis_connected
+                ? `Connected to Redis on 127.0.0.1:6379 · Driver: ${diagnostics.queue_driver}`
+                : 'Redis server not responding on port 6379',
+            icon: Cpu,
+        },
+        {
+            name: 'MinIO Local S3 Storage',
+            status: diagnostics.minio_connected ?? false,
+            detail: diagnostics.minio_connected
+                ? `Listening on 127.0.0.1:9500 · Active disk: ${diagnostics.storage_driver}`
+                : 'MinIO service offline on port 9500',
+            icon: HardDrive,
         },
         {
             name: 'WebSockets (Reverb)',

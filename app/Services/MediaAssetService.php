@@ -45,9 +45,8 @@ class MediaAssetService
 
         $uuid = (string) Str::uuid();
         $extension = $file->getClientOriginalExtension() ?: 'png';
-        $disk = config('filesystems.media_disk', env('MEDIA_DISK', 'public'));
-        $fileName = "{$uuid}.{$extension}";
-        $filePath = "media/{$fileName}";
+        $disk = config('filesystems.media_disk', env('MEDIA_DISK', config('filesystems.default', 'public')));
+        $filePath = StorageKeyService::mediaAssetKey($workspaceId, $extension, $uuid);
 
         // Calculate dimensions if raster image
         $width = null;
@@ -61,7 +60,7 @@ class MediaAssetService
         }
 
         // Store file
-        Storage::disk($disk)->putFileAs('media', $file, $fileName);
+        Storage::disk($disk)->put($filePath, $file->getContent());
 
         return MediaAsset::create([
             'media_uuid' => $uuid,

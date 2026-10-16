@@ -17,11 +17,12 @@ class OptimizeImageJob implements ShouldQueue
 
     public int $tries = 3;
     public int $timeout = 120;
+    public int $backoff = 10;
 
     public function __construct(
         public KanbanAttachment $attachment
     ) {
-        $this->queue = 'default';
+        $this->queue = 'media';
     }
 
     public function handle(ImageOptimizationService $service): void

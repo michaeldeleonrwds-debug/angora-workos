@@ -8,8 +8,13 @@ import { useState } from 'react';
 
 interface QueuesData {
     driver: string;
+    redis_connected?: boolean;
     realtime_queue: string;
     default_queue: string;
+    media_queue?: string;
+    backlog_realtime?: number;
+    backlog_default?: number;
+    backlog_media?: number;
     jobs_pending: number;
     jobs_failed: number;
     recent_failed: Array<{
@@ -56,30 +61,52 @@ export default function QueuesSettings({ queues }: { queues: QueuesData }) {
 
             <SettingsLayout
                 title="Background Jobs & Queue Health"
-                description="Monitor queue workers, real-time broadcast prioritization, pending payloads, and failed job exceptions"
+                description="Monitor Redis queue workers, priority queues (realtime vs default vs media), and failed job exceptions"
             >
                 <div className="space-y-6">
                     {/* Top Stats */}
-                    {/* Top Stats */}
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/[0.08] dark:bg-[#19192A]/60">
                             <div className="flex items-center gap-2 text-slate-500 text-xs dark:text-slate-400">
                                 <Cpu className="h-4 w-4 text-[#0073ea] dark:text-[#579bfc]" />
-                                <span>Queue Worker Architecture</span>
+                                <span>Queue Engine</span>
                             </div>
-                            <div className="mt-2 text-lg font-bold text-slate-900 capitalize dark:text-white">{queues.driver} Driver</div>
+                            <div className="mt-2 text-lg font-bold text-slate-900 capitalize dark:text-white flex items-center gap-2">
+                                <span>{queues.driver} Driver</span>
+                                {queues.redis_connected && (
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                        Connected
+                                    </span>
+                                )}
+                            </div>
                             <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                Priority worker: <span className="font-mono text-emerald-600 font-semibold dark:text-[#00c875]">{queues.realtime_queue}</span>, {queues.default_queue}
+                                127.0.0.1:6379 via phpredis
                             </div>
                         </div>
 
                         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/[0.08] dark:bg-[#19192A]/60">
                             <div className="flex items-center gap-2 text-slate-500 text-xs dark:text-slate-400">
-                                <Clock className="h-4 w-4 text-amber-500 dark:text-[#D8F779]" />
-                                <span>Pending Jobs</span>
+                                <span className="h-2 w-2 rounded-full bg-[#0073ea]" />
+                                <span>Realtime Queue (Priority)</span>
                             </div>
-                            <div className="mt-2 text-lg font-bold text-slate-900 dark:text-white">{queues.jobs_pending} Pending</div>
-                            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Jobs waiting in queue worker pipeline</div>
+                            <div className="mt-2 text-lg font-bold text-slate-900 dark:text-white">
+                                {queues.backlog_realtime ?? 0} Pending
+                            </div>
+                            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">WebSockets, moves & presence</div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/[0.08] dark:bg-[#19192A]/60">
+                            <div className="flex items-center gap-2 text-slate-500 text-xs dark:text-slate-400">
+                                <span className="h-2 w-2 rounded-full bg-purple-500" />
+                                <span>Media & Default Queues</span>
+                            </div>
+                            <div className="mt-2 text-lg font-bold text-slate-900 dark:text-white">
+                                {(queues.backlog_default ?? 0) + (queues.backlog_media ?? 0)} Pending
+                            </div>
+                            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                                Default: {queues.backlog_default ?? 0} | Media: {queues.backlog_media ?? 0}
+                            </div>
                         </div>
 
                         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 dark:border-white/[0.08] dark:bg-[#19192A]/60">
@@ -88,7 +115,7 @@ export default function QueuesSettings({ queues }: { queues: QueuesData }) {
                                 <span>Failed Jobs</span>
                             </div>
                             <div className="mt-2 text-lg font-bold text-slate-900 dark:text-white">{queues.jobs_failed} Failed</div>
-                            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Recorded in failed_jobs table</div>
+                            <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">Logged in failed_jobs table</div>
                         </div>
                     </div>
 

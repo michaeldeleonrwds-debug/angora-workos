@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T18:39:10.682Z",
+  "generated_at": "2026-10-16T19:02:36.268Z",
   "stats": {
-    "total_nodes": 640,
-    "total_edges": 1398,
+    "total_nodes": 641,
+    "total_edges": 1401,
     "clusters": 7
   },
   "nodes": [
@@ -2844,6 +2844,12 @@
       "label": "ReportExportService",
       "type": "service",
       "file": "app/Services/ReportExportService.php"
+    },
+    {
+      "id": "service:StorageKeyService",
+      "label": "StorageKeyService",
+      "type": "service",
+      "file": "app/Services/StorageKeyService.php"
     },
     {
       "id": "service:TaskActivityService",
@@ -6474,6 +6480,11 @@
     },
     {
       "source": "controller:DeliverableController",
+      "target": "service:StorageKeyService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:DeliverableController",
       "target": "model:ProjectDeliverable",
       "relationship": "queries_model"
     },
@@ -7043,6 +7054,11 @@
     },
     {
       "source": "controller:KanbanController",
+      "target": "service:StorageKeyService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:KanbanController",
       "target": "model:Workspace",
       "relationship": "queries_model"
     },
@@ -7295,6 +7311,11 @@
       "target": "component:profile",
       "relationship": "renders",
       "page": "settings/profile"
+    },
+    {
+      "source": "controller:ProfileController",
+      "target": "service:StorageKeyService",
+      "relationship": "calls_service"
     },
     {
       "source": "controller:SettingsCenterController",

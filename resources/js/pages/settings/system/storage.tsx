@@ -19,6 +19,7 @@ interface StorageData {
     aws_endpoint: string;
     aws_url: string;
     aws_use_path_style: boolean;
+    minio_running?: boolean;
 }
 
 const breadcrumbs: BreadcrumbItem[] = [
@@ -81,6 +82,56 @@ export default function StorageSettings({ storage }: { storage: StorageData }) {
                 description="Configure S3-compatible object storage for production deliverables, task attachments, and media library assets"
             >
                 <div className="space-y-6">
+                    {/* MinIO Local S3 Indicator & Quick Preset */}
+                    <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/[0.08] dark:bg-[#19192A]/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 dark:bg-[#D8F779]/10 dark:text-[#D8F779]">
+                                <Database className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Local MinIO S3 Service</h4>
+                                    {storage?.minio_running ? (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-[#00c875]/10 px-2 py-0.5 text-[10px] font-semibold text-[#00c875]">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-[#00c875]" />
+                                            Running (127.0.0.1:9500)
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold text-red-500">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                            Not Detected
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    Local object storage bucket: <span className="font-mono text-slate-700 dark:text-slate-300">angora-dev</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setData((prev) => ({
+                                    ...prev,
+                                    filesystem_disk: 's3',
+                                    aws_access_key_id: 'minioadmin',
+                                    aws_secret_access_key: 'minioadmin',
+                                    aws_default_region: 'us-east-1',
+                                    aws_bucket: 'angora-dev',
+                                    aws_endpoint: 'http://127.0.0.1:9500',
+                                    aws_url: '',
+                                    aws_use_path_style: true,
+                                }));
+                            }}
+                            className="text-xs text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+                        >
+                            Apply MinIO Local Config
+                        </Button>
+                    </div>
+
                     <form onSubmit={submit} className="space-y-6">
                         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-5 dark:border-white/[0.08] dark:bg-[#19192A]/40">
                             <div className="mb-5 flex items-center justify-between border-b border-slate-200 pb-3 dark:border-white/[0.06]">
@@ -104,7 +155,7 @@ export default function StorageSettings({ storage }: { storage: StorageData }) {
                                     >
                                         <option value="local">local (Storage private disk)</option>
                                         <option value="public">public (Public symlink storage)</option>
-                                        <option value="s3">s3 (Cloudflare R2 / AWS S3 Compatible)</option>
+                                        <option value="s3">s3 (MinIO / Cloudflare R2 / AWS S3 Compatible)</option>
                                     </select>
                                 </div>
                             </div>

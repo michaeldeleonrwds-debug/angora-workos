@@ -29,6 +29,28 @@ class KanbanAttachment extends Model
         'optimized_variants' => 'array',
     ];
 
+    protected $appends = [
+        'url',
+    ];
+
+    public function getUrlAttribute(): ?string
+    {
+        if (!$this->file_path) {
+            return null;
+        }
+
+        $disk = $this->getStorageDisk();
+        if ($disk === 's3') {
+            try {
+                return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($this->file_path, now()->addMinutes(60));
+            } catch (\Throwable $e) {
+                return \Illuminate\Support\Facades\Storage::disk('s3')->url($this->file_path);
+            }
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk($disk)->url($this->file_path);
+    }
+
     public function isImage(): bool
     {
         return str_starts_with($this->mime_type ?? '', 'image/')

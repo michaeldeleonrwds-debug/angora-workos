@@ -38,6 +38,10 @@ interface SettingsIndexProps {
         reverb_host: string;
         storage_disk: string;
         storage_bucket: string;
+        minio_running?: boolean;
+        redis_running?: boolean;
+        queue_driver?: string;
+        cache_driver?: string;
         mail_configured: boolean;
         mail_driver: string;
         jobs_pending: number;
@@ -105,28 +109,42 @@ export default function SettingsIndex({ activeWorkspace, systemStatus, canManage
                                 </div>
 
                                 <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
-                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">Object Storage</div>
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">MinIO Object Storage</div>
                                     <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-900 dark:text-white truncate">
-                                        <Database className="h-3 w-3 text-amber-500 dark:text-[#D8F779]" />
-                                        <span className="truncate uppercase">{systemStatus.storage_disk}</span>
+                                        {systemStatus.minio_running ? (
+                                            <span className="h-2 w-2 shrink-0 rounded-full bg-[#00c875]" />
+                                        ) : (
+                                            <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                                        )}
+                                        <Database className="h-3 w-3 text-amber-500 dark:text-[#D8F779] shrink-0" />
+                                        <span className="truncate">{systemStatus.storage_bucket || 's3'}</span>
                                     </div>
                                 </div>
 
                                 <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
-                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">Queue & Realtime</div>
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">Redis Cache & Queues</div>
+                                    <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-900 dark:text-white">
+                                        {systemStatus.redis_running ? (
+                                            <>
+                                                <span className="h-2 w-2 rounded-full bg-[#00c875]" />
+                                                <span>Active (6379)</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span className="h-2 w-2 rounded-full bg-red-500" />
+                                                <span className="text-red-600 dark:text-red-400">Offline</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
+                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">Priority Queue Backlog</div>
                                     <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-900 dark:text-white">
                                         <Cpu className="h-3 w-3 text-purple-600 dark:text-[#A25DDC]" />
                                         <span>
                                             {systemStatus.jobs_pending} queued / {systemStatus.jobs_failed} failed
                                         </span>
-                                    </div>
-                                </div>
-
-                                <div className="rounded-lg border border-slate-200 bg-white p-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
-                                    <div className="text-[11px] text-slate-500 dark:text-slate-400">Email Gateway</div>
-                                    <div className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-900 dark:text-white">
-                                        <Mail className="h-3 w-3 text-orange-500 dark:text-[#fdab3d]" />
-                                        <span className="capitalize">{systemStatus.mail_driver}</span>
                                     </div>
                                 </div>
                             </div>

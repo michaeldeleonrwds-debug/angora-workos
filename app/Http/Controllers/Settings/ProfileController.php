@@ -83,8 +83,11 @@ class ProfileController extends Controller
         // Delete old avatar if stored locally
         $this->deleteStoredAvatar($user);
 
-        // Store new file in public disk under avatars folder
-        $path = $file->store('avatars', 'public');
+        // Store new file in default storage disk using logical user avatar key
+        $extension = $file->getClientOriginalExtension() ?: 'png';
+        $diskName = config('filesystems.default', 'public');
+        $path = \App\Services\StorageKeyService::userAvatarKey($user->id, $extension);
+        \Illuminate\Support\Facades\Storage::disk($diskName)->put($path, $file->getContent());
 
         $user->avatar = $path;
         $user->avatar_url = $path;
@@ -130,7 +133,11 @@ class ProfileController extends Controller
         $rawPath = $user->getRawOriginal('avatar') ?? $user->getRawOriginal('avatar_url');
         if ($rawPath && !str_starts_with($rawPath, 'http://') && !str_starts_with($rawPath, 'https://') && !str_starts_with($rawPath, 'data:')) {
             $cleanPath = preg_replace('#^/?storage/#', '', $rawPath);
-            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
+            $diskName = config('filesystems.default', 'public');
+            if (\Illuminate\Support\Facades\Storage::disk($diskName)->exists($cleanPath)) {
+                \Illuminate\Support\Facades\Storage::disk($diskName)->delete($cleanPath);
+            }
+            if ($diskName !== 'public' && \Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
                 \Illuminate\Support\Facades\Storage::disk('public')->delete($cleanPath);
             }
         }

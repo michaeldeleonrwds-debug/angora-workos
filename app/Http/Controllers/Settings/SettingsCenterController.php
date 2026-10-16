@@ -41,14 +41,35 @@ class SettingsCenterController extends Controller
 
         $systemStatus = null;
         if ($canManageSystem) {
+            $redisRunning = $this->probeSocket('127.0.0.1', (int) env('REDIS_PORT', 6379));
+            $minioRunning = $this->probeSocket('127.0.0.1', 9500);
+
+            $jobsPending = 0;
+            $queueDriver = config('queue.default', 'redis');
+            if ($queueDriver === 'redis' && $redisRunning) {
+                try {
+                    $jobsPending = \Illuminate\Support\Facades\Queue::connection('redis')->size('realtime')
+                        + \Illuminate\Support\Facades\Queue::connection('redis')->size('default')
+                        + \Illuminate\Support\Facades\Queue::connection('redis')->size('media');
+                } catch (\Throwable $e) {
+                    $jobsPending = DB::table('jobs')->count();
+                }
+            } else {
+                $jobsPending = DB::table('jobs')->count();
+            }
+
             $systemStatus = [
                 'reverb_running' => $this->probeSocket('127.0.0.1', (int) env('REVERB_SERVER_PORT', 8080)),
                 'reverb_host' => config('reverb.servers.reverb.host', '127.0.0.1') . ':' . config('reverb.servers.reverb.port', 8080),
-                'storage_disk' => config('filesystems.default', 'local'),
-                'storage_bucket' => SystemSetting::get('s3_bucket', env('AWS_BUCKET', 'Not configured')),
+                'storage_disk' => config('filesystems.default', 's3'),
+                'storage_bucket' => SystemSetting::get('s3_bucket', env('AWS_BUCKET', 'angora-dev')),
+                'minio_running' => $minioRunning,
+                'redis_running' => $redisRunning,
+                'queue_driver' => $queueDriver,
+                'cache_driver' => config('cache.default', 'redis'),
                 'mail_configured' => !empty(SystemSetting::get('mail_host', env('MAIL_HOST'))),
                 'mail_driver' => config('mail.default', 'smtp'),
-                'jobs_pending' => DB::table('jobs')->count(),
+                'jobs_pending' => $jobsPending,
                 'jobs_failed' => DB::table('failed_jobs')->count(),
                 'realtime_queue' => config('broadcasting.queue', env('BROADCAST_QUEUE', 'realtime')),
                 'php_version' => PHP_VERSION,
@@ -266,17 +287,19 @@ class SettingsCenterController extends Controller
         Gate::authorize('manage-system-settings');
 
         $hasSecret = !empty(SystemSetting::get('s3_secret')) || !empty(env('AWS_SECRET_ACCESS_KEY'));
+        $minioRunning = $this->probeSocket('127.0.0.1', 9500);
 
         return Inertia::render('settings/system/storage', [
             'storage' => [
-                'filesystem_disk' => config('filesystems.default', 'local'),
-                'aws_access_key_id' => SystemSetting::get('s3_key', env('AWS_ACCESS_KEY_ID', '')),
+                'filesystem_disk' => config('filesystems.default', 's3'),
+                'aws_access_key_id' => SystemSetting::get('s3_key', env('AWS_ACCESS_KEY_ID', 'minioadmin')),
                 'has_secret' => $hasSecret,
-                'aws_default_region' => SystemSetting::get('s3_region', env('AWS_DEFAULT_REGION', 'auto')),
-                'aws_bucket' => SystemSetting::get('s3_bucket', env('AWS_BUCKET', '')),
-                'aws_endpoint' => SystemSetting::get('s3_endpoint', env('AWS_ENDPOINT', '')),
+                'aws_default_region' => SystemSetting::get('s3_region', env('AWS_DEFAULT_REGION', 'us-east-1')),
+                'aws_bucket' => SystemSetting::get('s3_bucket', env('AWS_BUCKET', 'angora-dev')),
+                'aws_endpoint' => SystemSetting::get('s3_endpoint', env('AWS_ENDPOINT', 'http://127.0.0.1:9500')),
                 'aws_url' => SystemSetting::get('s3_url', env('AWS_URL', '')),
-                'aws_use_path_style' => (bool) SystemSetting::get('s3_use_path_style', env('AWS_USE_PATH_STYLE_ENDPOINT', false)),
+                'aws_use_path_style' => (bool) SystemSetting::get('s3_use_path_style', env('AWS_USE_PATH_STYLE_ENDPOINT', true)),
+                'minio_running' => $minioRunning,
             ],
         ]);
     }
@@ -427,7 +450,26 @@ class SettingsCenterController extends Controller
     {
         Gate::authorize('manage-system-settings');
 
-        $jobsPending = DB::table('jobs')->count();
+        $driver = config('queue.default', 'redis');
+        $redisConnected = $this->probeSocket('127.0.0.1', (int) env('REDIS_PORT', 6379));
+
+        $backlogRealtime = 0;
+        $backlogDefault = 0;
+        $backlogMedia = 0;
+
+        if ($driver === 'redis' && $redisConnected) {
+            try {
+                $backlogRealtime = \Illuminate\Support\Facades\Queue::connection('redis')->size('realtime');
+                $backlogDefault = \Illuminate\Support\Facades\Queue::connection('redis')->size('default');
+                $backlogMedia = \Illuminate\Support\Facades\Queue::connection('redis')->size('media');
+            } catch (\Throwable $e) {
+                // Ignore
+            }
+        } else {
+            $backlogDefault = DB::table('jobs')->count();
+        }
+
+        $jobsPending = $backlogRealtime + $backlogDefault + $backlogMedia;
         $jobsFailed = DB::table('failed_jobs')->count();
         $recentFailed = DB::table('failed_jobs')
             ->select('id', 'connection', 'queue', 'payload', 'exception', 'failed_at')
@@ -447,9 +489,14 @@ class SettingsCenterController extends Controller
 
         return Inertia::render('settings/system/queues', [
             'queues' => [
-                'driver' => config('queue.default', 'database'),
+                'driver' => $driver,
+                'redis_connected' => $redisConnected,
                 'realtime_queue' => config('broadcasting.queue', env('BROADCAST_QUEUE', 'realtime')),
                 'default_queue' => 'default',
+                'media_queue' => 'media',
+                'backlog_realtime' => $backlogRealtime,
+                'backlog_default' => $backlogDefault,
+                'backlog_media' => $backlogMedia,
                 'jobs_pending' => $jobsPending,
                 'jobs_failed' => $jobsFailed,
                 'recent_failed' => $recentFailed,
@@ -493,6 +540,8 @@ class SettingsCenterController extends Controller
         }
 
         $reverbRunning = $this->probeSocket('127.0.0.1', (int) env('REVERB_SERVER_PORT', 8080));
+        $redisConnected = $this->probeSocket('127.0.0.1', (int) env('REDIS_PORT', 6379));
+        $minioConnected = $this->probeSocket('127.0.0.1', 9500);
 
         $diagnostics = [
             'php_version' => PHP_VERSION,
@@ -501,10 +550,12 @@ class SettingsCenterController extends Controller
             'environment' => app()->environment(),
             'database_connected' => $dbConnected,
             'database_version' => $dbVersion,
+            'redis_connected' => $redisConnected,
+            'minio_connected' => $minioConnected,
             'reverb_running' => $reverbRunning,
             'reverb_endpoint' => 'wss://' . env('VITE_REVERB_HOST', 'angora.test') . ':' . env('VITE_REVERB_PORT', 443),
-            'storage_driver' => config('filesystems.default', 'local'),
-            'queue_driver' => config('queue.default', 'database'),
+            'storage_driver' => config('filesystems.default', 's3'),
+            'queue_driver' => config('queue.default', 'redis'),
             'realtime_queue' => config('broadcasting.queue', 'realtime'),
             'gd_loaded' => extension_loaded('gd'),
             'imagick_loaded' => extension_loaded('imagick'),

@@ -157,6 +157,15 @@ class User extends Authenticatable
             return $raw;
         }
 
+        $defaultDisk = config('filesystems.default', 'public');
+        if ($defaultDisk === 's3') {
+            try {
+                return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($raw, now()->addHours(24));
+            } catch (\Throwable $e) {
+                // fallback to public disk
+            }
+        }
+
         return \Illuminate\Support\Facades\Storage::disk('public')->url($raw);
     }
 
