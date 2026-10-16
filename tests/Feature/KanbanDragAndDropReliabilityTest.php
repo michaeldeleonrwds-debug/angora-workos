@@ -209,4 +209,95 @@ class KanbanDragAndDropReliabilityTest extends TestCase
         SafeBroadcast::dispatch($throwingEvent);
         $this->assertTrue(true);
     }
+
+    public function test_all_realtime_broadcast_events_route_to_realtime_queue(): void
+    {
+        $comment = new \App\Models\KanbanComment(['task_id' => $this->task->id, 'user_id' => $this->admin->id]);
+        $deliverable = new \App\Models\ProjectDeliverable([
+            'project_id' => 1,
+            'title' => 'Deliverable 1',
+            'status' => 'draft',
+            'submitted_by' => $this->admin->id,
+        ]);
+        $notification = new \App\Models\SystemNotification(['user_id' => $this->admin->id]);
+
+        $events = [
+            new TaskCreatedEvent($this->task, $this->admin->id),
+            new TaskUpdatedEvent($this->task, 'status_changed', $this->employee->id),
+            new TaskDeletedEvent($this->board->id, $this->task->id, null, $this->admin->id),
+            new BoardColumnUpdatedEvent($this->board->id, 'updated', $this->sourceColumn->id),
+            new CommentAddedEvent($comment),
+            new CommentDeletedEvent($this->task->id, 1, null, $this->admin->id),
+            new CommentReactionEvent($this->task->id, 1, ['👍' => [1]], $this->admin->id),
+            new DeliverableStatusChangedEvent($deliverable, 'internal'),
+            new NotificationCreatedEvent($notification),
+        ];
+
+        foreach ($events as $event) {
+            $this->assertEquals(
+                'realtime',
+                $event->broadcastQueue(),
+                get_class($event) . '::broadcastQueue() must return "realtime"'
+            );
+            $this->assertEquals(
+                'realtime',
+                $event->queue,
+                get_class($event) . '->$queue must be set to "realtime"'
+            );
+        }
+    }
+
+    public function test_task_updated_event_safely_serializes_string_and_carbon_due_dates(): void
+    {
+        // 1. Test with string due_date (raw database string)
+        $this->task->due_date = '2026-10-31';
+        $this->task->completed_at = '2026-10-17 12:00:00';
+        $this->task->position = 3;
+        $this->task->load('column');
+
+        $eventWithString = new TaskUpdatedEvent($this->task, 'status_changed', $this->employee->id);
+        $payload1 = $eventWithString->broadcastWith();
+
+        $this->assertEquals('2026-10-31', $payload1['due_date']);
+        $this->assertEquals(\Illuminate\Support\Carbon::parse('2026-10-17 12:00:00')->toIso8601String(), $payload1['completed_at']);
+        $this->assertEquals(3, $payload1['position']);
+        $this->assertEquals($this->sourceColumn->id, $payload1['column_id']);
+        $this->assertEquals('In Progress', $payload1['status']);
+
+        // 2. Test with Carbon instance due_date
+        $this->task->due_date = \Illuminate\Support\Carbon::create(2026, 11, 15);
+        $this->task->completed_at = \Illuminate\Support\Carbon::create(2026, 11, 14, 8, 30, 0);
+
+        $eventWithCarbon = new TaskUpdatedEvent($this->task, 'status_changed', $this->employee->id);
+        $payload2 = $eventWithCarbon->broadcastWith();
+
+        $this->assertEquals('2026-11-15', $payload2['due_date']);
+        $this->assertEquals(\Illuminate\Support\Carbon::create(2026, 11, 14, 8, 30, 0)->toIso8601String(), $payload2['completed_at']);
+
+        // 3. Test with null due_date
+        $this->task->due_date = null;
+        $this->task->completed_at = null;
+
+        $eventWithNull = new TaskUpdatedEvent($this->task, 'status_changed', $this->employee->id);
+        $payload3 = $eventWithNull->broadcastWith();
+
+        $this->assertNull($payload3['due_date']);
+        $this->assertNull($payload3['completed_at']);
+    }
+
+    public function test_kanban_sync_fallback_endpoint_returns_board_and_tasks(): void
+    {
+        $response = $this->actingAs($this->employee)
+            ->getJson("/kanban/sync?board_id={$this->board->id}");
+
+        $response->assertSuccessful();
+        $response->assertJsonStructure([
+            'tasks',
+            'board_columns',
+            'status_columns',
+            'cursor',
+        ]);
+        $this->assertIsArray($response->json('tasks'));
+    }
 }
+

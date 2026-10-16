@@ -218,6 +218,7 @@ export interface Task {
     group_id?: number;
     parent_id?: number | null;
     title: string;
+    status?: string | null;
     description?: string;
     priority: 'Low' | 'Medium' | 'High' | 'Urgent';
     due_date?: string | null;

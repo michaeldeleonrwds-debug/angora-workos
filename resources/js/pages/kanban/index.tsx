@@ -65,7 +65,7 @@ export default function KanbanPage({
         canExport: true,
     };
 
-    const board: KanbanBoard = activeBoard ||
+    const initialBoard: KanbanBoard = activeBoard ||
         boards[0] || {
             id: 0,
             title: 'Board',
@@ -77,6 +77,18 @@ export default function KanbanPage({
             columns: [],
             groups: [],
         };
+
+    const [currentBoard, setCurrentBoard] = useState<KanbanBoard>(initialBoard);
+
+    useEffect(() => {
+        if (activeBoard) {
+            setCurrentBoard(activeBoard);
+        } else if (boards && boards.length > 0) {
+            setCurrentBoard(boards[0]);
+        }
+    }, [activeBoard, boards]);
+
+    const board = currentBoard;
 
     const { auth } = usePage<any>().props;
     const currentUser = auth?.user;
@@ -221,16 +233,10 @@ export default function KanbanPage({
 
     // Real-Time WebSockets Collaboration via Laravel Reverb (Phase 3)
     const [liveCollaborators, setLiveCollaborators] = useState<Array<{ id: number; name: string; avatar_url?: string | null; role?: string }>>([]);
+    const [isWsConnected, setIsWsConnected] = useState<boolean>(false);
 
     // Track recent client mutations to suppress duplicate echoes
     const recentLocalMutationsRef = React.useRef<Map<number, number>>(new Map());
-
-    const handleLocalTaskMove = (taskId: number, _targetColumnId: number) => {
-        recentLocalMutationsRef.current.set(taskId, Date.now());
-        setTimeout(() => {
-            recentLocalMutationsRef.current.delete(taskId);
-        }, 10000);
-    };
 
     const isRecentLocalMutation = (taskId: number): boolean => {
         const timestamp = recentLocalMutationsRef.current.get(taskId);
@@ -238,31 +244,224 @@ export default function KanbanPage({
         return Date.now() - timestamp < 8000;
     };
 
+    // Direct in-memory board state updater for 0ms multi-user synchronization
+    const applyTaskUpdateToBoard = (prev: KanbanBoard, event: any): KanbanBoard => {
+        const taskId = Number(event.task_id);
+        const targetColumnId = event.column_id != null ? Number(event.column_id) : null;
+        const targetGroupId = event.group_id != null ? Number(event.group_id) : null;
+
+        // 1. Locate existing task across columns and groups
+        let existingTask: Task | null = null;
+        for (const col of prev.columns || []) {
+            const found = (col.tasks || []).find((t) => t.id === taskId);
+            if (found) {
+                existingTask = found;
+                break;
+            }
+        }
+        if (!existingTask) {
+            for (const grp of prev.groups || []) {
+                const found = (grp.tasks || []).find((t) => t.id === taskId);
+                if (found) {
+                    existingTask = found;
+                    break;
+                }
+            }
+        }
+
+        const destCol = targetColumnId != null ? (prev.columns || []).find((c) => c.id === targetColumnId) : null;
+        const destColTitle = destCol?.title || event.status || existingTask?.status || '';
+
+        const updatedTask: Task = {
+            ...(existingTask || {
+                id: taskId,
+                board_id: Number(event.board_id || prev.id),
+                title: event.title || 'Untitled task',
+                priority: event.priority || 'Medium',
+                created_at: event.timestamp || new Date().toISOString(),
+                updated_at: event.timestamp || new Date().toISOString(),
+                comments_count: 0,
+                attachments_count: 0,
+                subitems: [],
+                comments: [],
+                attachments: [],
+                assignee: null,
+                progress: 0,
+                created_by: Number(event.created_by || event.updated_by || 1),
+                position: 0,
+            }),
+            title: event.title ?? existingTask?.title ?? 'Untitled task',
+            column_id: targetColumnId != null ? targetColumnId : (existingTask?.column_id ?? 0),
+            group_id: targetGroupId != null ? targetGroupId : (existingTask?.group_id !== undefined ? existingTask.group_id : undefined),
+            parent_id: event.parent_id !== undefined ? event.parent_id : existingTask?.parent_id ?? null,
+            status: destColTitle,
+            priority: event.priority ?? existingTask?.priority ?? 'Medium',
+            due_date: event.due_date !== undefined ? event.due_date : existingTask?.due_date ?? null,
+            completed_at: event.completed_at !== undefined ? event.completed_at : existingTask?.completed_at ?? null,
+            position: event.position !== undefined ? event.position : existingTask?.position ?? 0,
+            column: destCol ? destCol : existingTask?.column,
+        };
+
+        const updatedColumns = (prev.columns || []).map((col) => {
+            const filteredTasks = (col.tasks || []).filter((t) => t.id !== taskId);
+            if (targetColumnId != null && col.id === targetColumnId) {
+                const newTasks = [...filteredTasks];
+                if (typeof event.position === 'number' && event.position >= 0 && event.position < newTasks.length) {
+                    newTasks.splice(event.position, 0, updatedTask);
+                } else {
+                    newTasks.push(updatedTask);
+                }
+                return { ...col, tasks: newTasks };
+            }
+            return { ...col, tasks: filteredTasks };
+        });
+
+        const updatedGroups = (prev.groups || []).map((grp) => {
+            const filteredTasks = (grp.tasks || []).filter((t) => t.id !== taskId);
+            if (targetGroupId != null && grp.id === targetGroupId) {
+                return { ...grp, tasks: [...filteredTasks, updatedTask] };
+            }
+            if (targetGroupId == null && existingTask && existingTask.group_id === grp.id) {
+                return { ...grp, tasks: [...filteredTasks, updatedTask] };
+            }
+            return { ...grp, tasks: filteredTasks };
+        });
+
+        return {
+            ...prev,
+            columns: updatedColumns,
+            groups: updatedGroups,
+        };
+    };
+
+    const applyTaskDeletionToBoard = (prev: KanbanBoard, taskId: number): KanbanBoard => {
+        return {
+            ...prev,
+            columns: (prev.columns || []).map((col) => ({
+                ...col,
+                tasks: (col.tasks || []).filter((t) => t.id !== taskId),
+            })),
+            groups: (prev.groups || []).map((grp) => ({
+                ...grp,
+                tasks: (grp.tasks || []).filter((t) => t.id !== taskId),
+            })),
+        };
+    };
+
+    const handleLocalTaskMove = (taskId: number, targetColumnId: number) => {
+        recentLocalMutationsRef.current.set(taskId, Date.now());
+        setTimeout(() => {
+            recentLocalMutationsRef.current.delete(taskId);
+        }, 10000);
+        setCurrentBoard((prev) => applyTaskUpdateToBoard(prev, { task_id: taskId, column_id: targetColumnId }));
+    };
+
+    const reconcileSync = async () => {
+        if (!board.id) return;
+        try {
+            const url = new URL('/kanban/sync', window.location.origin);
+            url.searchParams.set('board_id', String(board.id));
+            const res = await fetch(url.toString(), {
+                headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.tasks && data.tasks.length > 0) {
+                    router.reload({ only: ['activeBoard', 'boards'] });
+                }
+            }
+        } catch {
+            // ignore network errors
+        }
+    };
+
     useEffect(() => {
         if (!board.id) return;
         const echo = getEcho();
         if (!echo) return;
 
-        // 1. Private board channel for mutations
+        // Monitor connection state
+        let pusherConn: any = null;
+        let onStateChange: any = null;
+        if ((echo as any).connector?.pusher?.connection) {
+            pusherConn = (echo as any).connector.pusher.connection;
+            setIsWsConnected(pusherConn.state === 'connected');
+
+            onStateChange = (states: { previous: string; current: string }) => {
+                const connected = states.current === 'connected';
+                setIsWsConnected(connected);
+                if (connected && states.previous !== 'connected') {
+                    // Reconnected after drop: reconcile missed changes without flashing
+                    reconcileSync();
+                }
+            };
+            pusherConn.bind('state_change', onStateChange);
+        }
+
+        // 1. Private board channel for direct mutation handling
         const boardChannel = echo.private(`boards.${board.id}`);
-        const handleMutation = (event?: any) => {
-            // Ignore self-dispatched mutations to prevent duplicate real-time updates and unnecessary page reloads
+
+        const handleTaskUpdated = (event: any) => {
+            if (Number(event?.board_id) !== Number(board.id)) return;
+            // Suppress duplicate echo if initiated by this user
             if (event?.updated_by && currentUser?.id && Number(event.updated_by) === Number(currentUser.id)) {
                 return;
             }
             if (event?.task_id && isRecentLocalMutation(Number(event.task_id))) {
                 return;
             }
+
+            // Direct in-memory board update for other connected clients
+            setCurrentBoard((prev) => applyTaskUpdateToBoard(prev, event));
+
+            // Sync drawer if currently open on this task
+            if (selectedTaskForDrawer && Number(selectedTaskForDrawer.id) === Number(event.task_id)) {
+                const destCol = (board.columns || []).find((c) => c.id === Number(event.column_id));
+                setSelectedTaskForDrawer((prevDrawer) => {
+                    if (!prevDrawer) return null;
+                    return {
+                        ...prevDrawer,
+                        column_id: event.column_id != null ? Number(event.column_id) : prevDrawer.column_id,
+                        group_id: event.group_id != null ? Number(event.group_id) : prevDrawer.group_id,
+                        title: event.title ?? prevDrawer.title,
+                        status: destCol?.title ?? event.status ?? prevDrawer.status,
+                        priority: event.priority ?? prevDrawer.priority,
+                        due_date: event.due_date !== undefined ? event.due_date : prevDrawer.due_date,
+                        completed_at: event.completed_at !== undefined ? event.completed_at : prevDrawer.completed_at,
+                    };
+                });
+            }
+        };
+
+        const handleTaskCreated = (event: any) => {
+            if (Number(event?.board_id) !== Number(board.id)) return;
+            if (event?.created_by && currentUser?.id && Number(event.created_by) === Number(currentUser.id)) {
+                return;
+            }
+            setCurrentBoard((prev) => applyTaskUpdateToBoard(prev, event));
+        };
+
+        const handleTaskDeleted = (event: any) => {
+            if (Number(event?.board_id) !== Number(board.id)) return;
+            const taskId = Number(event?.task_id);
+            setCurrentBoard((prev) => applyTaskDeletionToBoard(prev, taskId));
+            if (selectedTaskForDrawer && Number(selectedTaskForDrawer.id) === taskId) {
+                setSelectedTaskForDrawer(null);
+            }
+        };
+
+        const handleColumnUpdated = (event: any) => {
+            if (Number(event?.board_id) !== Number(board.id)) return;
             router.reload({
-                only: ['activeBoard', 'boards', 'selectedTask'],
+                only: ['activeBoard', 'boards'],
             });
         };
 
         boardChannel
-            .listen('.task.created', handleMutation)
-            .listen('.task.updated', handleMutation)
-            .listen('.task.deleted', handleMutation)
-            .listen('.column.updated', handleMutation);
+            .listen('.task.created', handleTaskCreated)
+            .listen('.task.updated', handleTaskUpdated)
+            .listen('.task.deleted', handleTaskDeleted)
+            .listen('.column.updated', handleColumnUpdated);
 
         // 2. Presence channel for live collaborator presence
         const presenceChannel = echo.join(`boards.${board.id}`);
@@ -278,6 +477,9 @@ export default function KanbanPage({
             });
 
         return () => {
+            if (pusherConn && onStateChange) {
+                pusherConn.unbind('state_change', onStateChange);
+            }
             boardChannel.stopListening('.task.created');
             boardChannel.stopListening('.task.updated');
             boardChannel.stopListening('.task.deleted');
@@ -286,7 +488,7 @@ export default function KanbanPage({
         };
     }, [board.id]);
 
-    // Polling Synchronization (Graceful HTTP fallback if WebSockets disconnect)
+    // Polling Synchronization (Graceful HTTP fallback ONLY when WebSockets disconnect)
     useEffect(() => {
         if (!board.id) return;
 
@@ -303,8 +505,8 @@ export default function KanbanPage({
         };
 
         const runPoll = async () => {
-            // Pause polling when browser tab is hidden to conserve resources
-            if (document.hidden || isPolling || !isMounted) {
+            // When WebSocket is actively connected, pause fallback polling entirely!
+            if (isWsConnected || document.hidden || isPolling || !isMounted) {
                 scheduleNext(currentIntervalMs);
                 return;
             }
@@ -333,18 +535,16 @@ export default function KanbanPage({
                     // Reset backoff to base 15s on success
                     currentIntervalMs = 15000;
 
-                    // If changes detected on current active board, trigger lightweight Inertia reload for board only
+                    // If changes detected on current active board, reconcile board state
                     if (data.tasks && data.tasks.length > 0) {
                         router.reload({
                             only: ['activeBoard', 'boards'],
                         });
                     }
                 } else {
-                    // Backoff on non-OK response (up to 60s)
                     currentIntervalMs = Math.min(currentIntervalMs * 1.5, 60000);
                 }
             } catch (err) {
-                // Backoff on network drop (up to 60s)
                 currentIntervalMs = Math.min(currentIntervalMs * 1.5, 60000);
             } finally {
                 isPolling = false;
@@ -352,12 +552,10 @@ export default function KanbanPage({
             }
         };
 
-        // Start polling cycle
         scheduleNext(15000);
 
-        // Resume immediately when returning to tab
         const handleVisibilityChange = () => {
-            if (!document.hidden && isMounted) {
+            if (!document.hidden && isMounted && !isWsConnected) {
                 runPoll();
             }
         };
@@ -369,7 +567,7 @@ export default function KanbanPage({
             if (timerId) clearTimeout(timerId);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [board.id]);
+    }, [board.id, isWsConnected]);
 
     // Modals
     const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);

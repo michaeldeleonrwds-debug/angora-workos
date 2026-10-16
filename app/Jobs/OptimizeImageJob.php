@@ -20,7 +20,9 @@ class OptimizeImageJob implements ShouldQueue
 
     public function __construct(
         public KanbanAttachment $attachment
-    ) {}
+    ) {
+        $this->queue = 'default';
+    }
 
     public function handle(ImageOptimizationService $service): void
     {

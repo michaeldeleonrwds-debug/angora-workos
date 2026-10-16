@@ -26,6 +26,12 @@ class TaskUpdatedEvent implements ShouldBroadcast
         public ?int $userId = null
     ) {
         $this->afterCommit = true;
+        $this->queue = config('broadcasting.queue', env('BROADCAST_QUEUE', 'realtime'));
+    }
+
+    public function broadcastQueue(): string
+    {
+        return config('broadcasting.queue', env('BROADCAST_QUEUE', 'realtime'));
     }
 
     public function failed(?\Throwable $e = null): void
@@ -59,9 +65,13 @@ class TaskUpdatedEvent implements ShouldBroadcast
             'board_id' => $this->task->board_id,
             'column_id' => $this->task->column_id,
             'group_id' => $this->task->group_id,
+            'parent_id' => $this->task->parent_id,
+            'position' => $this->task->position,
             'title' => $this->task->title,
-            'status' => $this->task->status,
+            'status' => $this->task->status ?? $this->task->column?->title,
             'priority' => $this->task->priority,
+            'due_date' => $this->task->due_date ? (is_string($this->task->due_date) ? $this->task->due_date : $this->task->due_date->toDateString()) : null,
+            'completed_at' => $this->task->completed_at ? (is_string($this->task->completed_at) ? $this->task->completed_at : $this->task->completed_at->toIso8601String()) : null,
             'action' => $this->action,
             'updated_by' => $this->userId,
             'timestamp' => now()->toIso8601String(),

@@ -17,6 +17,8 @@ return [
 
     'default' => env('BROADCAST_CONNECTION', 'null'),
 
+    'queue' => env('BROADCAST_QUEUE', 'realtime'),
+
     /*
     |--------------------------------------------------------------------------
     | Broadcast Connections

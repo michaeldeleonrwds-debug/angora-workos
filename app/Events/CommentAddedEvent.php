@@ -24,6 +24,12 @@ class CommentAddedEvent implements ShouldBroadcast
         public KanbanComment $comment
     ) {
         $this->afterCommit = true;
+        $this->queue = config('broadcasting.queue', env('BROADCAST_QUEUE', 'realtime'));
+    }
+
+    public function broadcastQueue(): string
+    {
+        return config('broadcasting.queue', env('BROADCAST_QUEUE', 'realtime'));
     }
 
     public function failed(?\Throwable $e = null): void
