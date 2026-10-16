@@ -257,7 +257,7 @@ export default function CalendarView({
                                     <div className="scrollbar-none max-h-[120px] flex-1 space-y-1.5 overflow-y-auto">
                                         {dayTasks.slice(0, 3).map((task) => {
                                             const isDone = !!task.completed_at || (task.progress ?? 0) === 100;
-                                            const isOverdue = !isDone && (task.deadline_status === 'overdue' || (task.due_date && task.due_date < todayStr));
+                                            const isOverdue = !isDone && task.deadline_status === 'overdue';
 
                                             return (
                                                 <div

@@ -96,7 +96,16 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     const [reviewErrorMessage, setReviewErrorMessage] = useState<string | null>(null);
     const [reviewPipelinePreset, setReviewPipelinePreset] = useState<'single' | 'two_stage' | 'three_stage'>('single');
 
-    const exactRemaining = useMemo(() => getExactTimeRemaining(task.due_date, task.due_time), [task.due_date, task.due_time]);
+    // Server-side deadline semantics: when a due date exists but the API reports
+    // no_deadline, the stage-aware override suppressed overdue/due_today/due_soon
+    // because the task sits outside an actionable production stage. Drop the
+    // relative countdown in that case so no warning leaks into review/reporting.
+    const deadlineSuppressed = Boolean(task.due_date) && task.deadline_status === 'no_deadline';
+
+    const exactRemaining = useMemo(
+        () => (deadlineSuppressed ? null : getExactTimeRemaining(task.due_date, task.due_time)),
+        [deadlineSuppressed, task.due_date, task.due_time],
+    );
 
     // Dependencies & Blockers state
     const [dependencySummary, setDependencySummary] = useState<{
@@ -450,6 +459,18 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     const attachments = task.attachments || [];
     const mediaUsages = task.media_usages || task.mediaUsages || [];
     const boardColumns = board.board_columns || [];
+
+    const isClientDeadlineColumn = (col: { key?: string; title?: string }) => {
+        const k = (col?.key || '').toLowerCase().replace(/[\s-]+/g, '_');
+        const t = (col?.title || '').toLowerCase();
+        return k === 'client_deadline' || t === 'client deadline';
+    };
+
+    // Client deadline is management-only: hide the field entirely from
+    // Employee, Designer and Developer rather than rendering an empty input.
+    const visibleBoardColumns = isReviewerRole
+        ? boardColumns
+        : boardColumns.filter((col) => !isClientDeadlineColumn(col));
     const statusColumns = board.columns || [];
 
     const completedSubitems = subitems.filter((s) => s.completed_at || s.progress === 100).length;
@@ -836,17 +857,17 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                         )}
                                         {task.deadline_status !== 'completed_on_time' && task.deadline_status !== 'completed_late' && (
                                             <>
-                                                {exactRemaining?.isOverdue ? (
+                                                {task.deadline_status === 'overdue' && exactRemaining ? (
                                                     <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-bold text-red-600 dark:text-red-400">
                                                         <AlertCircle className="h-3 w-3" />
                                                         {exactRemaining.formattedRemaining}
                                                     </span>
-                                                ) : exactRemaining && exactRemaining.hours < 24 ? (
+                                                ) : task.deadline_status === 'due_today' && exactRemaining ? (
                                                     <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-600 dark:text-amber-400">
                                                         <Clock className="h-3 w-3" />
                                                         {exactRemaining.formattedRemaining}
                                                     </span>
-                                                ) : exactRemaining && exactRemaining.hours <= 48 ? (
+                                                ) : task.deadline_status === 'due_soon' && exactRemaining ? (
                                                     <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-0.5 text-xs font-bold text-blue-600 dark:text-blue-400">
                                                         <Clock className="h-3 w-3" />
                                                         {exactRemaining.formattedRemaining}
@@ -855,6 +876,11 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
                                                         <Calendar className="h-3 w-3" />
                                                         {exactRemaining.formattedRemaining}
+                                                    </span>
+                                                ) : deadlineSuppressed ? (
+                                                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
+                                                        <Calendar className="h-3 w-3" />
+                                                        Due {formatDate(task.due_date)}
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 rounded-full bg-slate-500/10 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">
@@ -1036,12 +1062,12 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                             </div>
 
                             {/* Custom Dynamic Columns */}
-                            {boardColumns.length > 0 && (
+                            {visibleBoardColumns.length > 0 && (
                                 <div className="space-y-3 pt-2">
                                     <div className="text-muted-foreground border-border/60 border-t pt-3 text-[11px] font-bold uppercase tracking-wider">
                                         Board Columns & Custom Fields
                                     </div>
-                                    {boardColumns.map((col) => {
+                                    {visibleBoardColumns.map((col) => {
                                         const customVal = (task.custom_values as Record<string, any>)?.[col.key] ?? '';
                                         return (
                                             <div key={col.id} className="grid grid-cols-1 sm:grid-cols-3 sm:items-center gap-1 sm:gap-0">

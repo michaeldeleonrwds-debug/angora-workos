@@ -750,7 +750,9 @@ export default function BoardUnifiedHeader({
                                             <SelectValue placeholder="Filter by Assignee" />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl text-xs">
-                                            <SelectItem value="me">My Tasks</SelectItem>
+                                            {permissions?.canFilterPersonalTasks === true && (
+                                                <SelectItem value="me">My Tasks</SelectItem>
+                                            )}
                                             <SelectItem value="all">All Accessible Tasks</SelectItem>
                                             {users.map((u) => (
                                                 <SelectItem key={u.id} value={String(u.id)}>

@@ -34,6 +34,8 @@ class WorkOsPermissionService
             'canChangeDeadlines' => $canEditTasks,
             'canChangePriority' => $canEditTasks,
             'canDeleteTask' => $canView && $user->hasPermission('workos.tasks.delete'),
+            'canViewAllTasks' => $canView && $user->hasPermission('workos.tasks.filter.any'),
+            'canFilterPersonalTasks' => $canView && $user->hasPermission('workos.tasks.filter.personal'),
             'canManageBoard' => $canManageBoard,
             'canManageColumns' => $canManageBoard,
             'canManageGroups' => $canManageBoard,

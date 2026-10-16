@@ -28,6 +28,12 @@ import {
 import React, { useState } from 'react';
 import { BoardPermissions, getTaskAssignedUsers, isUserAssignedToTask, KanbanBoard, KanbanColumn, Task, User } from '../types';
 
+// Words of the vertical add-stage label. Each word is rendered as its own
+// single column of individual characters, so the label always forms one
+// predictable vertical sequence instead of relying on CSS writing-mode
+// wrapping (which reflows into multiple columns).
+const ADD_STAGE_LABEL_WORDS = ['Add', 'Workflow', 'Stage'];
+
 interface KanbanBoardViewProps {
     board: KanbanBoard;
     viewSettings?: Record<string, any> | null;
@@ -244,20 +250,13 @@ export default function KanbanBoardView({
     };
 
     const isOverdue = (task: Task) => {
-        if (!task.due_date || task.completed_at || (task.progress ?? 0) === 100) return false;
-        if (task.deadline_status) {
-            return task.deadline_status === 'overdue';
-        }
-        const timeStr = task.due_time ? task.due_time : '23:59:59';
-        const due = new Date(`${task.due_date}T${timeStr}`);
-        return due < new Date();
+        if (task.completed_at || (task.progress ?? 0) === 100) return false;
+        return task.deadline_status === 'overdue';
     };
 
     const isDueToday = (task: Task) => {
-        if (!task.due_date || task.completed_at || (task.progress ?? 0) === 100) return false;
-        if (task.deadline_status === 'due_today') return true;
-        const todayStr = new Date().toISOString().split('T')[0];
-        return task.due_date === todayStr;
+        if (task.completed_at || (task.progress ?? 0) === 100) return false;
+        return task.deadline_status === 'due_today';
     };
 
     const getPriorityBadgeClass = (priority: string) => {
@@ -730,23 +729,33 @@ export default function KanbanBoardView({
                 );
             })}
 
-            {/* + Add Workflow Stage Button */}
-            {permissions?.canManageColumns !== false && (
-                <div className="shrink-0 self-start">
-                    <button
-                        onClick={() => setIsAddStageOpen(true)}
-                        aria-label="Add Workflow Stage"
-                        className="flex h-14 w-11 flex-col items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border/80 bg-card/40 text-muted-foreground transition-colors hover:border-primary/60 hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                    >
-                        <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
-                        <span
-                            className="select-none text-[11px] font-bold leading-none tracking-wide"
-                            style={{ writingMode: 'vertical-rl', textOrientation: 'upright' }}
-                        >
-                            Add Workflow Stage
-                        </span>
-                    </button>
-                </div>
+            {/* + Add Workflow Stage Button (far right, full stage height) */}
+            {permissions?.canManageColumns === true && (
+                <button
+                    type="button"
+                    onClick={() => setIsAddStageOpen(true)}
+                    aria-label="Add Workflow Stage"
+                    className="flex w-11 min-w-11 shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-border/80 bg-card/40 px-1 py-3 text-muted-foreground transition-colors hover:border-primary/60 hover:bg-card hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                >
+                    <Plus className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span className="flex flex-col items-center select-none" aria-hidden="true">
+                        {ADD_STAGE_LABEL_WORDS.map((word, wordIndex) => (
+                            <React.Fragment key={word}>
+                                {wordIndex > 0 && <span className="block h-1.5" />}
+                                <span className="flex flex-col items-center">
+                                    {word.split('').map((char, charIndex) => (
+                                        <span
+                                            key={`${word}-${charIndex}`}
+                                            className="block text-center text-[11px] font-bold leading-none"
+                                        >
+                                            {char}
+                                        </span>
+                                    ))}
+                                </span>
+                            </React.Fragment>
+                        ))}
+                    </span>
+                </button>
             )}
 
             {/* Add Workflow Stage Modal */}

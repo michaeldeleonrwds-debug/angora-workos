@@ -394,6 +394,8 @@ export interface BoardPermissions {
     canChangeDeadlines: boolean;
     canChangePriority: boolean;
     canDeleteTask: boolean;
+    canViewAllTasks?: boolean;
+    canFilterPersonalTasks?: boolean;
     canManageBoard: boolean;
     canManageColumns: boolean;
     canManageGroups: boolean;

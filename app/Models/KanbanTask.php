@@ -18,6 +18,7 @@ class KanbanTask extends Model
         'description',
         'priority',
         'due_date',
+        'client_deadline',
         'due_time',
         'start_date',
         'start_time',
@@ -41,6 +42,7 @@ class KanbanTask extends Model
         'labels' => 'array',
         'custom_values' => 'array',
         'due_date' => 'date:Y-m-d',
+        'client_deadline' => 'date:Y-m-d',
         'start_date' => 'date:Y-m-d',
         'completed_at' => 'datetime',
         'reminder_sent_at' => 'datetime',
@@ -317,7 +319,7 @@ class KanbanTask extends Model
      * - 'upcoming'
      * - 'no_deadline'
      */
-    public function getDeadlineStatusAttribute(): string
+    private function computeDeadlineStatus(): string
     {
         if (!$this->due_date) {
             return 'no_deadline';
@@ -388,6 +390,15 @@ class KanbanTask extends Model
         }
 
         $isOverdue = $now->gt($dueUtc);
+
+        // Suppress production overdue/due-today/due-soon countdown text outside
+        // active production stages (mirrors the deadline_status override, which
+        // already collapsed the raw status — so gate on the raw status here).
+        if (!$this->isInActiveProductionStage()
+            && in_array($this->computeDeadlineStatus(), ['overdue', 'due_today', 'due_soon'], true)) {
+            return null;
+        }
+
         $diffMinutes = (int) abs($now->diffInMinutes($dueUtc, false));
         $hours = intdiv($diffMinutes, 60);
         $minutes = $diffMinutes % 60;
@@ -517,4 +528,99 @@ class KanbanTask extends Model
 
         return false;
     }
+
+    /**
+     * Roles allowed to see the client-facing deadline.
+     */
+    private const CLIENT_DEADLINE_ROLES = [
+        'super_admin',
+        'admin',
+        'account_manager',
+        'project_manager',
+    ];
+
+    public function clientDeadlineVisibleTo(?User $user): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        foreach (self::CLIENT_DEADLINE_ROLES as $role) {
+            if ($user->hasRole($role)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Client deadline, gated by the authenticated user's role. Never serialized
+     * to Employee/Designer/Developer (or guests).
+     */
+    public function getClientDeadlineAttribute($value)
+    {
+        if (!$this->clientDeadlineVisibleTo(auth()->user())) {
+            return null;
+        }
+
+        return $value ? \Illuminate\Support\Carbon::parse($value)->format('Y-m-d') : null;
+    }
+
+    /**
+     * Deny-by-default serialization: unauthorized viewers never receive the
+     * client deadline at all — neither the gated attribute nor the Client
+     * Deadline custom-column value inside custom_values.
+     */
+    public function toArray(): array
+    {
+        $data = parent::toArray();
+
+        if ($this->clientDeadlineVisibleTo(auth()->user())) {
+            return $data;
+        }
+
+        unset($data['client_deadline']);
+
+        $custom = $data['custom_values'] ?? null;
+        if (is_array($custom)) {
+            foreach (array_keys($custom) as $key) {
+                if (strtolower(str_replace([' ', '-'], '_', (string) $key)) === 'client_deadline') {
+                    unset($custom[$key]);
+                }
+            }
+            $data['custom_values'] = $custom;
+        }
+
+        return $data;
+    }
+
+    /**
+     * True when the task sits in a stage where production overdue/due-soon
+     * warnings are meaningful (active production work, including internal
+     * revision returns). Uses stable stage semantics, not display names.
+     */
+    public function isInActiveProductionStage(): bool
+    {
+        return $this->column?->semantic_category === 'in_progress';
+    }
+
+    /**
+     * Stage-aware deadline status. Hides production overdue/due-soon badges
+     * once work enters review, reporting, client-review, or completed phases.
+     * Returns 'no_deadline' so clients stop rendering warning badges. Does not
+     * mutate stored dates — they remain available in task history.
+     */
+    public function getDeadlineStatusAttribute(): string
+    {
+        $raw = $this->computeDeadlineStatus();
+
+        if (in_array($raw, ['overdue', 'due_today', 'due_soon'], true)
+            && !$this->isInActiveProductionStage()) {
+            return 'no_deadline';
+        }
+
+        return $raw;
+    }
 }
+

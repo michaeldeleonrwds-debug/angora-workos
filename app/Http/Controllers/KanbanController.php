@@ -230,6 +230,8 @@ class KanbanController extends Controller
             'canChangeDeadlines' => false,
             'canChangePriority' => false,
             'canDeleteTask' => false,
+            'canViewAllTasks' => false,
+            'canFilterPersonalTasks' => false,
             'canManageBoard' => false,
             'canManageColumns' => false,
             'canManageGroups' => false,

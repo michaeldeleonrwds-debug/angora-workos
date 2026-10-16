@@ -50,6 +50,8 @@ export default function KanbanPage({
         canChangeDeadlines: true,
         canChangePriority: true,
         canDeleteTask: true,
+        canViewAllTasks: true,
+        canFilterPersonalTasks: true,
         canManageBoard: true,
         canManageColumns: true,
         canManageGroups: true,
@@ -111,8 +113,12 @@ export default function KanbanPage({
 
     const [searchTerm, setSearchTerm] = useState('');
 
-    // Default My Tasks Filter for Employees (Section 5)
-    // Priority: URL query param (?person=...) -> localStorage -> 'me'
+    // Role-based default person filter (Section 5)
+    // Priority: URL query param (?person=...) -> localStorage -> permission default.
+    // Management roles (workos.tasks.filter.any) default to 'all'; contributors
+    // default to their own assigned tasks. Explicit selections always win.
+    const defaultPersonFilter = userPermissions?.canViewAllTasks ? 'all' : 'me';
+
     const getInitialPersonFilter = (boardId?: number) => {
         if (typeof window !== 'undefined') {
             const urlParams = new URLSearchParams(window.location.search);
@@ -124,7 +130,7 @@ export default function KanbanPage({
                 if (stored) return stored;
             }
         }
-        return 'me';
+        return defaultPersonFilter;
     };
 
     const [personFilter, setPersonFilter] = useState<string>(() => getInitialPersonFilter(board.id));

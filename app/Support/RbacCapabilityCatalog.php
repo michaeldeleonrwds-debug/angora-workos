@@ -85,6 +85,16 @@ final class RbacCapabilityCatalog
                 'department' => 'Tasks',
                 'roles' => $producers,
             ],
+            'workos.tasks.filter.any' => [
+                'label' => 'Filter Kanban Across All Accessible Tasks',
+                'department' => 'Tasks',
+                'roles' => $liaisons,
+            ],
+            'workos.tasks.filter.personal' => [
+                'label' => 'Filter Kanban to Own Assigned Tasks',
+                'department' => 'Tasks',
+                'roles' => $allActive,
+            ],
             'workos.tasks.move.any' => [
                 'label' => 'Move Any Task Across Permitted Stages',
                 'department' => 'Tasks',

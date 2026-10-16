@@ -279,7 +279,17 @@ export default function TableView({
         .filter((c) => !c.is_archived && c.stage_key !== null && c.semantic_category !== 'not_applicable')
         .sort((a, b) => a.position - b.position);
     const rawBoardColumns = board.board_columns || board.boardColumns || [];
-    const boardColumns = rawBoardColumns.filter((c) => c.type !== 'progress' && c.key !== 'progress');
+    // Client Deadline is management-only (mirrors KanbanTask::CLIENT_DEADLINE_ROLES):
+    // drop the whole column for Employee, Designer and Developer in every table surface.
+    const viewerRole = effectiveCurrentUser?.role;
+    const canViewClientDeadline = ['super_admin', 'admin', 'project_manager', 'account_manager'].includes(viewerRole);
+    const boardColumns = rawBoardColumns.filter((c) => {
+        if (c.type === 'progress' || c.key === 'progress') return false;
+        if (canViewClientDeadline) return true;
+        const key = (c.key || '').toLowerCase();
+        const title = (c.title || '').toLowerCase();
+        return key !== 'client_deadline' && title !== 'client deadline';
+    });
     const rawSubitemColumns = board.subitem_columns || board.subitemColumns || [];
     const subitemColumns = rawSubitemColumns.filter((c) => c.type !== 'progress' && c.key !== 'progress');
     const statusColumns = board.columns || [];

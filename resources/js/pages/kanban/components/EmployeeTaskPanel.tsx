@@ -20,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDate, formatTime } from '@/lib/utils';
+import { usePage } from '@inertiajs/react';
 import { BoardColumn, BoardPermissions, getTaskAssignedUsers, KanbanBoard, KanbanColumn, Task, User } from '../types';
 
 interface EmployeeTaskPanelProps {
@@ -70,6 +71,13 @@ export default function EmployeeTaskPanel({
     const boardColumns = board.board_columns || [];
     const statusColumns = board.columns || [];
     const subitems = task.subitems || [];
+
+    // Client Deadline is management-only (mirrors the server-side
+    // KanbanTask::CLIENT_DEADLINE_ROLES gate): hide the whole field from
+    // Employee, Designer and Developer instead of rendering an empty value.
+    const { auth } = usePage().props as any;
+    const viewerRole = auth?.user?.role;
+    const canViewClientDeadline = ['super_admin', 'admin', 'project_manager', 'account_manager'].includes(viewerRole);
 
     // Helper to resolve user list from IDs
     const resolveUserIds = (raw: any): number[] => {
@@ -212,10 +220,11 @@ export default function EmployeeTaskPanel({
             if (key === 'person' || key === 'designer_ids' || key === 'designer' || title.includes('designer')) return false;
             if (key === 'account_manager' || key === 'am' || title === 'am' || title.includes('account manager')) return false;
             if (key === 'project_manager' || key === 'pm' || title === 'pm' || title.includes('project manager')) return false;
+            if (!canViewClientDeadline && (key === 'client_deadline' || title === 'client deadline')) return false;
 
             return true;
         });
-    }, [boardColumns]);
+    }, [boardColumns, canViewClientDeadline]);
 
     const descriptionText = task.description?.trim() || '';
     const isLongDescription = descriptionText.length > 200;

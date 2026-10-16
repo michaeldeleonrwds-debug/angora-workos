@@ -74,6 +74,9 @@ class BoardDataExportController extends Controller
                 'exported_at' => now()->toIso8601String(),
                 'total_tasks' => $tasks->count(),
                 'tasks' => $tasks->map(function (KanbanTask $t) {
+                    $user = auth()->user();
+                    $canSeeClientDeadline = $t->clientDeadlineVisibleTo($user);
+
                     return [
                         'id' => $t->id,
                         'title' => $t->title,
@@ -84,6 +87,7 @@ class BoardDataExportController extends Controller
                         'progress' => (int) ($t->progress ?? 0),
                         'start_date' => $t->start_date ? ($t->start_time ? "{$t->start_date} {$t->start_time}" : $t->start_date) : null,
                         'due_date' => $t->due_date ? ($t->due_time ? "{$t->due_date} {$t->due_time}" : $t->due_date) : null,
+                        'client_deadline' => $canSeeClientDeadline ? ($t->client_deadline ? Carbon::parse($t->client_deadline)->toDateString() : null) : null,
                         'completed_at' => $t->completed_at ? Carbon::parse($t->completed_at)->toIso8601String() : null,
                         'estimated_hours' => (float) ($t->estimated_hours ?? 0),
                         'subtasks_count' => $t->subitems->count(),

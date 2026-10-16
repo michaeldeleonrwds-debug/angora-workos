@@ -4,7 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, useSidebar } fro
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { type SharedData } from '@/types';
 import { Link, router, usePage } from '@inertiajs/react';
-import { Check, CheckSquare, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus, ShieldCheck, Users } from 'lucide-react';
+import { Check, ChevronDown, FolderKanban, Kanban, LayoutDashboard, Plus, ShieldCheck, Users } from 'lucide-react';
 import AppLogo from './app-logo';
 
 interface NavItem {
@@ -29,12 +29,6 @@ const mainNavItems: NavItem[] = [
         url: '/dashboard',
         icon: LayoutDashboard,
         color: '#0073ea',
-    },
-    {
-        title: 'My Tasks',
-        url: '/kanban?person=me',
-        icon: CheckSquare,
-        color: '#00c875',
     },
     {
         title: 'Kanban Boards',
@@ -262,7 +256,10 @@ export function AppSidebar() {
                         </div>
                         <div className="flex flex-col gap-1 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-1.5">
                             {adminNavItems.map((item) => {
-                                const isActive = page.url === item.url || (item.url !== '/dashboard' && page.url.startsWith(item.url));
+                        const isActive =
+                            item.url === '/kanban'
+                                ? page.url.startsWith('/kanban')
+                                : page.url === item.url;
 
                                 const linkContent = (
                                     <Link
