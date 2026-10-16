@@ -27,6 +27,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->trustProxies(at: '*');
+
         $middleware->web(append: [
             HandleInertiaRequests::class,
             \App\Http\Middleware\EnsureAccountIsActive::class,
@@ -95,6 +97,18 @@ return Application::configure(basePath: dirname(__DIR__))
                     'message' => $message !== '' ? $message : 'This action is not allowed right now.',
                     'status' => 422,
                 ]);
+            }
+
+            if ($e->getStatusCode() === 419) {
+                if ($request->expectsJson() || $request->wantsJson() || $request->header('X-Inertia')) {
+                    return response()->json([
+                        'message' => 'CSRF token mismatch. Please refresh or try again.',
+                        'code' => 'csrf_mismatch',
+                        'csrf_token' => csrf_token(),
+                    ], 419);
+                }
+
+                return back()->with('error', 'Your session or security token has expired. Please try again.');
             }
         });
     })->create();

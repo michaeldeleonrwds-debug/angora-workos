@@ -130,6 +130,15 @@ class User extends Authenticatable
     ];
 
     /**
+     * Default model attributes.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'desktop_notifications_enabled' => true,
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>

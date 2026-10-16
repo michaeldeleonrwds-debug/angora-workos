@@ -1,4 +1,5 @@
 import { showToast } from '@/components/toast';
+import { csrfHeaders, setCsrfToken } from '@/lib/utils';
 
 export const PERMISSION_DENIED_TITLE = 'Action Not Permitted';
 export const PERMISSION_DENIED_MESSAGE = "You don't have permission to perform this action.";
@@ -67,10 +68,57 @@ function installFetchHandler(): void {
     const originalFetch = window.fetch.bind(window);
 
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-        const response = await originalFetch(input, init);
+        let modifiedInit = init;
+
+        // Automatically inject credentials and CSRF tokens for same-origin mutation requests
+        if (isSameOriginRequest(input)) {
+            const method = (init?.method || 'GET').toUpperCase();
+            if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+                const headers = new Headers(init?.headers);
+                const defaultCsrf = csrfHeaders();
+                if (!headers.has('X-CSRF-TOKEN') && defaultCsrf['X-CSRF-TOKEN']) {
+                    headers.set('X-CSRF-TOKEN', defaultCsrf['X-CSRF-TOKEN']);
+                }
+                if (!headers.has('X-XSRF-TOKEN') && defaultCsrf['X-XSRF-TOKEN']) {
+                    headers.set('X-XSRF-TOKEN', defaultCsrf['X-XSRF-TOKEN']);
+                }
+                if (!headers.has('X-Requested-With')) {
+                    headers.set('X-Requested-With', 'XMLHttpRequest');
+                }
+
+                modifiedInit = {
+                    ...init,
+                    headers,
+                    credentials: init?.credentials || 'same-origin',
+                };
+            }
+        }
+
+        const response = await originalFetch(input, modifiedInit);
 
         try {
-            if ((response.status === 403 || response.status === 422) && isSameOriginRequest(input)) {
+            const freshHeaderToken = response.headers.get('X-CSRF-TOKEN');
+            if (freshHeaderToken) {
+                setCsrfToken(freshHeaderToken);
+            }
+
+            if (response.status === 419 && isSameOriginRequest(input)) {
+                // CSRF mismatch: refresh token silently from server
+                try {
+                    const tokenRes = await originalFetch('/csrf-token', {
+                        headers: { Accept: 'application/json' },
+                        credentials: 'same-origin',
+                    });
+                    if (tokenRes.ok) {
+                        const tokenData = await tokenRes.json();
+                        if (tokenData.csrf_token) {
+                            setCsrfToken(tokenData.csrf_token);
+                        }
+                    }
+                } catch {
+                    // ignore
+                }
+            } else if ((response.status === 403 || response.status === 422) && isSameOriginRequest(input)) {
                 const contentType = response.headers.get('content-type') ?? '';
                 if (contentType.includes('application/json')) {
                     const payload = toErrorPayload(await response.clone().json().catch(() => null));
@@ -103,6 +151,12 @@ function installInertiaInvalidHandler(): void {
         const detail = (event as CustomEvent<InertiaInvalidDetail>).detail;
         const axiosResponse = detail?.response?.response;
         const status = axiosResponse?.status ?? detail?.response?.status;
+        if (status === 419) {
+            // CSRF session mismatch: reload window to recover fresh session
+            event.preventDefault();
+            window.location.reload();
+            return;
+        }
         if (status !== 403 && status !== 422) {
             return;
         }

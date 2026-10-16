@@ -108,7 +108,7 @@ export default function NotificationsSettings({
     categoryPreferences = [],
     vapidPublicKey,
     deviceCount = 0,
-    desktopEnabled = false,
+    desktopEnabled = true,
     pushEnabled = false,
     soundEnabled = false,
 }: NotificationsPageProps) {

@@ -17,6 +17,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('/users/{user}/avatar', [\App\Http\Controllers\Settings\ProfileController::class, 'avatar'])->name('users.avatar');
+Route::get('/csrf-token', fn () => response()->json(['csrf_token' => csrf_token()]))->name('csrf.token');
 
 Route::middleware(['auth'])->group(function () {
     // 0. Monday.com Dashboard & Role Switcher

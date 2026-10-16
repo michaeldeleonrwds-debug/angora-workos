@@ -110,7 +110,7 @@ class SettingsCenterController extends Controller
             'in_app_mentions' => true,
             'in_app_task_moves' => true,
             'sound_enabled' => (bool) $user->sound_notifications_enabled,
-            'desktop_enabled' => (bool) $user->desktop_notifications_enabled,
+            'desktop_enabled' => $user->desktop_notifications_enabled !== null ? (bool) $user->desktop_notifications_enabled : true,
             'push_enabled' => (bool) $user->push_notifications_enabled,
         ]);
 
@@ -133,7 +133,7 @@ class SettingsCenterController extends Controller
             'categoryPreferences' => $categoryPreferences,
             'vapidPublicKey' => config('webpush.vapid.public_key', env('VAPID_PUBLIC_KEY')),
             'deviceCount' => $user->webPushSubscriptions()->count(),
-            'desktopEnabled' => (bool) $user->desktop_notifications_enabled,
+            'desktopEnabled' => $user->desktop_notifications_enabled !== null ? (bool) $user->desktop_notifications_enabled : true,
             'pushEnabled' => (bool) $user->push_notifications_enabled,
             'soundEnabled' => (bool) $user->sound_notifications_enabled,
         ]);

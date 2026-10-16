@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { showToast } from '@/components/toast';
-import { formatDate, formatTime, getCsrfToken, getExactTimeRemaining } from '@/lib/utils';
+import { csrfHeaders, formatDate, formatTime, getExactTimeRemaining } from '@/lib/utils';
 import { router, usePage } from '@inertiajs/react';
 import {
     AlertCircle,
@@ -293,9 +293,8 @@ export default function KanbanBoardView({
                 headers: {
                     'Content-Type': 'application/json',
                     Accept: 'application/json',
-                    'X-CSRF-TOKEN': getCsrfToken(),
-                    'X-Requested-With': 'XMLHttpRequest',
                     'X-Angora-Optimistic': 'true',
+                    ...csrfHeaders(),
                 },
                 credentials: 'same-origin',
                 body: JSON.stringify({
@@ -462,12 +461,6 @@ export default function KanbanBoardView({
                                 const exactRemaining = urgencyActive ? getExactTimeRemaining(task.due_date, task.due_time) : null;
                                 const commentCount = (task.comments || []).length;
 
-                                // Extract cover image if present (attachments or media usages)
-                                const imageAttachment = (task.attachments || []).find(
-                                    (a) => a.mime_type?.startsWith('image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(a.file_name || ''),
-                                );
-                                const mediaUsageUrl = task.media_usages?.[0]?.media_asset?.url;
-
                                 const assignedWorkers = getTaskAssignedUsers(task, users);
 
                                 const amIds: number[] = (() => {
@@ -557,29 +550,7 @@ export default function KanbanBoardView({
                                             )}
                                         </div>
 
-                                        {/* Cover Image / Thumbnail (ONLY if image attachment or media usage exists) */}
-                                        {imageAttachment && (
-                                            <div className="relative mb-2.5 h-28 w-full overflow-hidden rounded-lg border border-border/40 bg-muted/40">
-                                                <img
-                                                    src={`/storage/${imageAttachment.file_path}`}
-                                                    alt={imageAttachment.file_name}
-                                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                                    loading="lazy"
-                                                />
-                                            </div>
-                                        )}
-                                        {!imageAttachment && mediaUsageUrl && (
-                                            <div className="relative mb-2.5 h-28 w-full overflow-hidden rounded-lg border border-border/40 bg-muted/40">
-                                                <img
-                                                    src={mediaUsageUrl}
-                                                    alt={task.title}
-                                                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                                    loading="lazy"
-                                                />
-                                            </div>
-                                        )}
-
-                                        {/* Title */}
+                                         {/* Title */}
                                         <h4 className="mb-1 text-xs sm:text-[13px] font-bold leading-snug text-foreground line-clamp-2 transition-colors group-hover:text-primary">
                                             {task.title}
                                         </h4>

@@ -82,13 +82,34 @@ export function formatTime(timeVal: string | Date | null | undefined, fallback: 
     }
 }
 
+let inMemoryCsrfToken = '';
+
 /**
- * Retrieve CSRF token from document meta tag.
+ * Update the active CSRF token both in-memory and on the document meta tag.
+ */
+export function setCsrfToken(token: string): void {
+    if (!token) return;
+    inMemoryCsrfToken = token;
+    if (typeof document !== 'undefined') {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) {
+            meta.setAttribute('content', token);
+        }
+    }
+}
+
+/**
+ * Retrieve CSRF token from in-memory cache, document meta tag, or window object.
  */
 export function getCsrfToken(): string {
+    if (inMemoryCsrfToken) return inMemoryCsrfToken;
     if (typeof document === 'undefined') return '';
     const meta = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
-    return meta || '';
+    if (meta) {
+        inMemoryCsrfToken = meta;
+        return meta;
+    }
+    return '';
 }
 
 /**

@@ -1,12 +1,13 @@
 import '../css/app.css';
 
-import { createInertiaApp } from '@inertiajs/react';
+import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
 import { route as routeFn } from 'ziggy-js';
 import { Toaster } from './components/toast';
 import { initializeTheme } from './hooks/use-appearance';
 import { installPermissionErrorHandlers } from './lib/permission-errors';
+import { setCsrfToken } from './lib/utils';
 import { registerServiceWorker } from './services/desktop-notifications';
 
 declare global {
@@ -22,6 +23,18 @@ createInertiaApp({
         if (typeof window !== 'undefined') {
             installPermissionErrorHandlers();
             registerServiceWorker();
+
+            const initialToken = (props.initialPage.props as any)?.csrf_token;
+            if (initialToken) {
+                setCsrfToken(initialToken);
+            }
+
+            router.on('navigate', (event) => {
+                const token = (event.detail.page.props as any)?.csrf_token;
+                if (token) {
+                    setCsrfToken(token);
+                }
+            });
         }
 
         const root = createRoot(el);
