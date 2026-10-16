@@ -157,15 +157,14 @@ export function RichTextCommentEditor({
                 credentials: 'same-origin',
                 headers: {
                     Accept: 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    ...(token ? { 'X-CSRF-TOKEN': token } : {}),
+                    ...csrfHeaders(),
                 },
                 body: formData,
             });
 
             if (!res.ok) {
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.message || 'Image upload failed');
+                throw new Error(errData.message || (res.status === 419 ? 'CSRF token mismatch. Please refresh the page.' : 'Image upload failed'));
             }
 
             const data = await res.json();
@@ -183,6 +182,8 @@ export function RichTextCommentEditor({
         immediatelyRender: false,
         extensions: [
             StarterKit.configure({
+                link: false,
+                underline: false,
                 heading: {
                     levels: [2, 3],
                 },

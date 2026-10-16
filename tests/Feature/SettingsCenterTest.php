@@ -54,14 +54,9 @@ class SettingsCenterTest extends TestCase
             ->has('systemStatus')
         );
 
-        // 2. Regular employee access
+        // 2. Regular employee access is gracefully redirected to personal profile
         $employeeResponse = $this->actingAs($this->employee)->get('/settings');
-        $employeeResponse->assertSuccessful();
-        $employeeResponse->assertInertia(fn ($page) => $page
-            ->component('settings/index')
-            ->where('canManageSystem', false)
-            ->where('systemStatus', null)
-        );
+        $employeeResponse->assertRedirect(route('profile.edit'));
     }
 
     public function test_profile_page_renders_redesigned_profile_component(): void
@@ -118,13 +113,13 @@ class SettingsCenterTest extends TestCase
         ];
 
         foreach ($systemRoutes as $url) {
-            // Employee attempt
+            // Employee attempt is gracefully redirected to profile
             $response = $this->actingAs($this->employee)->get($url);
-            $response->assertStatus(403);
+            $response->assertRedirect(route('profile.edit'));
 
-            // Client attempt
+            // Client attempt is gracefully redirected to profile
             $clientResponse = $this->actingAs($this->clientUser)->get($url);
-            $clientResponse->assertStatus(403);
+            $clientResponse->assertRedirect(route('profile.edit'));
         }
     }
 
@@ -232,7 +227,7 @@ class SettingsCenterTest extends TestCase
 
     public function test_file_manager_route_renders_inertia_page(): void
     {
-        $response = $this->actingAs($this->employee)->get('/settings/data/files');
+        $response = $this->actingAs($this->superAdmin)->get('/settings/data/files');
         $response->assertSuccessful();
         $response->assertInertia(fn (\Inertia\Testing\AssertableInertia $page) => $page
             ->component('media/index')
@@ -240,6 +235,9 @@ class SettingsCenterTest extends TestCase
             ->has('filters')
             ->has('storageDisk')
         );
+
+        $employeeResponse = $this->actingAs($this->employee)->get('/settings/data/files');
+        $employeeResponse->assertRedirect(route('profile.edit'));
 
         $mediaResponse = $this->actingAs($this->employee)->get('/media');
         $mediaResponse->assertSuccessful();

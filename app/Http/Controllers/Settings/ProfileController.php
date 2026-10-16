@@ -142,4 +142,35 @@ class ProfileController extends Controller
             }
         }
     }
+
+    /**
+     * Stream the user avatar image with HTTP caching and HTTPS compatibility.
+     */
+    public function avatar(\App\Models\User $user): mixed
+    {
+        $rawPath = $user->getRawOriginal('avatar') ?? $user->getRawOriginal('avatar_url');
+        if (!$rawPath) {
+            abort(404, 'No avatar configured.');
+        }
+
+        $cleanPath = preg_replace('#^/?storage/#', '', $rawPath);
+        $diskName = config('filesystems.default', 'public');
+        $disk = \Illuminate\Support\Facades\Storage::disk($diskName);
+
+        if (!$disk->exists($cleanPath)) {
+            if ($diskName !== 'public' && \Illuminate\Support\Facades\Storage::disk('public')->exists($cleanPath)) {
+                $disk = \Illuminate\Support\Facades\Storage::disk('public');
+            } else {
+                abort(404, 'Avatar image not found on storage.');
+            }
+        }
+
+        $mimeType = $disk->mimeType($cleanPath) ?: 'image/webp';
+
+        return $disk->response($cleanPath, basename($cleanPath), [
+            'Content-Type' => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . basename($cleanPath) . '"',
+            'Cache-Control' => 'public, max-age=86400, must-revalidate',
+        ]);
+    }
 }

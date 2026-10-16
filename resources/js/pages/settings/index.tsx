@@ -1,7 +1,7 @@
 import AppLayout from '@/layouts/app-layout';
 import SettingsLayout from '@/layouts/settings/layout';
-import { type BreadcrumbItem } from '@/types';
-import { Head, Link } from '@inertiajs/react';
+import { type BreadcrumbItem, type SharedData } from '@/types';
+import { Head, Link, usePage } from '@inertiajs/react';
 import {
     Activity,
     ArrowRight,
@@ -62,6 +62,10 @@ const breadcrumbs: BreadcrumbItem[] = [
 ];
 
 export default function SettingsIndex({ activeWorkspace, systemStatus, canManageSystem }: SettingsIndexProps) {
+    const { auth } = usePage<SharedData>().props;
+    const canManageWorkspace = auth?.capabilities?.canManageWorkspace === true;
+    const canAccessDataSecurity = auth?.capabilities?.canAccessDataSecurity === true;
+
     return (
         <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Settings Center" />
@@ -225,47 +229,49 @@ export default function SettingsIndex({ activeWorkspace, systemStatus, canManage
                     </div>
 
                     {/* Section: Workspace Settings */}
-                    <div>
-                        <div className="mb-3">
-                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-300">Workspace Settings</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Workspace identity, organizational branding, and defaults</p>
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <Link
-                                href="/settings/workspace"
-                                className="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
-                            >
-                                <div className="rounded-lg bg-[#0073ea]/15 p-2 text-[#0073ea] dark:bg-[#0073ea]/20 dark:text-[#579bfc]">
-                                    <Briefcase className="h-4 w-4" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-xs font-semibold text-slate-900 group-hover:text-[#0073ea] dark:text-white dark:group-hover:text-[#579bfc]">General Workspace</h3>
-                                        <ArrowRight className="h-3.5 w-3.5 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-900 dark:text-slate-500 dark:group-hover:text-white" />
+                    {canManageWorkspace && (
+                        <div>
+                            <div className="mb-3">
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-300">Workspace Settings</h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Workspace identity, organizational branding, and defaults</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <Link
+                                    href="/settings/workspace"
+                                    className="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
+                                >
+                                    <div className="rounded-lg bg-[#0073ea]/15 p-2 text-[#0073ea] dark:bg-[#0073ea]/20 dark:text-[#579bfc]">
+                                        <Briefcase className="h-4 w-4" />
                                     </div>
-                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                                        {activeWorkspace ? `Current: ${activeWorkspace.name}` : 'Configure default workspace properties'}
-                                    </p>
-                                </div>
-                            </Link>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xs font-semibold text-slate-900 group-hover:text-[#0073ea] dark:text-white dark:group-hover:text-[#579bfc]">General Workspace</h3>
+                                            <ArrowRight className="h-3.5 w-3.5 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-900 dark:text-slate-500 dark:group-hover:text-white" />
+                                        </div>
+                                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                                            {activeWorkspace ? `Current: ${activeWorkspace.name}` : 'Configure default workspace properties'}
+                                        </p>
+                                    </div>
+                                </Link>
 
-                            <Link
-                                href="/settings/branding"
-                                className="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
-                            >
-                                <div className="rounded-lg bg-lime-500/15 p-2 text-lime-600 dark:bg-[#D8F779]/20 dark:text-[#D8F779]">
-                                    <Sparkles className="h-4 w-4" />
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-xs font-semibold text-slate-900 group-hover:text-lime-600 dark:text-white dark:group-hover:text-[#D8F779]">Branding</h3>
-                                        <ArrowRight className="h-3.5 w-3.5 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-900 dark:text-slate-500 dark:group-hover:text-white" />
+                                <Link
+                                    href="/settings/branding"
+                                    className="group flex items-start gap-3.5 rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
+                                >
+                                    <div className="rounded-lg bg-lime-500/15 p-2 text-lime-600 dark:bg-[#D8F779]/20 dark:text-[#D8F779]">
+                                        <Sparkles className="h-4 w-4" />
                                     </div>
-                                    <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Application title, primary brand theme, and logos</p>
-                                </div>
-                            </Link>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-center justify-between">
+                                            <h3 className="text-xs font-semibold text-slate-900 group-hover:text-lime-600 dark:text-white dark:group-hover:text-[#D8F779]">Branding</h3>
+                                            <ArrowRight className="h-3.5 w-3.5 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-slate-900 dark:text-slate-500 dark:group-hover:text-white" />
+                                        </div>
+                                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Application title, primary brand theme, and logos</p>
+                                    </div>
+                                </Link>
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* Section: System Infrastructure (Super Admin only) */}
                     {canManageSystem && (
@@ -345,57 +351,59 @@ export default function SettingsIndex({ activeWorkspace, systemStatus, canManage
                     )}
 
                     {/* Section: Data & Governance */}
-                    <div>
-                        <div className="mb-3">
-                            <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-300">Data & Security</h2>
-                            <p className="text-xs text-slate-500 dark:text-slate-400">Access policies, asset management, audit trails, and third-party tools</p>
+                    {canAccessDataSecurity && (
+                        <div>
+                            <div className="mb-3">
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 dark:text-slate-300">Data & Security</h2>
+                                <p className="text-xs text-slate-500 dark:text-slate-400">Access policies, asset management, audit trails, and third-party tools</p>
+                            </div>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                                <Link
+                                    href="/settings/data/files"
+                                    className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
+                                >
+                                    <FolderArchive className="h-5 w-5 text-[#0073ea] dark:text-[#579bfc]" />
+                                    <div className="mt-4">
+                                        <h3 className="text-xs font-semibold text-slate-900 group-hover:text-[#0073ea] dark:text-white dark:group-hover:text-[#579bfc]">File Manager</h3>
+                                        <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Centralized media library</p>
+                                    </div>
+                                </Link>
+
+                                <Link
+                                    href="/settings/data/audit-logs"
+                                    className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
+                                >
+                                    <FileText className="h-5 w-5 text-purple-600 dark:text-[#a25ddc]" />
+                                    <div className="mt-4">
+                                        <h3 className="text-xs font-semibold text-slate-900 group-hover:text-purple-600 dark:text-white dark:group-hover:text-[#a25ddc]">Audit Logs</h3>
+                                        <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Immutable security events</p>
+                                    </div>
+                                </Link>
+
+                                <Link
+                                    href="/settings/data/security"
+                                    className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
+                                >
+                                    <Shield className="h-5 w-5 text-emerald-600 dark:text-[#00c875]" />
+                                    <div className="mt-4">
+                                        <h3 className="text-xs font-semibold text-slate-900 group-hover:text-emerald-600 dark:text-white dark:group-hover:text-[#00c875]">Security Policies</h3>
+                                        <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Session limits & login rules</p>
+                                    </div>
+                                </Link>
+
+                                <Link
+                                    href="/settings/data/integrations"
+                                    className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
+                                >
+                                    <Puzzle className="h-5 w-5 text-amber-600 dark:text-[#fdab3d]" />
+                                    <div className="mt-4">
+                                        <h3 className="text-xs font-semibold text-slate-900 group-hover:text-amber-600 dark:text-white dark:group-hover:text-[#fdab3d]">Integrations</h3>
+                                        <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">External API connectors</p>
+                                    </div>
+                                </Link>
+                            </div>
                         </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-                            <Link
-                                href="/settings/data/files"
-                                className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
-                            >
-                                <FolderArchive className="h-5 w-5 text-[#0073ea] dark:text-[#579bfc]" />
-                                <div className="mt-4">
-                                    <h3 className="text-xs font-semibold text-slate-900 group-hover:text-[#0073ea] dark:text-white dark:group-hover:text-[#579bfc]">File Manager</h3>
-                                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Centralized media library</p>
-                                </div>
-                            </Link>
-
-                            <Link
-                                href="/settings/data/audit-logs"
-                                className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
-                            >
-                                <FileText className="h-5 w-5 text-purple-600 dark:text-[#a25ddc]" />
-                                <div className="mt-4">
-                                    <h3 className="text-xs font-semibold text-slate-900 group-hover:text-purple-600 dark:text-white dark:group-hover:text-[#a25ddc]">Audit Logs</h3>
-                                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Immutable security events</p>
-                                </div>
-                            </Link>
-
-                            <Link
-                                href="/settings/data/security"
-                                className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
-                            >
-                                <Shield className="h-5 w-5 text-emerald-600 dark:text-[#00c875]" />
-                                <div className="mt-4">
-                                    <h3 className="text-xs font-semibold text-slate-900 group-hover:text-emerald-600 dark:text-white dark:group-hover:text-[#00c875]">Security Policies</h3>
-                                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Session limits & login rules</p>
-                                </div>
-                            </Link>
-
-                            <Link
-                                href="/settings/data/integrations"
-                                className="group flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-4 transition-all duration-150 hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.06] dark:bg-white/[0.02] dark:hover:border-white/20 dark:hover:bg-white/[0.05]"
-                            >
-                                <Puzzle className="h-5 w-5 text-amber-600 dark:text-[#fdab3d]" />
-                                <div className="mt-4">
-                                    <h3 className="text-xs font-semibold text-slate-900 group-hover:text-amber-600 dark:text-white dark:group-hover:text-[#fdab3d]">Integrations</h3>
-                                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">External API connectors</p>
-                                </div>
-                            </Link>
-                        </div>
-                    </div>
+                    )}
                 </div>
             </SettingsLayout>
         </AppLayout>

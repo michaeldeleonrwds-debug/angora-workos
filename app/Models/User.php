@@ -164,20 +164,13 @@ class User extends Authenticatable
             return null;
         }
 
-        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://') || str_starts_with($raw, '/') || str_starts_with($raw, 'data:')) {
+        if (str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://') || str_starts_with($raw, 'data:')) {
             return $raw;
         }
 
-        $defaultDisk = config('filesystems.default', 'public');
-        if ($defaultDisk === 's3') {
-            try {
-                return \Illuminate\Support\Facades\Storage::disk('s3')->temporaryUrl($raw, now()->addHours(24));
-            } catch (\Throwable $e) {
-                // fallback to public disk
-            }
-        }
-
-        return \Illuminate\Support\Facades\Storage::disk('public')->url($raw);
+        // Stream via secure local endpoint to prevent Mixed Content warnings
+        $version = $this->updated_at ? '?v=' . $this->updated_at->timestamp : '';
+        return url('/users/' . $this->id . '/avatar') . $version;
     }
 
     public function setAvatarAttribute(?string $value): void

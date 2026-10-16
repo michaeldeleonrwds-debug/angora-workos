@@ -2256,16 +2256,18 @@ class KanbanController extends Controller
             abort(404, 'Attachment file not found on storage.');
         }
 
-        // For S3, generate temporary signed URL if supported, or stream
+        // In local development where MinIO/storage runs on an HTTP IP address (e.g. 127.0.0.1:9500),
+        // stream via Laravel response to prevent browser Mixed Content blocking on HTTPS.
         if ($diskName === 's3') {
-            try {
-                $signedUrl = $disk->temporaryUrl($attachment->file_path, now()->addMinutes(30));
-                return redirect()->away($signedUrl);
-            } catch (\Throwable $e) {
-                return $disk->response($attachment->file_path, $attachment->file_name, [
-                    'Content-Type' => $attachment->mime_type ?: 'image/jpeg',
-                    'Content-Disposition' => 'inline; filename="' . $attachment->file_name . '"',
-                ]);
+            $endpoint = (string) config('filesystems.disks.s3.endpoint', '');
+            $isLocalHttp = str_starts_with($endpoint, 'http://127.0.0.1') || str_starts_with($endpoint, 'http://localhost');
+            if (!$isLocalHttp && str_starts_with(config('app.url'), 'https://')) {
+                try {
+                    $signedUrl = $disk->temporaryUrl($attachment->file_path, now()->addMinutes(30));
+                    return redirect()->away($signedUrl);
+                } catch (\Throwable $e) {
+                    // Fall back to direct streaming below
+                }
             }
         }
 

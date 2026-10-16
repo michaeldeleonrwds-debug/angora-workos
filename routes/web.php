@@ -16,6 +16,8 @@ Route::get('/', function () {
     return Inertia::render('welcome');
 })->name('home');
 
+Route::get('/users/{user}/avatar', [\App\Http\Controllers\Settings\ProfileController::class, 'avatar'])->name('users.avatar');
+
 Route::middleware(['auth'])->group(function () {
     // 0. Monday.com Dashboard & Role Switcher
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');

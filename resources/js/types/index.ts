@@ -6,6 +6,8 @@ export interface Auth {
         canManageUsers?: boolean;
         canManageRbac?: boolean;
         canManageSystemSettings?: boolean;
+        canManageWorkspace?: boolean;
+        canAccessDataSecurity?: boolean;
     };
 }
 

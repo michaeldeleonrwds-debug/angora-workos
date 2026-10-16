@@ -23,10 +23,16 @@ class SettingsCenterController extends Controller
     /**
      * Settings Center Landing / Overview
      */
-    public function index(Request $request): Response
+    public function index(Request $request): mixed
     {
         $user = $request->user();
         $canManageSystem = $user->isSuperAdmin() || $user->hasPermission('system.settings.manage');
+        $canManageWorkspace = $user->isSuperAdmin() || $user->hasRole('admin');
+
+        // Only SuperAdmin or Admin can view Settings Overview; all other users go directly to Profile
+        if (!$canManageSystem && !$canManageWorkspace) {
+            return redirect()->route('profile.edit');
+        }
 
         $activeWorkspace = null;
         $activeWorkspaceId = session('active_workspace_id');

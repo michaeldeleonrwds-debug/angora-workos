@@ -79,11 +79,16 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user ? array_merge($user->toArray(), [
                     'permissions' => $user->getAllPermissions()->pluck('name')->all(),
+                    'is_super_admin' => $user->isSuperAdmin(),
+                    'is_client' => $user->isClientUser(),
+                    'role' => $user->primaryRoleName(),
                 ]) : null,
                 'capabilities' => $user ? [
                     'canManageUsers' => $user->can('create', \App\Models\User::class),
                     'canManageRbac' => app(\App\Services\Authorization\RbacGovernanceService::class)->canManage($user),
                     'canManageSystemSettings' => $user->isSuperAdmin() || $user->hasPermission('system.settings.manage'),
+                    'canManageWorkspace' => $user->isSuperAdmin() || $user->hasRole('admin'),
+                    'canAccessDataSecurity' => $user->isSuperAdmin() || $user->hasRole('admin'),
                 ] : [],
             ],
             'unreadNotificationsCount' => $user ? \App\Models\SystemNotification::where('user_id', $user->id)->where('is_read', false)->count() : 0,

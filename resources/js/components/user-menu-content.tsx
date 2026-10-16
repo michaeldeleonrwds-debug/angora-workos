@@ -14,6 +14,9 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
     const { auth } = usePage<SharedData>().props;
     const canManageUsers = auth?.capabilities?.canManageUsers === true;
     const canManageRbac = auth?.capabilities?.canManageRbac === true;
+    const canManageWorkspace = auth?.capabilities?.canManageWorkspace === true;
+    const canManageSystem = auth?.capabilities?.canManageSystemSettings === true;
+    const settingsHref = canManageWorkspace || canManageSystem ? '/settings' : '/settings/profile';
 
     return (
         <>
@@ -25,7 +28,7 @@ export function UserMenuContent({ user }: UserMenuContentProps) {
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
                 <DropdownMenuItem asChild>
-                    <Link className="block w-full" href="/settings" as="button" prefetch onClick={cleanup}>
+                    <Link className="block w-full" href={settingsHref} as="button" prefetch onClick={cleanup}>
                         <Settings className="mr-2" />
                         Settings
                     </Link>

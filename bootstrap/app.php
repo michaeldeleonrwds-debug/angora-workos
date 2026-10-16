@@ -36,6 +36,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => \App\Http\Middleware\RequirePermission::class,
             'api.auth' => \App\Http\Middleware\AuthenticateApiToken::class,
             'account.active' => \App\Http\Middleware\EnsureAccountIsActive::class,
+            'settings.gate' => \App\Http\Middleware\EnsureCanManageSettings::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

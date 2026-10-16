@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T19:37:14.425Z",
+  "generated_at": "2026-10-16T20:00:41.803Z",
   "stats": {
-    "total_nodes": 652,
-    "total_edges": 1427,
+    "total_nodes": 654,
+    "total_edges": 1435,
     "clusters": 7
   },
   "nodes": [
@@ -12,6 +12,22 @@
       "label": "routes/web.php",
       "type": "route",
       "file": "routes/web.php"
+    },
+    {
+      "id": "route:GET:/users/{user}/avatar",
+      "label": "GET /users/{user}/avatar",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/users/{user}/avatar",
+      "name": "users.avatar",
+      "action": "avatar"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\Settings\\ProfileController",
+      "label": "\\App\\Http\\Controllers\\Settings\\ProfileController",
+      "type": "controller",
+      "file": null
     },
     {
       "id": "route:GET:/dashboard",
@@ -4893,6 +4909,12 @@
     }
   ],
   "edges": [
+    {
+      "source": "route:GET:/users/{user}/avatar",
+      "target": "controller:\\App\\Http\\Controllers\\Settings\\ProfileController",
+      "relationship": "routes_to",
+      "action": "avatar"
+    },
     {
       "source": "route:GET:/dashboard",
       "target": "controller:DashboardController",
@@ -10769,12 +10791,22 @@
     },
     {
       "source": "component:profile",
+      "target": "component:UserAvatar",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:profile",
       "target": "component:app-layout",
       "relationship": "imports"
     },
     {
       "source": "component:profile",
       "target": "component:layout",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:profile",
+      "target": "component:utils",
       "relationship": "imports"
     },
     {
@@ -10793,6 +10825,24 @@
       "target": "route:CALL:/settings/profile",
       "relationship": "calls_route",
       "uri": "/settings/profile"
+    },
+    {
+      "source": "component:profile",
+      "target": "route:CALL:/settings/password",
+      "relationship": "calls_route",
+      "uri": "/settings/password"
+    },
+    {
+      "source": "component:profile",
+      "target": "route:CALL:/settings/appearance",
+      "relationship": "calls_route",
+      "uri": "/settings/appearance"
+    },
+    {
+      "source": "component:profile",
+      "target": "route:CALL:/settings/notifications",
+      "relationship": "calls_route",
+      "uri": "/settings/notifications"
     },
     {
       "source": "component:security",
@@ -11581,6 +11631,11 @@
       "relationship": "imports"
     },
     {
+      "source": "component:ProfileAvatarSection",
+      "target": "component:utils",
+      "relationship": "imports"
+    },
+    {
       "source": "component:RichTextCommentEditor",
       "target": "component:button",
       "relationship": "imports"
@@ -11810,6 +11865,12 @@
       "target": "route:CALL:/settings",
       "relationship": "calls_route",
       "uri": "/settings"
+    },
+    {
+      "source": "component:user-menu-content",
+      "target": "route:CALL:/settings/profile",
+      "relationship": "calls_route",
+      "uri": "/settings/profile"
     },
     {
       "source": "component:user-menu-content",

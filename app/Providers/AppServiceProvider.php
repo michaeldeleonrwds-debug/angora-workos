@@ -42,5 +42,13 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('manage-system-settings', function (User $user) {
             return $user->isSuperAdmin() || $user->hasPermission('system.settings.manage');
         });
+
+        Gate::define('manage-workspace-settings', function (User $user) {
+            return $user->isSuperAdmin() || $user->hasRole('admin');
+        });
+
+        Gate::define('access-data-security', function (User $user) {
+            return $user->isSuperAdmin() || $user->hasRole('admin');
+        });
     }
 }

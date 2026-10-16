@@ -13,11 +13,15 @@ import {
 import { UserAvatar } from '@/components/UserAvatar';
 import { User } from '@/types';
 
+import { cn } from '@/lib/utils';
+
 interface ProfileAvatarSectionProps {
     user: User;
+    className?: string;
+    showHeading?: boolean;
 }
 
-export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
+export function ProfileAvatarSection({ user, className, showHeading = true }: ProfileAvatarSectionProps) {
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [dragActive, setDragActive] = useState(false);
     const [cropModalOpen, setCropModalOpen] = useState(false);
@@ -262,13 +266,15 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
     const hasAvatar = Boolean(user.avatar || user.avatar_url);
 
     return (
-        <div className="rounded-2xl border border-white/10 bg-[#1E1E30] p-6 shadow-sm">
-            <div className="mb-4">
-                <h3 className="text-sm font-bold text-white">Avatar / Profile Photo</h3>
-                <p className="text-xs text-slate-400">
-                    Upload a profile photo. Supported formats: JPG, PNG, and WebP (up to 5 MB).
-                </p>
-            </div>
+        <div className={cn("rounded-2xl border border-slate-200 bg-white p-6 shadow-xs dark:border-[#28283E] dark:bg-[#1E1E2F]", className)}>
+            {showHeading && (
+                <div className="mb-4">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Avatar / Profile Photo</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Upload a profile photo. Supported formats: JPG, PNG, and WebP (up to 5 MB).
+                    </p>
+                </div>
+            )}
 
             {validationError && (
                 <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-3 text-xs text-red-400">
@@ -312,7 +318,7 @@ export function ProfileAvatarSection({ user }: ProfileAvatarSectionProps) {
                         className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed p-4 text-center transition-colors cursor-pointer ${
                             dragActive
                                 ? 'border-[#0073ea] bg-[#0073ea]/5 dark:border-[#D8F779] dark:bg-[#D8F779]/5'
-                                : 'border-slate-300 bg-white hover:border-slate-400 dark:border-white/10 dark:bg-[#28283E]/50 dark:hover:border-white/20'
+                                : 'border-slate-200 bg-slate-50/50 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:bg-[#28283E]/50 dark:hover:border-white/20'
                         }`}
                     >
                         <input

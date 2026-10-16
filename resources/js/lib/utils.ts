@@ -83,12 +83,19 @@ export function formatTime(timeVal: string | Date | null | undefined, fallback: 
 }
 
 /**
- * Retrieve CSRF token from document meta tag or XSRF-TOKEN cookie.
+ * Retrieve CSRF token from document meta tag.
  */
 export function getCsrfToken(): string {
     if (typeof document === 'undefined') return '';
     const meta = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
-    if (meta) return meta;
+    return meta || '';
+}
+
+/**
+ * Retrieve XSRF cookie value (decoded).
+ */
+export function getXsrfCookie(): string {
+    if (typeof document === 'undefined') return '';
     const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]+)/);
     return match ? decodeURIComponent(match[1]) : '';
 }
@@ -97,11 +104,21 @@ export function getCsrfToken(): string {
  * Return headers with CSRF tokens for fetch requests.
  */
 export function csrfHeaders(): Record<string, string> {
-    const token = getCsrfToken();
-    return {
-        'X-CSRF-TOKEN': token,
+    const headers: Record<string, string> = {
         'X-Requested-With': 'XMLHttpRequest',
     };
+
+    const xsrf = getXsrfCookie();
+    if (xsrf) {
+        headers['X-XSRF-TOKEN'] = xsrf;
+    }
+
+    const token = getCsrfToken();
+    if (token) {
+        headers['X-CSRF-TOKEN'] = token;
+    }
+
+    return headers;
 }
 
 /**

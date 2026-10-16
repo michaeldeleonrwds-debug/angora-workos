@@ -28,14 +28,16 @@ Route::middleware('auth')->group(function () {
     Route::get('settings/notifications', [SettingsCenterController::class, 'notifications'])->name('settings.notifications');
     Route::put('settings/notifications', [SettingsCenterController::class, 'updateNotifications'])->name('settings.notifications.update');
 
-    // 3. Workspace Settings
-    Route::get('settings/workspace', [SettingsCenterController::class, 'workspace'])->name('settings.workspace');
-    Route::patch('settings/workspace', [SettingsCenterController::class, 'updateWorkspace'])->name('settings.workspace.update');
-    Route::get('settings/branding', [SettingsCenterController::class, 'branding'])->name('settings.branding');
-    Route::patch('settings/branding', [SettingsCenterController::class, 'updateBranding'])->name('settings.branding.update');
+    // 3. Workspace Settings (Protected: Super Admin & Admin)
+    Route::middleware('settings.gate:manage-workspace-settings')->group(function () {
+        Route::get('settings/workspace', [SettingsCenterController::class, 'workspace'])->name('settings.workspace');
+        Route::patch('settings/workspace', [SettingsCenterController::class, 'updateWorkspace'])->name('settings.workspace.update');
+        Route::get('settings/branding', [SettingsCenterController::class, 'branding'])->name('settings.branding');
+        Route::patch('settings/branding', [SettingsCenterController::class, 'updateBranding'])->name('settings.branding.update');
+    });
 
-    // 4. System Settings (Protected by manage-system-settings gate)
-    Route::middleware('can:manage-system-settings')->group(function () {
+    // 4. System Settings (Protected: Super Admin)
+    Route::middleware('settings.gate:manage-system-settings')->group(function () {
         Route::get('settings/system/smtp', [SettingsCenterController::class, 'smtp'])->name('settings.system.smtp');
         Route::post('settings/system/smtp', [SettingsCenterController::class, 'updateSmtp'])->name('settings.system.smtp.update');
         Route::post('settings/system/smtp/test', [SettingsCenterController::class, 'testSmtp'])->name('settings.system.smtp.test');
@@ -57,10 +59,12 @@ Route::middleware('auth')->group(function () {
         Route::get('settings/system/health', [SettingsCenterController::class, 'health'])->name('settings.system.health');
     });
 
-    // 5. Data & Security Shortcuts / Policies
-    Route::get('settings/data/security', [SettingsCenterController::class, 'security'])->name('settings.data.security');
-    Route::patch('settings/data/security', [SettingsCenterController::class, 'updateSecurity'])->name('settings.data.security.update');
-    Route::get('settings/data/files', [MediaController::class, 'index'])->name('settings.data.files');
-    Route::get('settings/data/audit-logs', fn () => redirect()->route('audit-logs.index'))->name('settings.data.audit-logs');
-    Route::get('settings/data/integrations', fn () => redirect()->route('integrations.index'))->name('settings.data.integrations');
+    // 5. Data & Security Shortcuts / Policies (Protected: Super Admin & Admin)
+    Route::middleware('settings.gate:access-data-security')->group(function () {
+        Route::get('settings/data/security', [SettingsCenterController::class, 'security'])->name('settings.data.security');
+        Route::patch('settings/data/security', [SettingsCenterController::class, 'updateSecurity'])->name('settings.data.security.update');
+        Route::get('settings/data/files', [MediaController::class, 'index'])->name('settings.data.files');
+        Route::get('settings/data/audit-logs', fn () => redirect()->route('audit-logs.index'))->name('settings.data.audit-logs');
+        Route::get('settings/data/integrations', fn () => redirect()->route('integrations.index'))->name('settings.data.integrations');
+    });
 });
