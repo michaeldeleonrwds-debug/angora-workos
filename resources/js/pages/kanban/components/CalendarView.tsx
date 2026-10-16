@@ -1,9 +1,19 @@
+import React, { useState } from 'react';
+import { usePage } from '@inertiajs/react';
+import {
+    Calendar as CalendarIcon,
+    ChevronLeft,
+    ChevronRight,
+    Clock,
+    Plus,
+    Star,
+    User as UserIcon,
+    Sparkles,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatTime } from '@/lib/utils';
-import { usePage } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Clock, Plus, Star, User as UserIcon } from 'lucide-react';
-import React, { useState } from 'react';
 import { isProductionDeadlineHidden, isUserAssignedToTask, KanbanBoard, Task, User } from '../types';
+import CalendarDayDetailModal from './CalendarDayDetailModal';
 
 interface CalendarViewProps {
     board: KanbanBoard;
@@ -13,7 +23,7 @@ interface CalendarViewProps {
     priorityFilter: string;
     users: User[];
     onSelectTask: (task: Task) => void;
-    onQuickAddTask?: (dateStr: string) => void;
+    onQuickAddTask?: (dateStr: string, title?: string) => void;
     onRescheduleTask?: (taskId: number, newDate: string) => void;
 }
 
@@ -32,10 +42,11 @@ export default function CalendarView({
     const currentUserId = auth?.user?.id;
     const [currentDate, setCurrentDate] = useState(() => new Date());
     const [calendarMode, setCalendarMode] = useState<'month' | 'week'>(() =>
-        viewSettings?.calendarMode === 'week' ? 'week' : viewSettings?.calendarMode === 'month' ? 'month' : 'month',
+        viewSettings?.calendarMode === 'week' ? 'week' : 'month',
     );
+    const [selectedDateForModal, setSelectedDateForModal] = useState<string | null>(null);
 
-    // Extract all board items
+    // Extract all board items matching search & filters
     const allTasks = (board.groups || [])
         .flatMap((g) => g.tasks || [])
         .filter((task) => {
@@ -83,7 +94,7 @@ export default function CalendarView({
         });
     }
 
-    // Next month padding to complete 35 or 42 cells (multiple of 7)
+    // Next month padding to complete multiple of 7
     const remaining = (7 - (daysGrid.length % 7)) % 7;
     for (let d = 1; d <= remaining; d++) {
         const nextMonth = month === 11 ? 0 : month + 1;
@@ -155,71 +166,104 @@ export default function CalendarView({
         e.preventDefault();
     };
 
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December',
+    ];
+
+    const datedTasksCount = allTasks.filter((t) => !!t.due_date || !!t.start_date).length;
 
     return (
-        <div className="border-border bg-card space-y-4 rounded-2xl border p-4 shadow-xs">
-            {/* Calendar Controls */}
-            <div className="border-border/50 flex flex-col items-start justify-between gap-3 border-b pb-3 sm:flex-row sm:items-center">
+        <div className="border border-border/70 bg-card dark:border-[#28283E] dark:bg-[#161624] space-y-4 rounded-2xl p-4 shadow-sm select-none transition-colors">
+            {/* Calendar Controls Bar */}
+            <div className="flex flex-col items-start justify-between gap-3 border-b border-border/50 dark:border-[#28283E] pb-3 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
-                    <h2 className="text-foreground text-lg font-black tracking-tight">
-                        {monthNames[month]} {year}
-                    </h2>
-                    <div className="bg-muted/60 border-border/50 flex items-center rounded-xl border p-0.5">
-                        <Button variant="ghost" size="icon" onClick={handlePrev} className="h-7 w-7 rounded-lg">
+                    <div className="flex items-center gap-2">
+                        <CalendarIcon className="h-5 w-5 text-primary" />
+                        <h2 className="text-foreground text-lg font-black tracking-tight">
+                            {monthNames[month]} {year}
+                        </h2>
+                    </div>
+
+                    <div className="flex items-center rounded-xl border border-border/60 bg-muted/40 p-0.5 dark:border-white/10 dark:bg-white/5">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handlePrev}
+                            className="h-7 w-7 rounded-lg hover:bg-muted dark:hover:bg-white/10"
+                            title="Previous period"
+                        >
                             <ChevronLeft className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={handleToday} className="h-7 rounded-lg px-2.5 text-xs font-semibold">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleToday}
+                            className="h-7 rounded-lg px-2.5 text-xs font-bold hover:bg-muted dark:hover:bg-white/10"
+                        >
                             Today
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={handleNext} className="h-7 w-7 rounded-lg">
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleNext}
+                            className="h-7 w-7 rounded-lg hover:bg-muted dark:hover:bg-white/10"
+                            title="Next period"
+                        >
                             <ChevronRight className="h-4 w-4" />
                         </Button>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <div className="bg-muted/60 border-border/50 flex rounded-xl border p-0.5 text-xs">
+                    {/* Month / Week Switcher */}
+                    <div className="flex rounded-xl border border-border/60 bg-muted/40 p-0.5 text-xs dark:border-white/10 dark:bg-white/5">
                         <button
+                            type="button"
                             onClick={() => setCalendarMode('month')}
-                            className={`rounded-lg px-3 py-1 font-semibold transition-all ${
-                                calendarMode === 'month' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                            className={`rounded-lg px-3 py-1 font-bold transition-all cursor-pointer ${
+                                calendarMode === 'month'
+                                    ? 'bg-card text-foreground shadow-xs dark:bg-[#1f1f33] dark:text-white'
+                                    : 'text-muted-foreground hover:text-foreground'
                             }`}
                         >
                             Month
                         </button>
                         <button
+                            type="button"
                             onClick={() => setCalendarMode('week')}
-                            className={`rounded-lg px-3 py-1 font-semibold transition-all ${
-                                calendarMode === 'week' ? 'bg-card text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                            className={`rounded-lg px-3 py-1 font-bold transition-all cursor-pointer ${
+                                calendarMode === 'week'
+                                    ? 'bg-card text-foreground shadow-xs dark:bg-[#1f1f33] dark:text-white'
+                                    : 'text-muted-foreground hover:text-foreground'
                             }`}
                         >
                             Week
                         </button>
                     </div>
 
-                    <span className="text-muted-foreground hidden text-xs sm:inline-block">
-                        {allTasks.filter((t) => !!t.due_date).length} dated items
+                    <span className="rounded-full bg-primary/10 border border-primary/20 px-2.5 py-1 text-xs font-semibold text-primary hidden sm:inline-block">
+                        {datedTasksCount} scheduled {datedTasksCount === 1 ? 'item' : 'items'}
                     </span>
                 </div>
             </div>
 
             {/* MONTH VIEW */}
             {calendarMode === 'month' && (
-                <div className="border-border/60 bg-background overflow-hidden rounded-xl border">
+                <div className="overflow-hidden rounded-xl border border-border/60 dark:border-[#28283E] bg-background dark:bg-[#12121d]">
                     {/* Weekday Headers */}
-                    <div className="border-border/60 bg-muted/30 text-muted-foreground grid grid-cols-7 border-b py-2 text-center text-xs font-bold">
-                        <span>Sun</span>
+                    <div className="grid grid-cols-7 border-b border-border/60 dark:border-[#28283E] bg-muted/30 dark:bg-white/[0.02] text-muted-foreground py-2 text-center text-xs font-bold uppercase tracking-wider">
+                        <span className="text-rose-500/80">Sun</span>
                         <span>Mon</span>
                         <span>Tue</span>
                         <span>Wed</span>
                         <span>Thu</span>
                         <span>Fri</span>
-                        <span>Sat</span>
+                        <span className="text-rose-500/80">Sat</span>
                     </div>
 
                     {/* Days Grid */}
-                    <div className="divide-border/40 grid auto-rows-fr grid-cols-7 divide-x divide-y">
+                    <div className="grid auto-rows-fr grid-cols-7 divide-x divide-y divide-border/40 dark:divide-[#28283E]/60">
                         {daysGrid.map((day, idx) => {
                             const dayTasks = allTasks.filter((t) => {
                                 if (t.start_date === day.dateStr) return true;
@@ -234,50 +278,71 @@ export default function CalendarView({
                                     key={`${day.dateStr}-${idx}`}
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, day.dateStr)}
-                                    className={`group relative flex min-h-[110px] flex-col p-2 transition-colors ${
-                                        day.isCurrentMonth ? 'bg-background hover:bg-muted/10' : 'bg-muted/20 text-muted-foreground/60'
-                                    } ${day.isToday ? 'bg-primary/5' : ''}`}
+                                    onClick={() => setSelectedDateForModal(day.dateStr)}
+                                    className={`group relative flex min-h-[115px] flex-col p-2 transition-all cursor-pointer ${
+                                        day.isCurrentMonth
+                                            ? 'bg-background hover:bg-muted/30 dark:bg-[#12121d] dark:hover:bg-white/[0.04]'
+                                            : 'bg-muted/10 text-muted-foreground/40 dark:bg-black/20'
+                                    } ${day.isToday ? 'bg-primary/5 dark:bg-primary/[0.08]' : ''}`}
+                                    title={`Click to view all tasks scheduled for ${day.dateStr}`}
                                 >
-                                    {/* Date Header */}
+                                    {/* Date Header Strip */}
                                     <div className="mb-1.5 flex items-center justify-between">
                                         <span
-                                            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold ${
-                                                day.isToday ? 'bg-primary text-primary-foreground font-black shadow-xs' : 'text-foreground/80'
+                                            className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                                                day.isToday
+                                                    ? 'bg-[#0073ea] text-white font-black shadow-md ring-2 ring-[#0073ea]/40'
+                                                    : day.isCurrentMonth
+                                                    ? 'text-foreground/90 group-hover:text-primary group-hover:font-extrabold'
+                                                    : 'text-muted-foreground/40'
                                             }`}
                                         >
                                             {day.dayNumber}
                                         </span>
 
-                                        {onQuickAddTask && day.isCurrentMonth && (
+                                        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                                            {dayTasks.length > 0 && (
+                                                <span className="rounded-full bg-primary/15 text-primary text-[10px] font-bold px-1.5 py-0.2 border border-primary/25">
+                                                    {dayTasks.length}
+                                                </span>
+                                            )}
                                             <button
-                                                onClick={() => onQuickAddTask(day.dateStr)}
-                                                className="hover:bg-muted text-muted-foreground hover:text-foreground rounded-md p-1 opacity-0 transition-all group-hover:opacity-100"
-                                                title={`Add task on ${day.dateStr}`}
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedDateForModal(day.dateStr);
+                                                }}
+                                                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-white/10 transition-colors"
+                                                title={`Add or view items on ${day.dateStr}`}
                                             >
-                                                <Plus className="h-3.5 w-3.5" />
+                                                <Plus className="h-3 w-3" />
                                             </button>
-                                        )}
+                                        </div>
                                     </div>
 
                                     {/* Task Cards on this date */}
-                                    <div className="scrollbar-none max-h-[120px] flex-1 space-y-1.5 overflow-y-auto">
+                                    <div className="scrollbar-none max-h-[125px] flex-1 space-y-1.5 overflow-y-auto">
                                         {dayTasks.slice(0, 3).map((task) => {
                                             const isDone = isProductionDeadlineHidden(task);
                                             const isOverdue = !isDone && task.deadline_status === 'overdue';
+                                            const colColor = task.column?.color || '#579bfc';
 
                                             return (
                                                 <div
                                                     key={task.id}
                                                     draggable
                                                     onDragStart={(e) => handleDragStart(e, task.id)}
-                                                    onClick={() => onSelectTask(task)}
-                                                    className="border-border/70 hover:border-primary/60 bg-card hover:bg-card/90 group/item flex cursor-pointer items-center justify-between gap-1 rounded-lg border px-2 py-1 text-[11px] font-semibold shadow-2xs transition-all"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        onSelectTask(task);
+                                                    }}
+                                                    className="group/item flex cursor-pointer items-center justify-between gap-1.5 rounded-lg border border-border/70 bg-card hover:border-primary/60 hover:bg-muted/40 dark:border-white/10 dark:bg-[#1a1a2b] dark:hover:bg-[#202035] px-2 py-1 text-[11px] font-semibold shadow-2xs transition-all"
                                                 >
                                                     <div className="flex min-w-0 items-center gap-1.5">
                                                         <span
                                                             className="h-2 w-2 flex-shrink-0 rounded-full"
                                                             style={{
-                                                                backgroundColor: isDone ? (task.column?.color || '#00c875') : isOverdue ? '#e2445c' : (task.column?.color || '#579bfc'),
+                                                                backgroundColor: isDone ? '#00c875' : isOverdue ? '#e2445c' : colColor,
                                                             }}
                                                         />
                                                         {task.is_milestone && (
@@ -309,9 +374,16 @@ export default function CalendarView({
                                         })}
 
                                         {dayTasks.length > 3 && (
-                                            <div className="text-muted-foreground px-1 text-center text-[10px] font-semibold">
-                                                +{dayTasks.length - 3} more
-                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedDateForModal(day.dateStr);
+                                                }}
+                                                className="w-full text-center rounded py-0.5 text-[10px] font-bold text-primary hover:bg-primary/10 transition-colors"
+                                            >
+                                                +{dayTasks.length - 3} more items
+                                            </button>
                                         )}
                                     </div>
                                 </div>
@@ -323,14 +395,18 @@ export default function CalendarView({
 
             {/* WEEK VIEW */}
             {calendarMode === 'week' && (
-                <div className="border-border/60 bg-background overflow-hidden rounded-xl border">
-                    <div className="border-border/60 bg-muted/30 grid grid-cols-7 border-b py-2.5 text-center">
+                <div className="overflow-hidden rounded-xl border border-border/60 dark:border-[#28283E] bg-background dark:bg-[#12121d]">
+                    <div className="grid grid-cols-7 border-b border-border/60 dark:border-[#28283E] bg-muted/30 dark:bg-white/[0.02] py-2.5 text-center">
                         {weekDays.map((wd) => (
-                            <div key={wd.dateStr} className="space-y-0.5">
+                            <div
+                                key={wd.dateStr}
+                                onClick={() => setSelectedDateForModal(wd.dateStr)}
+                                className="space-y-0.5 cursor-pointer hover:bg-muted/20 rounded-lg p-1 transition-colors"
+                            >
                                 <span className="text-muted-foreground text-[11px] font-semibold">{wd.dayName}</span>
                                 <div
                                     className={`mx-auto flex h-7 w-7 items-center justify-center rounded-full text-xs font-black ${
-                                        wd.isToday ? 'bg-primary text-primary-foreground' : 'text-foreground'
+                                        wd.isToday ? 'bg-[#0073ea] text-white shadow-xs' : 'text-foreground'
                                     }`}
                                 >
                                     {wd.dayNumber}
@@ -339,7 +415,7 @@ export default function CalendarView({
                         ))}
                     </div>
 
-                    <div className="divide-border/40 grid min-h-[380px] grid-cols-7 divide-x">
+                    <div className="divide-border/40 dark:divide-[#28283E]/60 grid min-h-[380px] grid-cols-7 divide-x">
                         {weekDays.map((wd) => {
                             const dayTasks = allTasks.filter((t) => t.due_date === wd.dateStr || t.start_date === wd.dateStr);
 
@@ -348,17 +424,22 @@ export default function CalendarView({
                                     key={wd.dateStr}
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, wd.dateStr)}
-                                    className="group bg-background hover:bg-muted/10 space-y-2 p-2 transition-colors"
+                                    onClick={() => setSelectedDateForModal(wd.dateStr)}
+                                    className="group bg-background hover:bg-muted/10 dark:bg-[#12121d] dark:hover:bg-white/[0.03] space-y-2 p-2 transition-colors cursor-pointer"
                                 >
-                                    <div className="flex justify-end">
-                                        {onQuickAddTask && (
-                                            <button
-                                                onClick={() => onQuickAddTask(wd.dateStr)}
-                                                className="text-muted-foreground hover:text-foreground rounded-md p-1 opacity-0 transition-all group-hover:opacity-100"
-                                            >
-                                                <Plus className="h-3.5 w-3.5" />
-                                            </button>
-                                        )}
+                                    <div className="flex justify-between items-center text-[10px] text-muted-foreground">
+                                        <span>{dayTasks.length} {dayTasks.length === 1 ? 'task' : 'tasks'}</span>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedDateForModal(wd.dateStr);
+                                            }}
+                                            className="text-muted-foreground hover:text-foreground rounded-md p-1 opacity-0 transition-all group-hover:opacity-100"
+                                            title="Add item"
+                                        >
+                                            <Plus className="h-3.5 w-3.5" />
+                                        </button>
                                     </div>
 
                                     {dayTasks.map((task) => (
@@ -366,8 +447,11 @@ export default function CalendarView({
                                             key={task.id}
                                             draggable
                                             onDragStart={(e) => handleDragStart(e, task.id)}
-                                            onClick={() => onSelectTask(task)}
-                                            className="border-border/70 bg-card hover:border-primary/50 cursor-pointer space-y-1 rounded-xl border p-2 shadow-2xs transition-all"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onSelectTask(task);
+                                            }}
+                                            className="border border-border/70 dark:border-white/10 bg-card dark:bg-[#1a1a2b] hover:border-primary/50 cursor-pointer space-y-1.5 rounded-xl p-2.5 shadow-2xs transition-all"
                                         >
                                             <div className="flex items-center justify-between">
                                                 <span
@@ -382,21 +466,21 @@ export default function CalendarView({
                                                     {task.priority}
                                                 </span>
 
-                                                    <div className="flex items-center gap-1">
-                                                        {task.is_milestone && (
-                                                            <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
-                                                        )}
-                                                        {task.due_time && (
-                                                            <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
-                                                                <Clock className="h-2.5 w-2.5" /> {formatTime(task.due_time)}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                <div className="flex items-center gap-1">
+                                                    {task.is_milestone && (
+                                                        <Star className="h-3 w-3 fill-amber-400 text-amber-400 flex-shrink-0" />
+                                                    )}
+                                                    {task.due_time && (
+                                                        <span className="text-muted-foreground flex items-center gap-0.5 text-[10px]">
+                                                            <Clock className="h-2.5 w-2.5" /> {formatTime(task.due_time)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
 
                                             <h4 className="text-foreground line-clamp-2 text-xs font-bold">{task.title}</h4>
 
-                                            <div className="border-border/40 text-muted-foreground flex items-center justify-between border-t pt-1 text-[10px]">
+                                            <div className="border-t border-border/40 dark:border-white/10 text-muted-foreground flex items-center justify-between pt-1.5 text-[10px]">
                                                 <span>{task.column?.title || 'Open'}</span>
                                                 {task.assignee ? (
                                                     <span className="text-foreground max-w-[80px] truncate font-semibold">{task.assignee.name}</span>
@@ -412,6 +496,18 @@ export default function CalendarView({
                     </div>
                 </div>
             )}
+
+            {/* DYNAMIC DAY SCHEDULE POPUP MODAL */}
+            <CalendarDayDetailModal
+                isOpen={Boolean(selectedDateForModal)}
+                dateStr={selectedDateForModal}
+                board={board}
+                users={users}
+                tasks={allTasks}
+                onClose={() => setSelectedDateForModal(null)}
+                onSelectTask={onSelectTask}
+                onQuickAddTask={onQuickAddTask}
+            />
         </div>
     );
 }

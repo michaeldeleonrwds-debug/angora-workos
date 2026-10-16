@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T20:46:54.498Z",
+  "generated_at": "2026-10-16T20:53:25.378Z",
   "stats": {
-    "total_nodes": 655,
-    "total_edges": 1439,
+    "total_nodes": 656,
+    "total_edges": 1447,
     "clusters": 7
   },
   "nodes": [
@@ -4066,6 +4066,12 @@
       "label": "BoardUnifiedHeader",
       "type": "component",
       "file": "resources/js/pages/kanban/components/BoardUnifiedHeader.tsx"
+    },
+    {
+      "id": "component:CalendarDayDetailModal",
+      "label": "CalendarDayDetailModal",
+      "type": "component",
+      "file": "resources/js/pages/kanban/components/CalendarDayDetailModal.tsx"
     },
     {
       "id": "component:CalendarView",
@@ -9752,6 +9758,37 @@
       "uri": "/kanban/boards"
     },
     {
+      "source": "component:CalendarDayDetailModal",
+      "target": "component:dialog",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:CalendarDayDetailModal",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:CalendarDayDetailModal",
+      "target": "component:input",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:CalendarDayDetailModal",
+      "target": "component:utils",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:CalendarDayDetailModal",
+      "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:CalendarDayDetailModal",
+      "target": "route:CALL:/kanban/tasks",
+      "relationship": "calls_route",
+      "uri": "/kanban/tasks"
+    },
+    {
       "source": "component:CalendarView",
       "target": "component:button",
       "relationship": "imports"
@@ -9764,6 +9801,11 @@
     {
       "source": "component:CalendarView",
       "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:CalendarView",
+      "target": "component:CalendarDayDetailModal",
       "relationship": "imports"
     },
     {
@@ -9896,6 +9938,11 @@
     {
       "source": "component:GanttView",
       "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:GanttView",
+      "target": "component:CalendarDayDetailModal",
       "relationship": "imports"
     },
     {
