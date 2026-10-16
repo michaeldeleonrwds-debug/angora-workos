@@ -882,8 +882,8 @@ export default function ItemDetailDrawer({
         router.patch(`/kanban/tasks/${sub.id}`, { progress: isDone ? 0 : 100 }, { preserveScroll: true });
     };
 
-    // Comments & Replies
-    const [replyingToCommentId, setReplyingToCommentId] = useState<number | null>(null);
+    // Comments & Replies - reply composer shown by default
+    const [hiddenReplyComposerIds, setHiddenReplyComposerIds] = useState<number[]>([]);
     const [isPostingComment, setIsPostingComment] = useState(false);
 
     const handleSendRichComment = async (html: string) => {
@@ -969,7 +969,6 @@ export default function ItemDetailDrawer({
                 preserveScroll: true,
                 onSuccess: () => {
                     setReplyText('');
-                    setReplyingToCommentId(null);
                 },
             },
         );
@@ -2083,10 +2082,22 @@ export default function ItemDetailDrawer({
                                                         {/* Reply Trigger */}
                                                         <button
                                                             type="button"
-                                                            onClick={() =>
-                                                                setReplyingToCommentId(replyingToCommentId === comment.id ? null : comment.id)
-                                                            }
-                                                            className="text-primary ml-auto text-[11px] font-semibold hover:underline"
+                                                            onClick={() => {
+                                                                if (hiddenReplyComposerIds.includes(comment.id)) {
+                                                                    setHiddenReplyComposerIds((prev) => prev.filter((id) => id !== comment.id));
+                                                                    setTimeout(() => {
+                                                                        const editorEl = document.querySelector(`#reply-editor-${comment.id} .ProseMirror`) as HTMLElement | null;
+                                                                        editorEl?.focus();
+                                                                    }, 50);
+                                                                } else {
+                                                                    const editorEl = document.querySelector(`#reply-editor-${comment.id} .ProseMirror`) as HTMLElement | null;
+                                                                    if (editorEl) {
+                                                                        editorEl.focus();
+                                                                        editorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className="text-primary ml-auto text-[11px] font-semibold hover:underline cursor-pointer"
                                                         >
                                                             Reply ({replies.length})
                                                         </button>
@@ -2137,9 +2148,9 @@ export default function ItemDetailDrawer({
                                                         </div>
                                                     )}
 
-                                                    {/* Reply Composer */}
-                                                    {replyingToCommentId === comment.id && (
-                                                        <div className="pt-2 pl-4">
+                                                    {/* Reply Composer - Shown by default */}
+                                                    {!hiddenReplyComposerIds.includes(comment.id) && (
+                                                        <div id={`reply-editor-${comment.id}`} className="pt-2 pl-4">
                                                             <RichTextCommentEditor
                                                                 taskId={task.id}
                                                                 users={users}
@@ -2147,8 +2158,8 @@ export default function ItemDetailDrawer({
                                                                 buttonLabel="Reply"
                                                                 placeholder="Write a reply..."
                                                                 isReply={true}
-                                                                onCancel={() => setReplyingToCommentId(null)}
-                                                                autoFocus={true}
+                                                                onCancel={() => setHiddenReplyComposerIds((prev) => [...prev, comment.id])}
+                                                                autoFocus={false}
                                                                 isClientUser={isClientUser}
                                                             />
                                                         </div>
