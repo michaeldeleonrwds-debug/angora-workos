@@ -15,10 +15,12 @@ class KanbanComment extends Model
         'user_id',
         'message',
         'reactions',
+        'is_client_visible',
     ];
 
     protected $casts = [
         'reactions' => 'array',
+        'is_client_visible' => 'boolean',
     ];
 
     public function task()

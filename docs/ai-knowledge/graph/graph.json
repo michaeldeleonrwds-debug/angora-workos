@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T12:29:23.753Z",
+  "generated_at": "2026-10-16T13:13:58.340Z",
   "stats": {
-    "total_nodes": 589,
-    "total_edges": 1172,
+    "total_nodes": 596,
+    "total_edges": 1192,
     "clusters": 7
   },
   "nodes": [
@@ -1290,6 +1290,62 @@
       "action": "submitFeedback"
     },
     {
+      "id": "route:POST:/client-portal/tasks/{task}/approve",
+      "label": "POST /client-portal/tasks/{task}/approve",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/client-portal/tasks/{task}/approve",
+      "name": "client-portal.tasks.approve",
+      "action": "approveTask"
+    },
+    {
+      "id": "route:POST:/client-portal/tasks/{task}/request-revision",
+      "label": "POST /client-portal/tasks/{task}/request-revision",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/client-portal/tasks/{task}/request-revision",
+      "name": "client-portal.tasks.request-revision",
+      "action": "requestTaskRevision"
+    },
+    {
+      "id": "route:GET:/client-portal/tasks/{task}",
+      "label": "GET /client-portal/tasks/{task}",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/client-portal/tasks/{task}",
+      "name": "client-portal.tasks.show",
+      "action": "taskDetail"
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/client-review/submit",
+      "label": "POST /kanban/tasks/{task}/client-review/submit",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/client-review/submit",
+      "name": "kanban.tasks.client-review.submit",
+      "action": "submitToClientReview"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\TaskReviewController",
+      "label": "\\App\\Http\\Controllers\\TaskReviewController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/kanban/tasks/{task}/client-review/send-back",
+      "label": "POST /kanban/tasks/{task}/client-review/send-back",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/kanban/tasks/{task}/client-review/send-back",
+      "name": "kanban.tasks.client-review.send-back",
+      "action": "sendBackToProduction"
+    },
+    {
       "id": "route:POST:/cross-department/links",
       "label": "POST /cross-department/links",
       "type": "route",
@@ -1990,12 +2046,6 @@
       "uri": "/kanban/tasks/{task}/review",
       "name": "kanban.tasks.review.index",
       "action": "index"
-    },
-    {
-      "id": "controller:\\App\\Http\\Controllers\\TaskReviewController",
-      "label": "\\App\\Http\\Controllers\\TaskReviewController",
-      "type": "controller",
-      "file": null
     },
     {
       "id": "route:POST:/kanban/tasks/{task}/review/submit",
@@ -2791,6 +2841,14 @@
       "type": "policy_ability",
       "file": "app/Policies/CommentPolicy.php",
       "ability": "before",
+      "policy": "CommentPolicy"
+    },
+    {
+      "id": "policy_ability:CommentPolicy::view",
+      "label": "CommentPolicy::view",
+      "type": "policy_ability",
+      "file": "app/Policies/CommentPolicy.php",
+      "ability": "view",
       "policy": "CommentPolicy"
     },
     {
@@ -4128,6 +4186,12 @@
       "file": "tests/Feature/AngoraAiAndDeveloperApiTest.php"
     },
     {
+      "id": "test:ClientPortalWorkflowTest",
+      "label": "ClientPortalWorkflowTest",
+      "type": "test",
+      "file": "tests/Feature/ClientPortalWorkflowTest.php"
+    },
+    {
       "id": "test:ConnectedBoardsAndMirrorsTest",
       "label": "ConnectedBoardsAndMirrorsTest",
       "type": "test",
@@ -5102,6 +5166,36 @@
       "action": "submitFeedback"
     },
     {
+      "source": "route:POST:/client-portal/tasks/{task}/approve",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "approveTask"
+    },
+    {
+      "source": "route:POST:/client-portal/tasks/{task}/request-revision",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "requestTaskRevision"
+    },
+    {
+      "source": "route:GET:/client-portal/tasks/{task}",
+      "target": "controller:\\App\\Http\\Controllers\\ClientPortalController",
+      "relationship": "routes_to",
+      "action": "taskDetail"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/client-review/submit",
+      "target": "controller:\\App\\Http\\Controllers\\TaskReviewController",
+      "relationship": "routes_to",
+      "action": "submitToClientReview"
+    },
+    {
+      "source": "route:POST:/kanban/tasks/{task}/client-review/send-back",
+      "target": "controller:\\App\\Http\\Controllers\\TaskReviewController",
+      "relationship": "routes_to",
+      "action": "sendBackToProduction"
+    },
+    {
       "source": "route:POST:/cross-department/links",
       "target": "controller:\\App\\Http\\Controllers\\BoardRelationshipController",
       "relationship": "routes_to",
@@ -5853,6 +5947,11 @@
     },
     {
       "source": "controller:ClientPortalController",
+      "target": "service:TaskActivityService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:ClientPortalController",
       "target": "model:SalesCustomer",
       "relationship": "queries_model"
     },
@@ -5873,12 +5972,27 @@
     },
     {
       "source": "controller:ClientPortalController",
+      "target": "model:KanbanTask",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:ClientPortalController",
       "target": "model:ClientProjectGrant",
       "relationship": "queries_model"
     },
     {
       "source": "controller:ClientPortalController",
       "target": "model:SystemNotification",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:ClientPortalController",
+      "target": "model:TaskReviewDecision",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:ClientPortalController",
+      "target": "model:KanbanComment",
       "relationship": "queries_model"
     },
     {
@@ -6750,6 +6864,31 @@
     {
       "source": "controller:TaskReviewController",
       "target": "model:TaskReviewDecision",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:TaskReviewController",
+      "target": "model:AgencyProject",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:TaskReviewController",
+      "target": "model:ProjectDeliverable",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:TaskReviewController",
+      "target": "model:SalesCustomer",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:TaskReviewController",
+      "target": "model:SystemNotification",
+      "relationship": "queries_model"
+    },
+    {
+      "source": "controller:TaskReviewController",
+      "target": "model:KanbanComment",
       "relationship": "queries_model"
     },
     {
@@ -7930,6 +8069,12 @@
     },
     {
       "source": "policy:CommentPolicy",
+      "target": "policy_ability:CommentPolicy::view",
+      "relationship": "defines_ability",
+      "ability": "view"
+    },
+    {
+      "source": "policy:CommentPolicy",
       "target": "policy_ability:CommentPolicy::create",
       "relationship": "defines_ability",
       "ability": "create"
@@ -8347,6 +8492,26 @@
     },
     {
       "source": "component:dashboard",
+      "target": "component:button",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:dashboard",
+      "target": "component:dialog",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:dashboard",
+      "target": "component:label",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:dashboard",
+      "target": "component:textarea",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:dashboard",
       "target": "route:CALL:/dashboard",
       "relationship": "calls_route",
       "uri": "/dashboard"
@@ -8395,11 +8560,6 @@
     {
       "source": "component:dashboard",
       "target": "component:avatar",
-      "relationship": "imports"
-    },
-    {
-      "source": "component:dashboard",
-      "target": "component:button",
       "relationship": "imports"
     },
     {
@@ -10138,6 +10298,17 @@
       "source": "test:AngoraAiAndDeveloperApiTest",
       "target": "service:WebhookService",
       "relationship": "tests"
+    },
+    {
+      "source": "test:ClientPortalWorkflowTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:ClientPortalWorkflowTest",
+      "target": "role:project_manager",
+      "relationship": "audits_role",
+      "role": "project_manager"
     },
     {
       "source": "test:ConnectedBoardsAndMirrorsTest",

@@ -12,11 +12,14 @@ class TaskReviewCycle extends Model
     protected $fillable = [
         'task_id',
         'round_number',
+        'review_type',
+        'client_id',
         'submitted_by',
         'state', // pending, approved, revision_requested
         'total_stages',
         'current_stage_index',
         'notes',
+        'client_feedback',
         'submitted_at',
         'resolved_at',
     ];
@@ -37,6 +40,11 @@ class TaskReviewCycle extends Model
     public function submitter()
     {
         return $this->belongsTo(User::class, 'submitted_by');
+    }
+
+    public function client()
+    {
+        return $this->belongsTo(SalesCustomer::class, 'client_id');
     }
 
     public function stages()

@@ -14,4 +14,14 @@ class BoardWorkflowTransition extends Model
     {
         return $this->belongsTo(KanbanBoard::class, 'board_id');
     }
+
+    public function fromColumn()
+    {
+        return $this->belongsTo(KanbanColumn::class, 'from_column_id');
+    }
+
+    public function toColumn()
+    {
+        return $this->belongsTo(KanbanColumn::class, 'to_column_id');
+    }
 }

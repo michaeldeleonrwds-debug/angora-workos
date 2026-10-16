@@ -180,6 +180,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/client-portal', [\App\Http\Controllers\ClientPortalController::class, 'dashboard'])->name('client-portal.dashboard');
     Route::get('/client-portal/projects/{project}', [\App\Http\Controllers\ClientPortalController::class, 'project'])->name('client-portal.project');
     Route::post('/client-portal/deliverables/{deliverable}/feedback', [\App\Http\Controllers\ClientPortalController::class, 'submitFeedback'])->name('client-portal.feedback');
+    Route::post('/client-portal/tasks/{task}/approve', [\App\Http\Controllers\ClientPortalController::class, 'approveTask'])->name('client-portal.tasks.approve');
+    Route::post('/client-portal/tasks/{task}/request-revision', [\App\Http\Controllers\ClientPortalController::class, 'requestTaskRevision'])->name('client-portal.tasks.request-revision');
+    Route::get('/client-portal/tasks/{task}', [\App\Http\Controllers\ClientPortalController::class, 'taskDetail'])->name('client-portal.tasks.show');
+
+    // Management Client Review Controls (PM / Admin / Super Admin)
+    Route::post('/kanban/tasks/{task}/client-review/submit', [\App\Http\Controllers\TaskReviewController::class, 'submitToClientReview'])->name('kanban.tasks.client-review.submit');
+    Route::post('/kanban/tasks/{task}/client-review/send-back', [\App\Http\Controllers\TaskReviewController::class, 'sendBackToProduction'])->name('kanban.tasks.client-review.send-back');
 
     // Cross-Department Linking
     Route::post('/cross-department/links', [\App\Http\Controllers\BoardRelationshipController::class, 'linkDepartmentEntity'])->name('cross-dept.links.store');

@@ -40,8 +40,20 @@ class BoardPolicy
             return true;
         }
 
+        // Dedicated client board access for verified customer
+        if ($board->type === 'client' || !empty($board->client_id) || !empty($board->settings['client_id'])) {
+            $customer = \App\Models\SalesCustomer::where('user_id', $user->id)->first()
+                ?? ($user->customer ?? null);
+            if ($customer) {
+                $boardClientId = $board->client_id ?? ($board->settings['client_id'] ?? null);
+                if ((int) $boardClientId === (int) $customer->id) {
+                    return true;
+                }
+            }
+        }
+
         // Clients cannot access standard internal boards unless explicitly invited in board_members
-        if ($user->primaryRoleName() === 'client') {
+        if ($user->primaryRoleName() === 'client' || $user->isClientUser()) {
             return false;
         }
 

@@ -27,6 +27,18 @@ class TaskPolicy
      */
     public function view(User $user, KanbanTask $task): bool
     {
+        // Clients can view tasks explicitly designated as client-visible for their account
+        if ($user->primaryRoleName() === 'client' || $user->isClientUser()) {
+            if (!$task->is_client_visible) {
+                return false;
+            }
+            $customer = $user->customerProfile()->first() ?? $user->clientContacts()->where('is_active', true)->first()?->client;
+            if (!$customer || ((int) $task->client_id !== (int) $customer->id)) {
+                return false;
+            }
+            return true;
+        }
+
         $board = $task->board;
         if (!$board) {
             return false;
@@ -34,11 +46,6 @@ class TaskPolicy
 
         if (!$user->can('view', $board)) {
             return false;
-        }
-
-        // Clients must be assigned or have explicit access to client-visible tasks
-        if ($user->primaryRoleName() === 'client') {
-            return $task->isAssignedTo($user) || $task->created_by === $user->id;
         }
 
         return true;
@@ -325,15 +332,17 @@ class TaskPolicy
      */
     public function reviewTask(User $user, KanbanTask $task): bool
     {
-        if (in_array($user->primaryRoleName(), ['client', 'external_user'], true)) {
-            $board = $task->board;
-            if (! $board || ! $user->can('view', $board)) {
+        if ($user->isClientUser() || in_array($user->primaryRoleName(), ['client', 'external_user'], true)) {
+            if (!$task->is_client_visible) {
                 return false;
             }
-            $activeCycle = $task->reviewCycles()->where('state', 'pending')->latest('round_number')->first();
-            $currentStage = $activeCycle?->stages()->where('stage_index', $activeCycle->current_stage_index ?? 1)->first();
+            $customer = $user->customerProfile()->first() ?? $user->clientContacts()->where('is_active', true)->first()?->client;
+            if (!$customer || (int) $task->client_id !== (int) $customer->id) {
+                return false;
+            }
 
-            return $currentStage?->required_role === 'client';
+            return $task->reviewCycles()->where('review_type', 'client')->where('state', 'pending')->exists()
+                || $task->deliverables()->where('is_client_visible', true)->where('client_status', 'pending')->exists();
         }
 
         if (! $this->view($user, $task)) {

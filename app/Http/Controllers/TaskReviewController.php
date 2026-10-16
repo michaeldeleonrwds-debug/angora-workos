@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Events\TaskUpdatedEvent;
 use App\Models\KanbanTask;
+use App\Models\SystemNotification;
 use App\Models\TaskReviewCycle;
 use App\Models\TaskReviewDecision;
 use App\Services\NotificationService;
@@ -29,6 +30,7 @@ class TaskReviewController extends Controller
                 'submitter:id,name,email,avatar',
                 'stages.reviewer:id,name,email,avatar',
                 'decisions.reviewer:id,name,email,avatar',
+                'client:id,name',
             ])
             ->get();
 
@@ -228,18 +230,23 @@ class TaskReviewController extends Controller
                 'resolved_at' => now(),
             ]);
 
+            if ($cycle->review_type === 'internal') {
+                $task->increment('internal_revision_count');
+            }
+
             if ($board) {
-                $targetCol = $board->columns()
-                    ->where(function ($q) {
-                        $q->where('title', 'like', '%Revision%')
-                          ->orWhere('title', 'like', '%Needs Revision%')
-                          ->orWhere('title', 'like', '%Changes%');
-                    })
-                    ->first();
+                $targetCol = $board->columns()->where('stage_key', 'for_revision')->first()
+                    ?? $board->columns()
+                        ->where(function ($q) {
+                            $q->where('title', 'like', '%Revision%')
+                              ->orWhere('title', 'like', '%Needs Revision%')
+                              ->orWhere('title', 'like', '%Changes%');
+                        })
+                        ->first();
 
                 if ($targetCol) {
                     $oldStatus = $task->column?->title;
-                    $task->column_id = $targetCol->id;
+                    $task->applyWorkflowStatus($targetCol);
 
                     $matchingGroup = $board->groups()->where('title', 'like', '%' . $targetCol->title . '%')->first();
                     if ($matchingGroup) {
@@ -281,23 +288,26 @@ class TaskReviewController extends Controller
                 ]);
 
                 if ($board) {
-                    $targetCol = $board->columns()
-                        ->where(function ($q) {
-                            $q->where('title', 'like', '%Done%')
-                              ->orWhere('title', 'like', '%Approved%')
-                              ->orWhere('title', 'like', '%Completed%')
-                              ->orWhere('title', 'like', '%Complete%');
-                        })
-                        ->first();
+                    $targetCol = null;
+                    if ($cycle->review_type === 'internal' && $board->columns()->where('stage_key', 'ready_to_report')->exists()) {
+                        $targetCol = $board->columns()->where('stage_key', 'ready_to_report')->first();
+                    }
+
+                    if (!$targetCol) {
+                        $targetCol = $board->columns()->where('stage_key', 'complete')->first()
+                            ?? $board->columns()
+                                ->where(function ($q) {
+                                    $q->where('title', 'like', '%Done%')
+                                      ->orWhere('title', 'like', '%Approved%')
+                                      ->orWhere('title', 'like', '%Completed%')
+                                      ->orWhere('title', 'like', '%Complete%');
+                                })
+                                ->first();
+                    }
 
                     if ($targetCol) {
                         $oldStatus = $task->column?->title;
-                        $task->column_id = $targetCol->id;
-
-                        if (in_array(strtolower($targetCol->title), ['done', 'completed', 'approved', 'complete'])) {
-                            $task->completed_at = now();
-                            $task->progress = 100;
-                        }
+                        $task->applyWorkflowStatus($targetCol);
 
                         $matchingGroup = $board->groups()->where('title', 'like', '%' . $targetCol->title . '%')->first();
                         if ($matchingGroup) {
@@ -358,5 +368,257 @@ class TaskReviewController extends Controller
             ]),
             'task' => $task->fresh(['column', 'group']),
         ]);
+    }
+
+    /**
+     * PM / Admin submits approved production work to client review.
+     * Enforces internal review gate, transitions task to Client Under Review,
+     * and creates/updates linked client review record without duplicating internal task.
+     */
+    public function submitToClientReview(Request $request, KanbanTask $task)
+    {
+        $user = $request->user();
+
+        // Enforce authorization: only PM, AM, Admin, or Super Admin with review decision authority
+        if (! $user->isSuperAdmin() && ! $user->hasPermission('workos.tasks.review.decide')) {
+            abort(403, 'Unauthorized. Only Project Managers or Admins can submit tasks to Client Review.');
+        }
+
+        $validated = $request->validate([
+            'notes' => 'nullable|string|max:2000',
+            'client_id' => 'nullable|exists:sales_customers,id',
+            'deliverable_title' => 'nullable|string|max:255',
+            'deliverable_url' => 'nullable|url',
+        ]);
+
+        $board = $task->board;
+        abort_unless($board, 422, 'Task does not belong to a board.');
+
+        // Enforce internal review gate: task must not be unstarted or in active production without review
+        $unstartedStages = ['resources', 'hold', 'new_task', 'to_do'];
+        if ($task->column && in_array($task->column->stage_key, $unstartedStages, true)) {
+            abort(422, 'Task must complete production and internal review before submitting to client.');
+        }
+
+        // Determine client
+        $clientId = $validated['client_id'] ?? $task->client_id;
+        if (! $clientId) {
+            $customer = \App\Models\SalesCustomer::first();
+            $clientId = $customer?->id;
+        }
+
+        abort_unless($clientId, 422, 'A valid client account must be associated with the task.');
+
+        // Find Client Under Review stage on board
+        $clientReviewCol = $board->columns()->where('stage_key', 'client_under_review')->first()
+            ?? $board->columns()->where(function ($q) {
+                $q->where('title', 'like', '%Client Under Review%')
+                  ->orWhere('title', 'like', '%Client Review%');
+            })->first();
+
+        abort_unless($clientReviewCol, 422, 'Client Under Review stage not found on this board.');
+
+        // Calculate client revision round
+        $latestClientCycle = $task->reviewCycles()->where('review_type', 'client')->latest('round_number')->first();
+        $roundNumber = $latestClientCycle ? ($latestClientCycle->round_number + 1) : 1;
+
+        // Create client review cycle without duplicating the task
+        $cycle = TaskReviewCycle::create([
+            'task_id' => $task->id,
+            'round_number' => $roundNumber,
+            'review_type' => 'client',
+            'client_id' => $clientId,
+            'submitted_by' => $user->id,
+            'state' => 'pending',
+            'total_stages' => 1,
+            'current_stage_index' => 1,
+            'notes' => $validated['notes'] ?? null,
+            'submitted_at' => now(),
+        ]);
+
+        \App\Models\TaskReviewStage::create([
+            'review_cycle_id' => $cycle->id,
+            'stage_index' => 1,
+            'name' => 'Client Approval',
+            'required_role' => 'client',
+            'status' => 'in_progress',
+        ]);
+
+        // If deliverable info was passed or exists, link/publish it
+        if (!empty($validated['deliverable_title']) || !empty($validated['deliverable_url'])) {
+            $project = \App\Models\AgencyProject::where('client_id', $clientId)->first();
+            if ($project) {
+                \App\Models\ProjectDeliverable::create([
+                    'project_id' => $project->id,
+                    'task_id' => $task->id,
+                    'title' => $validated['deliverable_title'] ?? $task->title,
+                    'description' => $validated['notes'] ?? $task->description,
+                    'external_url' => $validated['deliverable_url'] ?? null,
+                    'version' => $roundNumber,
+                    'status' => 'approved_for_client',
+                    'submitted_by' => $user->id,
+                    'reviewed_by' => $user->id,
+                    'is_client_visible' => true,
+                    'approved_for_client_at' => now(),
+                    'client_status' => 'pending',
+                ]);
+            }
+        } else {
+            // Ensure any existing deliverables on this task are approved for client
+            $task->deliverables()->update([
+                'is_client_visible' => true,
+                'client_status' => 'pending',
+                'status' => 'approved_for_client',
+                'approved_for_client_at' => now(),
+            ]);
+        }
+
+        // Transition task to Client Under Review stage
+        $oldStatus = $task->column?->title;
+        $task->client_id = $clientId;
+        $task->is_client_visible = true;
+        $task->client_review_status = 'submitted';
+        $task->applyWorkflowStatus($clientReviewCol);
+
+        $matchingGroup = $board->groups()->where('title', 'like', '%' . $clientReviewCol->title . '%')->first();
+        if ($matchingGroup) {
+            $task->group_id = $matchingGroup->id;
+        }
+        $task->save();
+
+        TaskActivityService::log(
+            task: $task,
+            eventType: 'client_review_submitted',
+            description: "{$user->name} submitted task to Client Review (Round {$roundNumber}).",
+            fieldName: 'client_review_cycle',
+            oldValue: $oldStatus,
+            newValue: $clientReviewCol->title,
+            metadata: ['cycle_id' => $cycle->id, 'round' => $roundNumber, 'client_id' => $clientId],
+            actor: $user
+        );
+
+        // Notify client user if portal account exists
+        $client = \App\Models\SalesCustomer::find($clientId);
+        $clientUser = $client?->portalUser ?? $client?->contacts()->where('is_active', true)->first()?->user;
+        if ($clientUser) {
+            SystemNotification::create([
+                'user_id' => $clientUser->id,
+                'title' => "New Review Ready: {$task->title}",
+                'message' => "Round {$roundNumber} of '{$task->title}' has been submitted for your review.",
+                'type' => 'client_review',
+                'link' => '/client-portal',
+            ]);
+        }
+
+        try {
+            broadcast(new TaskUpdatedEvent($task->fresh(), 'client_review_submitted', $user->id));
+        } catch (\Throwable $e) {}
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Task submitted to Client Review (Round {$roundNumber}).",
+                'cycle' => $cycle,
+                'task' => $task->fresh(['column', 'group', 'client']),
+            ]);
+        }
+
+        return back()->with('success', "Task submitted to Client Review (Round {$roundNumber}).");
+    }
+
+    /**
+     * PM / Admin reviews client feedback and sends task back to production.
+     * Transitions task to New Task stage, keeping same task ID, work categories, assignees, and history.
+     */
+    public function sendBackToProduction(Request $request, KanbanTask $task)
+    {
+        $user = $request->user();
+
+        if (! $user->isSuperAdmin() && ! $user->hasPermission('workos.tasks.review.decide')) {
+            abort(403, 'Unauthorized. Only Project Managers or Admins can send tasks back to production.');
+        }
+
+        $validated = $request->validate([
+            'assigned_to' => 'nullable|exists:users,id',
+            'due_date' => 'nullable|date',
+            'instructions' => 'nullable|string|max:3000',
+        ]);
+
+        $board = $task->board;
+        abort_unless($board, 422, 'Task does not belong to a board.');
+
+        $newTaskCol = $board->columns()->where('stage_key', 'new_task')->first()
+            ?? $board->columns()->where('is_default', true)->first()
+            ?? $board->columns()->where('title', 'like', '%New Task%')->first();
+
+        abort_unless($newTaskCol, 422, 'New Task stage not found on this board.');
+
+        $oldStatus = $task->column?->title;
+        $task->applyWorkflowStatus($newTaskCol);
+
+        if (!empty($validated['assigned_to'])) {
+            $task->assigned_to = $validated['assigned_to'];
+        }
+        if (!empty($validated['due_date'])) {
+            $task->due_date = $validated['due_date'];
+        }
+
+        $task->client_review_status = 'rework_in_production';
+        $task->completed_at = null;
+
+        $matchingGroup = $board->groups()->where('title', 'like', '%' . $newTaskCol->title . '%')->first();
+        if ($matchingGroup) {
+            $task->group_id = $matchingGroup->id;
+        }
+        $task->save();
+
+        // If instructions provided, save as internal comment
+        if (!empty($validated['instructions'])) {
+            \App\Models\KanbanComment::create([
+                'task_id' => $task->id,
+                'user_id' => $user->id,
+                'message' => "Client Revision Instructions from PM: " . $validated['instructions'],
+                'is_client_visible' => false,
+            ]);
+        }
+
+        TaskActivityService::log(
+            task: $task,
+            eventType: 'sent_back_to_production',
+            description: "{$user->name} sent task back to production for client revision (Round {$task->client_revision_count}).",
+            fieldName: 'status',
+            oldValue: $oldStatus,
+            newValue: $newTaskCol->title,
+            metadata: [
+                'instructions' => $validated['instructions'] ?? null,
+                'assigned_to' => $task->assigned_to,
+                'client_revision_count' => $task->client_revision_count,
+            ],
+            actor: $user
+        );
+
+        if ($task->assigned_to && $task->assigned_to !== $user->id) {
+            SystemNotification::create([
+                'user_id' => $task->assigned_to,
+                'title' => "Task Sent Back to Production: {$task->title}",
+                'message' => "Client revisions required. Please review PM notes and begin rework.",
+                'type' => 'task_assigned',
+                'link' => "/kanban/boards/{$task->board_id}",
+            ]);
+        }
+
+        try {
+            broadcast(new TaskUpdatedEvent($task->fresh(), 'sent_back_to_production', $user->id));
+        } catch (\Throwable $e) {}
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Task sent back to production for revision round {$task->client_revision_count}.",
+                'task' => $task->fresh(['column', 'group', 'assignee']),
+            ]);
+        }
+
+        return back()->with('success', "Task sent back to production for revision round {$task->client_revision_count}.");
     }
 }

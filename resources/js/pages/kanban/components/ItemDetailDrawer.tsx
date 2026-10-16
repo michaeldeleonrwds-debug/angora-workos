@@ -96,6 +96,19 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
     const [reviewErrorMessage, setReviewErrorMessage] = useState<string | null>(null);
     const [reviewPipelinePreset, setReviewPipelinePreset] = useState<'single' | 'two_stage' | 'three_stage'>('single');
 
+    // Client Review & Revision State
+    const [isSubmittingClientReview, setIsSubmittingClientReview] = useState(false);
+    const [clientSubmitNotes, setClientSubmitNotes] = useState('');
+    const [clientDeliverableTitle, setClientDeliverableTitle] = useState('');
+    const [clientDeliverableUrl, setClientDeliverableUrl] = useState('');
+    const [showClientSubmitForm, setShowClientSubmitForm] = useState(false);
+
+    const [isSendingBack, setIsSendingBack] = useState(false);
+    const [sendBackAssignee, setSendBackAssignee] = useState<number | null>(task.assigned_to ?? null);
+    const [sendBackDueDate, setSendBackDueDate] = useState<string>(task.due_date ? String(task.due_date).split('T')[0] : '');
+    const [sendBackInstructions, setSendBackInstructions] = useState('');
+    const [showSendBackForm, setShowSendBackForm] = useState(false);
+
     // Server-side deadline semantics: when a due date exists but the API reports
     // no_deadline, the stage-aware override suppressed overdue/due_today/due_soon
     // because the task sits outside an actionable production stage. Drop the
@@ -442,6 +455,80 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
             setReviewErrorMessage('Network error while recording review decision');
         } finally {
             setIsDeciding(false);
+        }
+    };
+
+    const latestClientCycle = useMemo(() => {
+        return reviewCycles.filter((c) => c.review_type === 'client').slice(-1)[0] || task.latest_client_review_cycle || null;
+    }, [reviewCycles, task.latest_client_review_cycle]);
+
+    const handleSubmitClientReview = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmittingClientReview(true);
+        setReviewErrorMessage(null);
+        try {
+            const res = await fetch(`/kanban/tasks/${task.id}/client-review/submit`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                },
+                body: JSON.stringify({
+                    notes: clientSubmitNotes.trim() || undefined,
+                    deliverable_title: clientDeliverableTitle.trim() || undefined,
+                    deliverable_url: clientDeliverableUrl.trim() || undefined,
+                }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setShowClientSubmitForm(false);
+                setClientSubmitNotes('');
+                setClientDeliverableTitle('');
+                setClientDeliverableUrl('');
+                await fetchReviewCycles();
+                router.reload();
+            } else {
+                setReviewErrorMessage(data.error || data.message || 'Failed to submit to client review');
+            }
+        } catch (err) {
+            setReviewErrorMessage('Network error while submitting to client review');
+        } finally {
+            setIsSubmittingClientReview(false);
+        }
+    };
+
+    const handleSendBackToProduction = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSendingBack(true);
+        setReviewErrorMessage(null);
+        try {
+            const res = await fetch(`/kanban/tasks/${task.id}/client-review/send-back`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+                },
+                body: JSON.stringify({
+                    assigned_to: sendBackAssignee || undefined,
+                    due_date: sendBackDueDate || undefined,
+                    instructions: sendBackInstructions.trim() || undefined,
+                }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setShowSendBackForm(false);
+                setSendBackInstructions('');
+                await fetchReviewCycles();
+                router.reload();
+            } else {
+                setReviewErrorMessage(data.error || data.message || 'Failed to send back to production');
+            }
+        } catch (err) {
+            setReviewErrorMessage('Network error while sending back to production');
+        } finally {
+            setIsSendingBack(false);
         }
     };
 
@@ -1982,6 +2069,238 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                         </div>
                                     )}
 
+                                    {/* Client Revision Requested Banner & PM Hand-off */}
+                                    {task.client_review_status === 'revision_requested' && (
+                                        <div className="rounded-2xl border border-rose-300 bg-rose-50/90 p-4 space-y-3 dark:border-rose-900/60 dark:bg-rose-950/30">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-white font-bold text-xs">
+                                                        !
+                                                    </span>
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-rose-900 dark:text-rose-200">
+                                                            Client Requested Changes (Revision Round {task.client_revision_count || 1})
+                                                        </h4>
+                                                        <p className="text-[11px] text-rose-700 dark:text-rose-300">
+                                                            Awaiting Project Manager review before returning to production.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span className="rounded-full bg-rose-600/10 px-2.5 py-0.5 text-[11px] font-bold text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
+                                                    Action Required
+                                                </span>
+                                            </div>
+
+                                            {latestClientCycle?.client_feedback && (
+                                                <div className="rounded-xl bg-white p-3 text-xs text-slate-800 shadow-2xs border border-rose-200/60 dark:bg-[#1E1E2F] dark:text-slate-200 dark:border-rose-900/40">
+                                                    <span className="text-[10px] font-bold uppercase text-rose-600 dark:text-rose-400 block mb-1">
+                                                        Client Feedback:
+                                                    </span>
+                                                    <p className="whitespace-pre-wrap">{latestClientCycle.client_feedback}</p>
+                                                </div>
+                                            )}
+
+                                            {isPrivilegedManager && (
+                                                <div className="pt-2 border-t border-rose-200/70 dark:border-rose-900/40">
+                                                    {!showSendBackForm ? (
+                                                        <Button
+                                                            size="sm"
+                                                            type="button"
+                                                            onClick={() => setShowSendBackForm(true)}
+                                                            className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 shadow-2xs"
+                                                        >
+                                                            <RotateCcw className="h-3.5 w-3.5" />
+                                                            <span>Send Back to Production</span>
+                                                        </Button>
+                                                    ) : (
+                                                        <form onSubmit={handleSendBackToProduction} className="space-y-3 pt-1">
+                                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                                <div className="space-y-1">
+                                                                    <Label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                                                                        Assign Contributor
+                                                                    </Label>
+                                                                    <select
+                                                                        value={sendBackAssignee ?? ''}
+                                                                        onChange={(e) => setSendBackAssignee(e.target.value ? Number(e.target.value) : null)}
+                                                                        className="w-full rounded-xl border border-border bg-white px-2.5 py-1.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none dark:bg-[#1E1E2F]"
+                                                                    >
+                                                                        <option value="">Unassigned</option>
+                                                                        {users.map((u) => (
+                                                                            <option key={u.id} value={u.id}>
+                                                                                {u.name} {u.role ? `(${u.role})` : ''}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                </div>
+                                                                <div className="space-y-1">
+                                                                    <Label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                                                                        Rework Due Date
+                                                                    </Label>
+                                                                    <Input
+                                                                        type="date"
+                                                                        value={sendBackDueDate}
+                                                                        onChange={(e) => setSendBackDueDate(e.target.value)}
+                                                                        className="h-8 rounded-xl text-xs"
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            <div className="space-y-1">
+                                                                <Label className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                                                                    PM Instructions & Notes for Assignee
+                                                                </Label>
+                                                                <textarea
+                                                                    rows={2}
+                                                                    value={sendBackInstructions}
+                                                                    onChange={(e) => setSendBackInstructions(e.target.value)}
+                                                                    placeholder="Explain what needs fixing based on client feedback..."
+                                                                    className="w-full rounded-xl border border-border bg-white p-2.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none dark:bg-[#1E1E2F]"
+                                                                />
+                                                            </div>
+
+                                                            <div className="flex items-center justify-end gap-2">
+                                                                <Button
+                                                                    size="sm"
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    onClick={() => setShowSendBackForm(false)}
+                                                                    className="rounded-xl text-xs"
+                                                                >
+                                                                    Cancel
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    type="submit"
+                                                                    disabled={isSendingBack}
+                                                                    className="rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold gap-1.5 shadow-2xs"
+                                                                >
+                                                                    <RotateCcw className="h-3.5 w-3.5" />
+                                                                    <span>{isSendingBack ? 'Sending...' : 'Confirm & Move to New Task'}</span>
+                                                                </Button>
+                                                            </div>
+                                                        </form>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Client Under Review Notice */}
+                                    {(task.client_review_status === 'submitted' || currentColumn?.stage_key === 'client_under_review') && task.client_review_status !== 'revision_requested' && (
+                                        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4 space-y-2 dark:border-indigo-900/50 dark:bg-indigo-950/20">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white font-bold text-xs">
+                                                        C
+                                                    </span>
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                                                            Under Client Review (Round {task.client_revision_count ? task.client_revision_count + 1 : 1})
+                                                        </h4>
+                                                        <p className="text-[11px] text-indigo-700 dark:text-indigo-300">
+                                                            Deliverables are published to the Client Portal for approval. Production deadline warnings suppressed.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <span className="rounded-full bg-indigo-600/10 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                                                    Awaiting Client Sign-off
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Submit to Client Review Gate for PM/Admin */}
+                                    {isPrivilegedManager &&
+                                     currentColumn?.stage_key !== 'client_under_review' &&
+                                     task.client_review_status !== 'submitted' &&
+                                     !['resources', 'hold', 'new_task', 'to_do'].includes(currentColumn?.stage_key || '') && (
+                                        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-4 space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-xs">
+                                                        <ExternalLink className="h-3.5 w-3.5" />
+                                                    </span>
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-foreground">
+                                                            Client Review Gate
+                                                        </h4>
+                                                        <p className="text-[11px] text-muted-foreground">
+                                                            Ready to share internally approved deliverables with the client?
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                {!showClientSubmitForm && (
+                                                    <Button
+                                                        size="sm"
+                                                        type="button"
+                                                        onClick={() => setShowClientSubmitForm(true)}
+                                                        className="rounded-xl text-xs font-bold gap-1.5 shadow-2xs"
+                                                    >
+                                                        <Send className="h-3.5 w-3.5" />
+                                                        <span>Submit to Client Review</span>
+                                                    </Button>
+                                                )}
+                                            </div>
+
+                                            {showClientSubmitForm && (
+                                                <form onSubmit={handleSubmitClientReview} className="space-y-3 pt-2 border-t border-border/50">
+                                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[11px] font-semibold">Deliverable Title</Label>
+                                                            <Input
+                                                                placeholder={task.title}
+                                                                value={clientDeliverableTitle}
+                                                                onChange={(e) => setClientDeliverableTitle(e.target.value)}
+                                                                className="h-8 rounded-xl text-xs"
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <Label className="text-[11px] font-semibold">Deliverable External Link</Label>
+                                                            <Input
+                                                                placeholder="https://figma.com/... or https://canva.com/..."
+                                                                value={clientDeliverableUrl}
+                                                                onChange={(e) => setClientDeliverableUrl(e.target.value)}
+                                                                className="h-8 rounded-xl text-xs"
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-1">
+                                                        <Label className="text-[11px] font-semibold">Notes for Client</Label>
+                                                        <textarea
+                                                            rows={2}
+                                                            value={clientSubmitNotes}
+                                                            onChange={(e) => setClientSubmitNotes(e.target.value)}
+                                                            placeholder="Highlight key design decisions, deliverables attached, or questions for client review..."
+                                                            className="w-full rounded-xl border border-border bg-background p-2.5 text-xs focus:ring-1 focus:ring-primary focus:outline-none"
+                                                        />
+                                                    </div>
+
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Button
+                                                            size="sm"
+                                                            type="button"
+                                                            variant="outline"
+                                                            onClick={() => setShowClientSubmitForm(false)}
+                                                            className="rounded-xl text-xs"
+                                                        >
+                                                            Cancel
+                                                        </Button>
+                                                        <Button
+                                                            size="sm"
+                                                            type="submit"
+                                                            disabled={isSubmittingClientReview}
+                                                            className="rounded-xl text-xs font-bold gap-1.5 shadow-2xs"
+                                                        >
+                                                            <Send className="h-3.5 w-3.5" />
+                                                            <span>{isSubmittingClientReview ? 'Submitting...' : 'Send to Client Portal'}</span>
+                                                        </Button>
+                                                    </div>
+                                                </form>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {/* Active Review / Decision Block */}
                                     {isPendingReview ? (
                                         <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 space-y-4 dark:border-amber-900/50 dark:bg-amber-950/20">
@@ -2219,10 +2538,18 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
 
                                     {/* Review History Rounds Timeline */}
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
+                                        <div className="flex items-center justify-between flex-wrap gap-2">
                                             <h4 className="text-xs font-bold text-[#191927] dark:text-white">
                                                 Review History & Rounds ({reviewCycles.length})
                                             </h4>
+                                            <div className="flex items-center gap-1.5 text-[10px]">
+                                                <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                                    Internal Rev: <strong className="text-slate-900 dark:text-white">{task.internal_revision_count || 0}</strong>
+                                                </span>
+                                                <span className="rounded-md bg-purple-50 px-2 py-0.5 font-medium text-purple-700 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                                                    Client Rev: <strong className="text-purple-900 dark:text-purple-100">{task.client_revision_count || 0}</strong>
+                                                </span>
+                                            </div>
                                         </div>
 
                                         {reviewCycles.length === 0 ? (
@@ -2238,29 +2565,47 @@ export default function ItemDetailDrawer({ task, board, users = [], permissions,
                                                     >
                                                         <div className="flex items-center justify-between">
                                                             <div className="flex items-center gap-2">
-                                                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-700 dark:bg-[#252538] dark:text-slate-300">
-                                                                    R{cycle.round_number}
+                                                                <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${
+                                                                    cycle.review_type === 'client'
+                                                                        ? 'bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300'
+                                                                        : 'bg-slate-200 text-slate-700 dark:bg-[#252538] dark:text-slate-300'
+                                                                }`}>
+                                                                    {cycle.review_type === 'client' ? 'C' : 'R'}{cycle.round_number}
                                                                 </span>
                                                                 <span className="font-bold text-[#191927] dark:text-white">
-                                                                    Round {cycle.round_number}
+                                                                    {cycle.review_type === 'client' ? 'Client Review' : 'Internal Review'} Round {cycle.round_number}
                                                                 </span>
                                                                 <span className="text-[10px] text-slate-400">
                                                                     by {cycle.submitter?.name || 'Assignee'}
                                                                 </span>
                                                             </div>
 
-                                                            <span
-                                                                className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
-                                                                    cycle.state === 'approved'
-                                                                        ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20'
-                                                                        : cycle.state === 'revision_requested'
-                                                                        ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20'
-                                                                        : 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20'
-                                                                }`}
-                                                            >
-                                                                {cycle.state.replace('_', ' ')}
-                                                            </span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                {cycle.review_type === 'client' && (
+                                                                    <span className="rounded-full bg-purple-500/10 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-purple-600 dark:bg-purple-500/20 dark:text-purple-300">
+                                                                        Client Gate
+                                                                    </span>
+                                                                )}
+                                                                <span
+                                                                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold capitalize ${
+                                                                        cycle.state === 'approved'
+                                                                            ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20'
+                                                                            : cycle.state === 'revision_requested'
+                                                                            ? 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20'
+                                                                            : 'bg-blue-500/10 text-blue-600 dark:bg-blue-500/20'
+                                                                    }`}
+                                                                >
+                                                                    {cycle.state.replace('_', ' ')}
+                                                                </span>
+                                                            </div>
                                                         </div>
+
+                                                        {cycle.client_feedback && (
+                                                            <div className="text-[11px] text-rose-800 dark:text-rose-300 bg-rose-50/70 dark:bg-rose-950/30 p-2.5 rounded-lg border border-rose-200/60 dark:border-rose-900/40">
+                                                                <span className="font-bold uppercase text-[10px] text-rose-600 block mb-0.5">Client Feedback: </span>
+                                                                <p className="whitespace-pre-wrap">{cycle.client_feedback}</p>
+                                                            </div>
+                                                        )}
 
                                                         {cycle.notes && (
                                                             <p className="text-[11px] text-slate-600 dark:text-slate-400 bg-muted/20 p-2 rounded-lg">

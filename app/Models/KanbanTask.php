@@ -36,6 +36,11 @@ class KanbanTask extends Model
         'reminder_sent_at',
         'completed_at',
         'recurrence_rule_id',
+        'client_id',
+        'is_client_visible',
+        'internal_revision_count',
+        'client_revision_count',
+        'client_review_status',
     ];
 
     protected $casts = [
@@ -48,6 +53,9 @@ class KanbanTask extends Model
         'reminder_sent_at' => 'datetime',
         'is_personal' => 'boolean',
         'is_milestone' => 'boolean',
+        'is_client_visible' => 'boolean',
+        'internal_revision_count' => 'integer',
+        'client_revision_count' => 'integer',
         'reminder_lead_minutes' => 'integer',
         'progress' => 'integer',
         'estimated_hours' => 'decimal:2',
@@ -182,6 +190,27 @@ class KanbanTask extends Model
     public function latestReviewCycle()
     {
         return $this->hasOne(TaskReviewCycle::class, 'task_id')->latestOfMany('round_number')->with(['submitter', 'decisions.reviewer']);
+    }
+
+    public function client()
+    {
+        return $this->belongsTo(SalesCustomer::class, 'client_id');
+    }
+
+    public function clientReviewCycles()
+    {
+        return $this->hasMany(TaskReviewCycle::class, 'task_id')
+            ->where('review_type', 'client')
+            ->with(['submitter', 'decisions.reviewer'])
+            ->orderBy('round_number', 'asc');
+    }
+
+    public function latestClientReviewCycle()
+    {
+        return $this->hasOne(TaskReviewCycle::class, 'task_id')
+            ->where('review_type', 'client')
+            ->latestOfMany('round_number')
+            ->with(['submitter', 'decisions.reviewer']);
     }
 
     public function recurrenceRule()

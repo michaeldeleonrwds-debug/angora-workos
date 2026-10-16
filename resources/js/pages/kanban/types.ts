@@ -249,6 +249,13 @@ export interface Task {
     incomingRelationships?: BoardItemRelationship[];
     review_cycles?: TaskReviewCycle[];
     latest_review_cycle?: TaskReviewCycle;
+    client_id?: number | null;
+    is_client_visible?: boolean;
+    internal_revision_count?: number;
+    client_revision_count?: number;
+    client_review_status?: 'pending' | 'submitted' | 'approved' | 'revision_requested' | 'rework_in_production' | string | null;
+    latest_client_review_cycle?: TaskReviewCycle | null;
+    client?: any;
     recurrence_rule_id?: number | null;
     recurrence_rule?: TaskRecurrenceRule | null;
     recurrenceRule?: TaskRecurrenceRule | null;
@@ -286,6 +293,9 @@ export interface TaskReviewCycle {
     round_number: number;
     submitted_by: number;
     state: 'pending' | 'approved' | 'revision_requested';
+    review_type?: 'internal' | 'client';
+    client_id?: number | null;
+    client_feedback?: string | null;
     total_stages?: number;
     current_stage_index?: number;
     notes?: string | null;

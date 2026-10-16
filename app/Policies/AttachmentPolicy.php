@@ -33,6 +33,10 @@ class AttachmentPolicy
             return false;
         }
 
+        if ($user->isClientUser() && !$attachment->is_client_visible) {
+            return false;
+        }
+
         return $user->can('view', $task);
     }
 

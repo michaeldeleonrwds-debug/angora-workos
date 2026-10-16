@@ -16,6 +16,11 @@ class KanbanAttachment extends Model
         'file_path',
         'file_size_bytes',
         'mime_type',
+        'is_client_visible',
+    ];
+
+    protected $casts = [
+        'is_client_visible' => 'boolean',
     ];
 
     public function task()

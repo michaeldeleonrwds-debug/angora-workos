@@ -121,6 +121,92 @@ class ClientPortalController extends Controller
                 ];
             });
 
+        // Client-visible tasks linked to customer
+        $clientTasks = \App\Models\KanbanTask::where('client_id', $customer->id)
+            ->where('is_client_visible', true)
+            ->whereNull('parent_id')
+            ->with([
+                'column:id,title,color,stage_key,semantic_category',
+                'assignee:id,name,email,avatar,avatar_url',
+                'deliverables' => function ($q) {
+                    $q->where('is_client_visible', true)->latest();
+                },
+                'reviewCycles' => function ($q) {
+                    $q->where('review_type', 'client')->latest('round_number')->with(['decisions.reviewer:id,name,email']);
+                },
+                'comments' => function ($q) {
+                    $q->where('is_client_visible', true)->with('user:id,name,email,avatar,avatar_url')->latest();
+                },
+                'attachments' => function ($q) {
+                    $q->where('is_client_visible', true)->latest();
+                },
+            ])
+            ->latest()
+            ->get();
+
+        $clientSafeTasks = $clientTasks->map(function ($task) {
+            $latestCycle = $task->reviewCycles->first();
+            $latestDecision = $latestCycle?->decisions->last();
+            $isComplete = $task->column?->stage_key === 'complete' || $task->client_review_status === 'approved';
+
+            return [
+                'id' => $task->id,
+                'title' => $task->title,
+                'description' => $task->description,
+                'priority' => $task->priority,
+                // In Complete stage, production deadline is hidden entirely per Phase 1B
+                'due_date' => $isComplete ? null : $task->due_date,
+                'client_deadline' => $task->client_deadline,
+                'status' => $task->column?->title ?? 'New Task',
+                'stage_key' => $task->column?->stage_key ?? 'new_task',
+                'stage_color' => $task->column?->color ?? '#579BFC',
+                'client_review_status' => $task->client_review_status,
+                'client_revision_count' => $task->client_revision_count,
+                'is_awaiting_approval' => $task->column?->stage_key === 'client_under_review' && in_array($task->client_review_status, ['submitted', 'pending'], true),
+                'is_revision_requested' => $task->client_review_status === 'revision_requested',
+                'is_complete' => $isComplete,
+                'assignee' => $task->assignee ? [
+                    'name' => $task->assignee->name,
+                    'avatar_url' => $task->assignee->avatar_url,
+                ] : null,
+                'review_cycle' => $latestCycle ? [
+                    'id' => $latestCycle->id,
+                    'round_number' => $latestCycle->round_number,
+                    'state' => $latestCycle->state,
+                    'notes' => $latestCycle->notes,
+                    'client_feedback' => $latestCycle->client_feedback ?? $latestDecision?->feedback,
+                    'submitted_at' => $latestCycle->submitted_at?->format('Y-m-d H:i'),
+                    'resolved_at' => $latestCycle->resolved_at?->format('Y-m-d H:i'),
+                ] : null,
+                'deliverables' => $task->deliverables->map(fn($d) => [
+                    'id' => $d->id,
+                    'title' => $d->title,
+                    'description' => $d->description,
+                    'file_url' => $d->file_url,
+                    'external_url' => $d->external_url,
+                    'version' => $d->version,
+                    'client_status' => $d->client_status,
+                    'client_feedback' => $d->client_feedback,
+                ]),
+                'comments' => $task->comments->map(fn($c) => [
+                    'id' => $c->id,
+                    'message' => $c->message,
+                    'created_at' => $c->created_at->diffForHumans(),
+                    'user' => [
+                        'name' => $c->user?->name,
+                        'avatar_url' => $c->user?->avatar_url,
+                    ],
+                ]),
+                'attachments' => $task->attachments->map(fn($a) => [
+                    'id' => $a->id,
+                    'file_name' => $a->file_name,
+                    'file_size_bytes' => $a->file_size_bytes,
+                    'mime_type' => $a->mime_type,
+                    'download_url' => route('kanban.attachments.download', $a->id),
+                ]),
+            ];
+        });
+
         return Inertia::render('client-portal/dashboard', [
             'client' => [
                 'id' => $customer->id,
@@ -130,6 +216,7 @@ class ClientPortalController extends Controller
             ],
             'projects' => $clientSafeProjects,
             'deliverables' => $pendingDeliverables,
+            'tasks' => $clientSafeTasks,
         ]);
     }
 
@@ -243,5 +330,276 @@ class ClientPortalController extends Controller
         \App\Events\DeliverableStatusChangedEvent::dispatch($deliverable, 'client');
 
         return back()->with('success', 'Feedback submitted successfully. Our team has been notified!');
+    }
+
+    /**
+     * Client approves task deliverables and review cycle.
+     * Transitions task to semantic Complete stage atomically, hides production deadline from UI,
+     * logs activity, and notifies PM/AM.
+     */
+    public function approveTask(Request $request, \App\Models\KanbanTask $task)
+    {
+        $customer = $this->getAuthenticatedCustomer();
+
+        abort_unless((int) $task->client_id === (int) $customer->id && $task->is_client_visible, 403, 'Unauthorized access to this task.');
+
+        // Idempotency check: if already approved, return success
+        if ($task->client_review_status === 'approved' && $task->column?->stage_key === 'complete') {
+            if ($request->wantsJson()) {
+                return response()->json(['success' => true, 'message' => 'Task is already approved.']);
+            }
+            return back()->with('success', 'Task is already approved.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($task, $customer, $request) {
+            $cycle = $task->reviewCycles()
+                ->where('review_type', 'client')
+                ->where('state', 'pending')
+                ->latest('round_number')
+                ->first();
+
+            $roundNumber = $cycle?->round_number ?? 1;
+
+            if ($cycle) {
+                $cycle->update([
+                    'state' => 'approved',
+                    'resolved_at' => now(),
+                ]);
+
+                \App\Models\TaskReviewDecision::create([
+                    'review_cycle_id' => $cycle->id,
+                    'reviewer_id' => auth()->id(),
+                    'decision' => 'approved',
+                    'feedback' => $request->input('feedback'),
+                    'decided_at' => now(),
+                ]);
+            }
+
+            // Update linked deliverables
+            $task->deliverables()
+                ->where('is_client_visible', true)
+                ->where('client_status', 'pending')
+                ->update([
+                    'client_status' => 'approved',
+                    'status' => 'client_approved',
+                    'client_reviewed_at' => now(),
+                ]);
+
+            // Transition production task to Complete
+            $completeCol = $task->board?->columns()->where('stage_key', 'complete')->first()
+                ?? $task->board?->columns()->where('semantic_category', 'completed')->first();
+
+            if ($completeCol) {
+                $task->applyWorkflowStatus($completeCol);
+                $matchingGroup = $task->board?->groups()->where('title', 'like', '%' . $completeCol->title . '%')->first();
+                if ($matchingGroup) {
+                    $task->group_id = $matchingGroup->id;
+                }
+            }
+
+            $task->completed_at = now();
+            $task->progress = 100;
+            $task->client_review_status = 'approved';
+            // Phase 1B rule: production deadline remains stored in database for audit/reporting, but is suppressed/hidden in Complete
+            $task->save();
+
+            \App\Services\TaskActivityService::log(
+                task: $task,
+                eventType: 'client_approved',
+                description: "Client " . auth()->user()->name . " approved task (Round {$roundNumber}). The task is now Complete.",
+                fieldName: 'status',
+                oldValue: 'Client Under Review',
+                newValue: $completeCol?->title ?? 'Complete',
+                metadata: ['round' => $roundNumber, 'client_id' => $customer->id],
+                actor: auth()->user()
+            );
+
+            // Notify PM / AM
+            $recipients = array_filter([
+                $task->board?->created_by,
+                $customer->account_manager_id,
+                $cycle?->submitted_by,
+                $task->deliverables()->first()?->project?->project_manager_id,
+            ]);
+
+            foreach (array_unique($recipients) as $recipientId) {
+                \App\Models\SystemNotification::create([
+                    'user_id' => $recipientId,
+                    'title' => "Client Approved: {$task->title}",
+                    'message' => "Client {$customer->name} has approved Round {$roundNumber} of '{$task->title}'. The task is now Complete.",
+                    'type' => 'client_approved',
+                    'link' => "/kanban/boards/{$task->board_id}",
+                ]);
+            }
+        });
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Task approved successfully!',
+                'task' => $task->fresh(['column', 'group']),
+            ]);
+        }
+
+        return back()->with('success', 'Task approved successfully!');
+    }
+
+    /**
+     * Client requests revision on task deliverables.
+     * Records feedback, increments client revision count, retains task in management review queue,
+     * and notifies PM/AM without automatically sending back to employees.
+     */
+    public function requestTaskRevision(Request $request, \App\Models\KanbanTask $task)
+    {
+        $customer = $this->getAuthenticatedCustomer();
+
+        abort_unless((int) $task->client_id === (int) $customer->id && $task->is_client_visible, 403, 'Unauthorized access to this task.');
+
+        $validated = $request->validate([
+            'feedback' => 'required|string|max:3000',
+            'attachments' => 'nullable|array',
+        ]);
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($task, $customer, $validated) {
+            $cycle = $task->reviewCycles()
+                ->where('review_type', 'client')
+                ->where('state', 'pending')
+                ->latest('round_number')
+                ->first();
+
+            $roundNumber = $cycle?->round_number ?? 1;
+
+            if ($cycle) {
+                $cycle->update([
+                    'state' => 'revision_requested',
+                    'client_feedback' => $validated['feedback'],
+                    'resolved_at' => now(),
+                ]);
+
+                \App\Models\TaskReviewDecision::create([
+                    'review_cycle_id' => $cycle->id,
+                    'reviewer_id' => auth()->id(),
+                    'decision' => 'revision_requested',
+                    'feedback' => $validated['feedback'],
+                    'attachments' => $validated['attachments'] ?? null,
+                    'decided_at' => now(),
+                ]);
+            }
+
+            // Update deliverables
+            $task->deliverables()
+                ->where('is_client_visible', true)
+                ->update([
+                    'client_status' => 'revision_requested',
+                    'client_feedback' => $validated['feedback'],
+                    'status' => 'revision_required',
+                    'client_reviewed_at' => now(),
+                ]);
+
+            $task->increment('client_revision_count');
+            $task->client_review_status = 'revision_requested';
+            $task->save();
+
+            // Record as client-visible comment
+            \App\Models\KanbanComment::create([
+                'task_id' => $task->id,
+                'user_id' => auth()->id(),
+                'message' => "Client Revision Request (Round {$roundNumber}): " . $validated['feedback'],
+                'is_client_visible' => true,
+            ]);
+
+            \App\Services\TaskActivityService::log(
+                task: $task,
+                eventType: 'client_revision_requested',
+                description: "Client " . auth()->user()->name . " requested revision for Round {$roundNumber}: " . $validated['feedback'],
+                metadata: ['feedback' => $validated['feedback'], 'round' => $roundNumber],
+                actor: auth()->user()
+            );
+
+            // Notify PM / AM
+            $recipients = array_filter([
+                $task->board?->created_by,
+                $customer->account_manager_id,
+                $cycle?->submitted_by,
+                $task->deliverables()->first()?->project?->project_manager_id,
+            ]);
+
+            foreach (array_unique($recipients) as $recipientId) {
+                \App\Models\SystemNotification::create([
+                    'user_id' => $recipientId,
+                    'title' => "Client Revision Requested: {$task->title}",
+                    'message' => "Client {$customer->name} requested revisions on '{$task->title}': " . \Illuminate\Support\Str::limit($validated['feedback'], 100),
+                    'type' => 'client_revision',
+                    'link' => "/kanban/boards/{$task->board_id}",
+                ]);
+            }
+        });
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Revision request submitted. Our management team will review your notes.',
+                'task' => $task->fresh(['column', 'group']),
+            ]);
+        }
+
+        return back()->with('success', 'Revision request submitted. Our management team will review your notes.');
+    }
+
+    /**
+     * Client detail view for a specific task.
+     * Enforces multi-tenant isolation, ensuring client sees only client-visible data.
+     */
+    public function taskDetail(\App\Models\KanbanTask $task)
+    {
+        $customer = $this->getAuthenticatedCustomer();
+
+        abort_unless((int) $task->client_id === (int) $customer->id && $task->is_client_visible, 403, 'Unauthorized access to this task.');
+
+        $task->load([
+            'column:id,title,color,stage_key,semantic_category',
+            'deliverables' => function ($q) {
+                $q->where('is_client_visible', true)->latest();
+            },
+            'reviewCycles' => function ($q) {
+                $q->where('review_type', 'client')->latest('round_number')->with(['decisions.reviewer:id,name,email']);
+            },
+            'comments' => function ($q) {
+                $q->where('is_client_visible', true)->with('user:id,name,email,avatar_url')->latest();
+            },
+            'attachments' => function ($q) {
+                $q->where('is_client_visible', true)->latest();
+            },
+        ]);
+
+        $latestCycle = $task->reviewCycles->first();
+        $isComplete = $task->column?->stage_key === 'complete' || $task->client_review_status === 'approved';
+
+        return response()->json([
+            'id' => $task->id,
+            'title' => $task->title,
+            'description' => $task->description,
+            'priority' => $task->priority,
+            // Suppress production deadline in Complete stage per Phase 1B
+            'due_date' => $isComplete ? null : $task->due_date,
+            'client_deadline' => $task->client_deadline,
+            'status' => $task->column?->title,
+            'stage_key' => $task->column?->stage_key,
+            'client_review_status' => $task->client_review_status,
+            'client_revision_count' => $task->client_revision_count,
+            'is_awaiting_approval' => $task->column?->stage_key === 'client_under_review' && in_array($task->client_review_status, ['submitted', 'pending'], true),
+            'is_revision_requested' => $task->client_review_status === 'revision_requested',
+            'is_complete' => $isComplete,
+            'review_cycle' => $latestCycle,
+            'deliverables' => $task->deliverables,
+            'comments' => $task->comments,
+            'attachments' => $task->attachments->map(fn($a) => [
+                'id' => $a->id,
+                'file_name' => $a->file_name,
+                'file_size_bytes' => $a->file_size_bytes,
+                'mime_type' => $a->mime_type,
+                'download_url' => route('kanban.attachments.download', $a->id),
+            ]),
+        ]);
     }
 }

@@ -24,6 +24,23 @@ class CommentPolicy
     }
 
     /**
+     * Determine whether the user can view the comment.
+     */
+    public function view(User $user, KanbanComment $comment): bool
+    {
+        $task = $comment->task;
+        if (!$task || !$user->can('view', $task)) {
+            return false;
+        }
+
+        if ($user->isClientUser() && !$comment->is_client_visible) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Determine whether the user can create comments on a task.
      */
     public function create(User $user, KanbanComment $comment): bool

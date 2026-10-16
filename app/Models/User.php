@@ -234,6 +234,24 @@ class User extends Authenticatable
         return $this->hasOne(SalesCustomer::class, 'user_id');
     }
 
+    public function clientContacts()
+    {
+        return $this->hasMany(ClientContact::class, 'user_id');
+    }
+
+    public function isClientUser(): bool
+    {
+        if ($this->hasAnyRole(['super_admin', 'admin', 'account_manager', 'project_manager', 'employee', 'designer', 'developer'])) {
+            return false;
+        }
+
+        if ($this->customerProfile()->exists()) {
+            return true;
+        }
+
+        return $this->clientContacts()->where('is_active', true)->exists();
+    }
+
     public function workspaces()
     {
         return $this->belongsToMany(Workspace::class, 'workspace_members');

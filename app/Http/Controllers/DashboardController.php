@@ -15,6 +15,11 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+
+        if ($user->isClientUser()) {
+            return redirect()->route('client-portal.dashboard');
+        }
+
         $workspaceId = $request->query('workspace_id');
 
         // Base query with optional workspace scoping
