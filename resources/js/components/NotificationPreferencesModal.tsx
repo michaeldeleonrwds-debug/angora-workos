@@ -133,7 +133,10 @@ export function NotificationPreferencesModal({ open, onOpenChange }: Notificatio
                         Delivery Channels & Frequency
                     </DialogTitle>
                     <DialogDescription className="text-xs text-[#777785] dark:text-slate-400">
-                        Choose which events trigger instant in-app notification bells and email notifications.
+                        Choose which events trigger instant in-app bells and email notifications. For native Windows / Chrome desktop alerts, visit{' '}
+                        <a href="/settings/notifications" className="text-[#0073ea] hover:underline dark:text-[#579bfc]">
+                            Desktop & Push Settings
+                        </a>.
                     </DialogDescription>
                 </DialogHeader>
 

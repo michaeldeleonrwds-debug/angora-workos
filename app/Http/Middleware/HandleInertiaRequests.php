@@ -93,6 +93,7 @@ class HandleInertiaRequests extends Middleware
                 : [],
             'userWorkspaces' => $userWorkspaces,
             'activeWorkspaceId' => $activeWorkspaceId,
+            'vapidPublicKey' => config('webpush.vapid.public_key', env('VAPID_PUBLIC_KEY')),
         ]);
     }
 }

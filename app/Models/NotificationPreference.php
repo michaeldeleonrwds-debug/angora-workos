@@ -13,11 +13,15 @@ class NotificationPreference extends Model
         'user_id',
         'category',
         'in_app_enabled',
+        'desktop_enabled',
+        'push_enabled',
         'email_enabled',
     ];
 
     protected $casts = [
         'in_app_enabled' => 'boolean',
+        'desktop_enabled' => 'boolean',
+        'push_enabled' => 'boolean',
         'email_enabled' => 'boolean',
     ];
 

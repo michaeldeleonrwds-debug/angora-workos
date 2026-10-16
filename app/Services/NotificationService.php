@@ -61,6 +61,12 @@ class NotificationService
             Log::debug('Broadcasting notification failed: ' . $e->getMessage());
         }
 
+        try {
+            \App\Jobs\SendWebPushNotificationJob::dispatch($notification);
+        } catch (\Throwable $e) {
+            Log::debug('Dispatching web push job failed: ' . $e->getMessage());
+        }
+
         return $notification;
     }
 

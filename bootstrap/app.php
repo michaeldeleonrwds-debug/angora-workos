@@ -9,6 +9,15 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 
+if (!getenv('OPENSSL_CONF') || !file_exists((string) getenv('OPENSSL_CONF'))) {
+    $defaultOpensslCnf = 'C:/ProgramData/envkit/services/php/8.5.9/extras/ssl/openssl.cnf';
+    if (file_exists($defaultOpensslCnf)) {
+        putenv("OPENSSL_CONF={$defaultOpensslCnf}");
+        $_ENV['OPENSSL_CONF'] = $defaultOpensslCnf;
+        $_SERVER['OPENSSL_CONF'] = $defaultOpensslCnf;
+    }
+}
+
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',

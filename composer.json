@@ -16,6 +16,8 @@
         "laravel/reverb": "^1.12",
         "laravel/tinker": "^2.10.1",
         "league/flysystem-aws-s3-v3": "3.0",
+        "minishlink/web-push": "^11.0",
+        "predis/predis": "^3.7",
         "spatie/laravel-permission": "~6.0",
         "tightenco/ziggy": "^2.4"
     },

@@ -1,9 +1,9 @@
 {
   "name": "Angora Work OS Architecture Graph",
-  "generated_at": "2026-10-16T19:02:36.268Z",
+  "generated_at": "2026-10-16T19:22:20.453Z",
   "stats": {
-    "total_nodes": 641,
-    "total_edges": 1401,
+    "total_nodes": 651,
+    "total_edges": 1424,
     "clusters": 7
   },
   "nodes": [
@@ -944,6 +944,62 @@
       "uri": "/notifications/preferences",
       "name": "notifications.preferences.update",
       "action": "updatePreferences"
+    },
+    {
+      "id": "route:GET:/push/vapid-public-key",
+      "label": "GET /push/vapid-public-key",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/push/vapid-public-key",
+      "name": "push.vapid-public-key",
+      "action": "vapidPublicKey"
+    },
+    {
+      "id": "controller:\\App\\Http\\Controllers\\WebPushSubscriptionController",
+      "label": "\\App\\Http\\Controllers\\WebPushSubscriptionController",
+      "type": "controller",
+      "file": null
+    },
+    {
+      "id": "route:POST:/push/subscribe",
+      "label": "POST /push/subscribe",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/push/subscribe",
+      "name": "push.subscribe",
+      "action": "subscribe"
+    },
+    {
+      "id": "route:POST:/push/unsubscribe",
+      "label": "POST /push/unsubscribe",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/push/unsubscribe",
+      "name": "push.unsubscribe",
+      "action": "unsubscribe"
+    },
+    {
+      "id": "route:POST:/push/test",
+      "label": "POST /push/test",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "post",
+      "uri": "/push/test",
+      "name": "push.test",
+      "action": "test"
+    },
+    {
+      "id": "route:GET:/push/status",
+      "label": "GET /push/status",
+      "type": "route",
+      "file": "routes/web.php",
+      "method": "get",
+      "uri": "/push/status",
+      "name": "push.status",
+      "action": "status"
     },
     {
       "id": "route:GET:/production",
@@ -2744,6 +2800,12 @@
       "file": "app/Http/Controllers/UserController.php"
     },
     {
+      "id": "controller:WebPushSubscriptionController",
+      "label": "WebPushSubscriptionController",
+      "type": "controller",
+      "file": "app/Http/Controllers/WebPushSubscriptionController.php"
+    },
+    {
       "id": "controller:WorkdocController",
       "label": "WorkdocController",
       "type": "controller",
@@ -2880,6 +2942,12 @@
       "label": "WebhookService",
       "type": "service",
       "file": "app/Services/WebhookService.php"
+    },
+    {
+      "id": "service:WebPushService",
+      "label": "WebPushService",
+      "type": "service",
+      "file": "app/Services/WebPushService.php"
     },
     {
       "id": "service:WorkflowService",
@@ -3848,6 +3916,12 @@
       "file": "app/Models/WebhookSubscription.php"
     },
     {
+      "id": "model:WebPushSubscription",
+      "label": "WebPushSubscription",
+      "type": "model",
+      "file": "app/Models/WebPushSubscription.php"
+    },
+    {
       "id": "model:Workdoc",
       "label": "Workdoc",
       "type": "model",
@@ -4482,6 +4556,12 @@
       "label": "DashboardTest",
       "type": "test",
       "file": "tests/Feature/DashboardTest.php"
+    },
+    {
+      "id": "test:DesktopAndWebPushNotificationTest",
+      "label": "DesktopAndWebPushNotificationTest",
+      "type": "test",
+      "file": "tests/Feature/DesktopAndWebPushNotificationTest.php"
     },
     {
       "id": "test:EnterpriseDashboardAndReportingTest",
@@ -5336,6 +5416,36 @@
       "target": "controller:\\App\\Http\\Controllers\\NotificationController",
       "relationship": "routes_to",
       "action": "updatePreferences"
+    },
+    {
+      "source": "route:GET:/push/vapid-public-key",
+      "target": "controller:\\App\\Http\\Controllers\\WebPushSubscriptionController",
+      "relationship": "routes_to",
+      "action": "vapidPublicKey"
+    },
+    {
+      "source": "route:POST:/push/subscribe",
+      "target": "controller:\\App\\Http\\Controllers\\WebPushSubscriptionController",
+      "relationship": "routes_to",
+      "action": "subscribe"
+    },
+    {
+      "source": "route:POST:/push/unsubscribe",
+      "target": "controller:\\App\\Http\\Controllers\\WebPushSubscriptionController",
+      "relationship": "routes_to",
+      "action": "unsubscribe"
+    },
+    {
+      "source": "route:POST:/push/test",
+      "target": "controller:\\App\\Http\\Controllers\\WebPushSubscriptionController",
+      "relationship": "routes_to",
+      "action": "test"
+    },
+    {
+      "source": "route:GET:/push/status",
+      "target": "controller:\\App\\Http\\Controllers\\WebPushSubscriptionController",
+      "relationship": "routes_to",
+      "action": "status"
     },
     {
       "source": "route:GET:/production",
@@ -7395,6 +7505,11 @@
       "relationship": "queries_model"
     },
     {
+      "source": "controller:SettingsCenterController",
+      "target": "model:NotificationPreference",
+      "relationship": "queries_model"
+    },
+    {
       "source": "controller:TaskReviewController",
       "target": "$task",
       "relationship": "authorizes_with",
@@ -7620,6 +7735,21 @@
       "source": "controller:UserController",
       "target": "model:UserInvitation",
       "relationship": "queries_model"
+    },
+    {
+      "source": "controller:WebPushSubscriptionController",
+      "target": "service:NotificationService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:WebPushSubscriptionController",
+      "target": "service:WebPushService",
+      "relationship": "calls_service"
+    },
+    {
+      "source": "controller:WebPushSubscriptionController",
+      "target": "service:PushService",
+      "relationship": "calls_service"
     },
     {
       "source": "controller:WorkdocController",
@@ -8495,6 +8625,52 @@
     {
       "source": "service:WebhookService",
       "target": "model:IncomingWebhookLog",
+      "relationship": "uses_model"
+    },
+    {
+      "source": "service:WebPushService",
+      "target": "service_method:WebPushService::getPublicKey",
+      "relationship": "defines_method",
+      "method": "getPublicKey"
+    },
+    {
+      "source": "service:WebPushService",
+      "target": "service_method:WebPushService::subscribe",
+      "relationship": "defines_method",
+      "method": "subscribe"
+    },
+    {
+      "source": "service:WebPushService",
+      "target": "service_method:WebPushService::unsubscribe",
+      "relationship": "defines_method",
+      "method": "unsubscribe"
+    },
+    {
+      "source": "service:WebPushService",
+      "target": "service_method:WebPushService::sendNotification",
+      "relationship": "defines_method",
+      "method": "sendNotification"
+    },
+    {
+      "source": "service:WebPushService",
+      "target": "service_method:WebPushService::sendToUserSubscriptions",
+      "relationship": "defines_method",
+      "method": "sendToUserSubscriptions"
+    },
+    {
+      "source": "service:WebPushService",
+      "target": "service_method:WebPushService::sendTestNotification",
+      "relationship": "defines_method",
+      "method": "sendTestNotification"
+    },
+    {
+      "source": "service:WebPushService",
+      "target": "model:WebPushSubscription",
+      "relationship": "uses_model"
+    },
+    {
+      "source": "service:WebPushService",
+      "target": "model:NotificationPreference",
       "relationship": "uses_model"
     },
     {
@@ -10463,11 +10639,6 @@
     },
     {
       "source": "component:notifications",
-      "target": "component:label",
-      "relationship": "imports"
-    },
-    {
-      "source": "component:notifications",
       "target": "component:app-layout",
       "relationship": "imports"
     },
@@ -10479,6 +10650,11 @@
     {
       "source": "component:notifications",
       "target": "component:types",
+      "relationship": "imports"
+    },
+    {
+      "source": "component:notifications",
+      "target": "component:desktop-notifications",
       "relationship": "imports"
     },
     {
@@ -11338,6 +11514,11 @@
       "relationship": "imports"
     },
     {
+      "source": "component:NotificationCenterPopover",
+      "target": "component:desktop-notifications",
+      "relationship": "imports"
+    },
+    {
       "source": "component:NotificationPreferencesModal",
       "target": "component:dialog",
       "relationship": "imports"
@@ -11351,6 +11532,12 @@
       "source": "component:NotificationPreferencesModal",
       "target": "component:utils",
       "relationship": "imports"
+    },
+    {
+      "source": "component:NotificationPreferencesModal",
+      "target": "route:CALL:/settings/notifications",
+      "relationship": "calls_route",
+      "uri": "/settings/notifications"
     },
     {
       "source": "component:ProfileAvatarSection",
@@ -11719,6 +11906,27 @@
       "source": "test:DashboardTest",
       "target": "controller:DashboardController",
       "relationship": "tests"
+    },
+    {
+      "source": "test:DesktopAndWebPushNotificationTest",
+      "target": "service:NotificationService",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:DesktopAndWebPushNotificationTest",
+      "target": "service:WebPushService",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:DesktopAndWebPushNotificationTest",
+      "target": "controller:KanbanController",
+      "relationship": "tests"
+    },
+    {
+      "source": "test:DesktopAndWebPushNotificationTest",
+      "target": "role:designer",
+      "relationship": "audits_role",
+      "role": "designer"
     },
     {
       "source": "test:EnterpriseDashboardAndReportingTest",

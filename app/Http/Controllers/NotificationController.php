@@ -94,8 +94,9 @@ class NotificationController extends Controller
      */
     public function getPreferences(Request $request): JsonResponse
     {
+        $user = $request->user();
         $categories = ['mentions', 'assignments', 'reviews', 'deadlines', 'automations', 'system'];
-        $existing = NotificationPreference::where('user_id', $request->user()->id)->get()->keyBy('category');
+        $existing = NotificationPreference::where('user_id', $user->id)->get()->keyBy('category');
 
         $result = [];
         foreach ($categories as $cat) {
@@ -103,12 +104,17 @@ class NotificationController extends Controller
             $result[] = [
                 'category' => $cat,
                 'in_app_enabled' => $pref ? (bool) $pref->in_app_enabled : true,
+                'desktop_enabled' => $pref ? (bool) ($pref->desktop_enabled ?? true) : true,
+                'push_enabled' => $pref ? (bool) ($pref->push_enabled ?? true) : true,
                 'email_enabled' => $pref ? (bool) $pref->email_enabled : true,
             ];
         }
 
         return response()->json([
             'preferences' => $result,
+            'desktop_notifications_enabled' => (bool) $user->desktop_notifications_enabled,
+            'push_notifications_enabled' => (bool) $user->push_notifications_enabled,
+            'sound_notifications_enabled' => (bool) $user->sound_notifications_enabled,
         ]);
     }
 
@@ -118,23 +124,47 @@ class NotificationController extends Controller
     public function updatePreferences(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'preferences' => 'required|array',
+            'preferences' => 'nullable|array',
             'preferences.*.category' => 'required|string',
-            'preferences.*.in_app_enabled' => 'required|boolean',
-            'preferences.*.email_enabled' => 'required|boolean',
+            'preferences.*.in_app_enabled' => 'nullable|boolean',
+            'preferences.*.desktop_enabled' => 'nullable|boolean',
+            'preferences.*.push_enabled' => 'nullable|boolean',
+            'preferences.*.email_enabled' => 'nullable|boolean',
+            'desktop_notifications_enabled' => 'nullable|boolean',
+            'push_notifications_enabled' => 'nullable|boolean',
+            'sound_notifications_enabled' => 'nullable|boolean',
         ]);
 
-        foreach ($validated['preferences'] as $item) {
-            NotificationPreference::updateOrCreate(
-                [
-                    'user_id' => $request->user()->id,
-                    'category' => $item['category'],
-                ],
-                [
-                    'in_app_enabled' => $item['in_app_enabled'],
-                    'email_enabled' => $item['email_enabled'],
-                ]
-            );
+        $user = $request->user();
+        $userUpdates = [];
+        if ($request->has('desktop_notifications_enabled')) {
+            $userUpdates['desktop_notifications_enabled'] = (bool) $validated['desktop_notifications_enabled'];
+        }
+        if ($request->has('push_notifications_enabled')) {
+            $userUpdates['push_notifications_enabled'] = (bool) $validated['push_notifications_enabled'];
+        }
+        if ($request->has('sound_notifications_enabled')) {
+            $userUpdates['sound_notifications_enabled'] = (bool) $validated['sound_notifications_enabled'];
+        }
+        if (!empty($userUpdates)) {
+            $user->update($userUpdates);
+        }
+
+        if (!empty($validated['preferences'])) {
+            foreach ($validated['preferences'] as $item) {
+                NotificationPreference::updateOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'category' => $item['category'],
+                    ],
+                    [
+                        'in_app_enabled' => $item['in_app_enabled'] ?? true,
+                        'desktop_enabled' => $item['desktop_enabled'] ?? true,
+                        'push_enabled' => $item['push_enabled'] ?? true,
+                        'email_enabled' => $item['email_enabled'] ?? true,
+                    ]
+                );
+            }
         }
 
         return $this->getPreferences($request);

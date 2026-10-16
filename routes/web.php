@@ -144,6 +144,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'getPreferences'])->name('notifications.preferences');
     Route::put('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'updatePreferences'])->name('notifications.preferences.update');
 
+    // Web Push Subscriptions & Test
+    Route::get('/push/vapid-public-key', [\App\Http\Controllers\WebPushSubscriptionController::class, 'vapidPublicKey'])->name('push.vapid-public-key');
+    Route::post('/push/subscribe', [\App\Http\Controllers\WebPushSubscriptionController::class, 'subscribe'])->name('push.subscribe');
+    Route::post('/push/unsubscribe', [\App\Http\Controllers\WebPushSubscriptionController::class, 'unsubscribe'])->name('push.unsubscribe');
+    Route::post('/push/test', [\App\Http\Controllers\WebPushSubscriptionController::class, 'test'])->name('push.test');
+    Route::get('/push/status', [\App\Http\Controllers\WebPushSubscriptionController::class, 'status'])->name('push.status');
+
     // Production Management & Quality Control
     Route::get('/production', [\App\Http\Controllers\ProductionController::class, 'index'])->name('production.index')->middleware('permission:production.view');
     Route::post('/production/work-orders', [\App\Http\Controllers\ProductionController::class, 'storeWorkOrder'])->name('production.work-orders.store');

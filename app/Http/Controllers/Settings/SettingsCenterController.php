@@ -103,26 +103,84 @@ class SettingsCenterController extends Controller
             'email_review_status' => true,
             'in_app_mentions' => true,
             'in_app_task_moves' => true,
-            'sound_enabled' => true,
+            'sound_enabled' => (bool) $user->sound_notifications_enabled,
+            'desktop_enabled' => (bool) $user->desktop_notifications_enabled,
+            'push_enabled' => (bool) $user->push_notifications_enabled,
         ]);
+
+        $categories = ['mentions', 'assignments', 'reviews', 'deadlines', 'automations', 'system'];
+        $existing = \App\Models\NotificationPreference::where('user_id', $user->id)->get()->keyBy('category');
+        $categoryPreferences = [];
+        foreach ($categories as $cat) {
+            $p = $existing->get($cat);
+            $categoryPreferences[] = [
+                'category' => $cat,
+                'in_app_enabled' => $p ? (bool) $p->in_app_enabled : true,
+                'desktop_enabled' => $p ? (bool) ($p->desktop_enabled ?? true) : true,
+                'push_enabled' => $p ? (bool) ($p->push_enabled ?? true) : true,
+                'email_enabled' => $p ? (bool) $p->email_enabled : true,
+            ];
+        }
 
         return Inertia::render('settings/notifications', [
             'preferences' => $prefs,
+            'categoryPreferences' => $categoryPreferences,
+            'vapidPublicKey' => config('webpush.vapid.public_key', env('VAPID_PUBLIC_KEY')),
+            'deviceCount' => $user->webPushSubscriptions()->count(),
+            'desktopEnabled' => (bool) $user->desktop_notifications_enabled,
+            'pushEnabled' => (bool) $user->push_notifications_enabled,
+            'soundEnabled' => (bool) $user->sound_notifications_enabled,
         ]);
     }
 
     public function updateNotifications(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'email_task_assigned' => 'boolean',
-            'email_task_comment' => 'boolean',
-            'email_review_status' => 'boolean',
-            'in_app_mentions' => 'boolean',
-            'in_app_task_moves' => 'boolean',
-            'sound_enabled' => 'boolean',
+            'email_task_assigned' => 'nullable|boolean',
+            'email_task_comment' => 'nullable|boolean',
+            'email_review_status' => 'nullable|boolean',
+            'in_app_mentions' => 'nullable|boolean',
+            'in_app_task_moves' => 'nullable|boolean',
+            'sound_enabled' => 'nullable|boolean',
+            'desktop_enabled' => 'nullable|boolean',
+            'push_enabled' => 'nullable|boolean',
+            'category_preferences' => 'nullable|array',
         ]);
 
         $user = $request->user();
+
+        // Update user model flags
+        $userUpdates = [];
+        if ($request->has('sound_enabled')) {
+            $userUpdates['sound_notifications_enabled'] = (bool) $validated['sound_enabled'];
+        }
+        if ($request->has('desktop_enabled')) {
+            $userUpdates['desktop_notifications_enabled'] = (bool) $validated['desktop_enabled'];
+        }
+        if ($request->has('push_enabled')) {
+            $userUpdates['push_notifications_enabled'] = (bool) $validated['push_enabled'];
+        }
+        if (!empty($userUpdates)) {
+            $user->update($userUpdates);
+        }
+
+        // Update category preferences if passed
+        if (!empty($validated['category_preferences'])) {
+            foreach ($validated['category_preferences'] as $item) {
+                if (isset($item['category'])) {
+                    \App\Models\NotificationPreference::updateOrCreate(
+                        ['user_id' => $user->id, 'category' => $item['category']],
+                        [
+                            'in_app_enabled' => $item['in_app_enabled'] ?? true,
+                            'desktop_enabled' => $item['desktop_enabled'] ?? true,
+                            'push_enabled' => $item['push_enabled'] ?? true,
+                            'email_enabled' => $item['email_enabled'] ?? true,
+                        ]
+                    );
+                }
+            }
+        }
+
         SystemSetting::set('user_notifications_' . $user->id, $validated, 'notifications', false, $user->id, 'User notification preferences');
 
         return back()->with('success', 'Notification preferences updated successfully');

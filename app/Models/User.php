@@ -113,6 +113,9 @@ class User extends Authenticatable
         'timezone',
         'weekly_capacity_hours',
         'daily_capacity_hours',
+        'desktop_notifications_enabled',
+        'push_notifications_enabled',
+        'sound_notifications_enabled',
     ];
 
     /**
@@ -138,7 +141,15 @@ class User extends Authenticatable
             'password' => 'hashed',
             'weekly_capacity_hours' => 'float',
             'daily_capacity_hours' => 'float',
+            'desktop_notifications_enabled' => 'boolean',
+            'push_notifications_enabled' => 'boolean',
+            'sound_notifications_enabled' => 'boolean',
         ];
+    }
+
+    public function webPushSubscriptions()
+    {
+        return $this->hasMany(\App\Models\WebPushSubscription::class);
     }
 
     public function getAvatarAttribute(?string $value): ?string

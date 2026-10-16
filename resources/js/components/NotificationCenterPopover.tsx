@@ -22,6 +22,7 @@ import {
 import { NotificationPreferencesModal } from './NotificationPreferencesModal';
 import { csrfHeaders } from '@/lib/utils';
 import { getEcho } from '@/echo';
+import { displayDesktopNotification, registerServiceWorker } from '@/services/desktop-notifications';
 
 interface NotificationItem {
     id: number;
@@ -62,6 +63,11 @@ export function NotificationCenterPopover() {
         }
     }, [pageProps.unreadNotificationsCount]);
 
+    // Register Service Worker on mount
+    useEffect(() => {
+        registerServiceWorker();
+    }, []);
+
     // Real-time notification updates via Laravel Echo / Reverb
     useEffect(() => {
         const userId = pageProps.auth?.user?.id;
@@ -89,12 +95,24 @@ export function NotificationCenterPopover() {
                 };
                 return [item, ...prev.filter((n) => n.id !== event.id)];
             });
+
+            // Trigger native desktop notification if user has enabled it and browser granted permission
+            const user = pageProps.auth?.user;
+            if (user?.desktop_notifications_enabled) {
+                displayDesktopNotification({
+                    id: event.id,
+                    title: event.title || 'Angora Work OS',
+                    message: event.message,
+                    link: event.link,
+                    soundEnabled: user.sound_notifications_enabled ?? false,
+                });
+            }
         });
 
         return () => {
             channel.stopListening('.notification.created');
         };
-    }, [pageProps.auth?.user?.id]);
+    }, [pageProps.auth?.user?.id, pageProps.auth?.user?.desktop_notifications_enabled, pageProps.auth?.user?.sound_notifications_enabled]);
 
     useEffect(() => {
         if (open) {

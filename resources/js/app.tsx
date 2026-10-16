@@ -7,6 +7,7 @@ import { route as routeFn } from 'ziggy-js';
 import { Toaster } from './components/toast';
 import { initializeTheme } from './hooks/use-appearance';
 import { installPermissionErrorHandlers } from './lib/permission-errors';
+import { registerServiceWorker } from './services/desktop-notifications';
 
 declare global {
     const route: typeof routeFn;
@@ -20,6 +21,7 @@ createInertiaApp({
     setup({ el, App, props }) {
         if (typeof window !== 'undefined') {
             installPermissionErrorHandlers();
+            registerServiceWorker();
         }
 
         const root = createRoot(el);
