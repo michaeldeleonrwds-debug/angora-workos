@@ -7,16 +7,24 @@ use App\Models\KanbanTask;
 use App\Models\User;
 use Illuminate\Support\Facades\Broadcast;
 
+/**
+ * 1. Personal User Channel (Notifications, Direct Assignments, User Alerts)
+ */
 Broadcast::channel('users.{userId}', function (User $user, int $userId) {
     return (int) $user->id === (int) $userId || $user->isSuperAdmin();
 });
 
+/**
+ * 2. Board Mutations & Presence Channel
+ * Serves both private-boards.{boardId} and presence-boards.{boardId}.
+ */
 Broadcast::channel('boards.{boardId}', function (User $user, int $boardId) {
-    if ($user->isSuperAdmin()) {
-        return true;
+    if ($user->status === 'inactive' || $user->status === 'suspended') {
+        return false;
     }
 
-    if ($user->primaryRoleName() === 'external_user') {
+    // External client users must never listen to internal board channels
+    if ($user->isClientUser() || $user->primaryRoleName() === 'external_user') {
         return false;
     }
 
@@ -25,19 +33,30 @@ Broadcast::channel('boards.{boardId}', function (User $user, int $boardId) {
         return false;
     }
 
-    if ($board->workspace_id) {
-        $isMember = $board->workspace->members()->where('user_id', $user->id)->exists();
-        if ($isMember) {
-            return true;
-        }
+    if ($user->isSuperAdmin() || $user->can('view', $board)) {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'avatar_url' => $user->avatar_url,
+            'role' => $user->role ?? $user->primaryRoleName(),
+        ];
     }
 
-    return $user->hasPermission('kanban.view');
+    return false;
 });
 
+/**
+ * 3. Task Discussions & Presence Channel
+ * Serves both private-tasks.{taskId} and presence-tasks.{taskId}.
+ */
 Broadcast::channel('tasks.{taskId}', function (User $user, int $taskId) {
-    if ($user->isSuperAdmin()) {
-        return true;
+    if ($user->status === 'inactive' || $user->status === 'suspended') {
+        return false;
+    }
+
+    // External client users must not subscribe to internal staff task channels
+    if ($user->isClientUser() || $user->primaryRoleName() === 'external_user') {
+        return false;
     }
 
     $task = KanbanTask::find($taskId);
@@ -45,17 +64,24 @@ Broadcast::channel('tasks.{taskId}', function (User $user, int $taskId) {
         return false;
     }
 
-    if ($user->primaryRoleName() === 'external_user') {
-        // External user can only join if task is linked to their client project and visible
-        return false;
+    if ($user->isSuperAdmin() || $user->can('view', $task)) {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'avatar_url' => $user->avatar_url,
+            'role' => $user->role ?? $user->primaryRoleName(),
+        ];
     }
 
-    return $user->hasPermission('kanban.view');
+    return false;
 });
 
-Broadcast::channel('projects.{projectId}', function (User $user, int $projectId) {
-    if ($user->isSuperAdmin()) {
-        return true;
+/**
+ * 4. Client Project Channel (Deliverables, Approvals, Revisions, Client Safe Updates)
+ */
+Broadcast::channel('client-projects.{projectId}', function (User $user, int $projectId) {
+    if ($user->status === 'inactive' || $user->status === 'suspended') {
+        return false;
     }
 
     $project = AgencyProject::find($projectId);
@@ -64,11 +90,20 @@ Broadcast::channel('projects.{projectId}', function (User $user, int $projectId)
     }
 
     // Internal staff
-    if ($user->primaryRoleName() !== 'external_user') {
-        return $project->project_manager_id === $user->id
+    if (!$user->isClientUser() && $user->primaryRoleName() !== 'external_user') {
+        if ($user->isSuperAdmin()
+            || $project->project_manager_id === $user->id
             || $project->project_leader_id === $user->id
             || $project->members()->where('user_id', $user->id)->exists()
-            || $user->hasPermission('kanban.view');
+            || $user->hasPermission('kanban.view')) {
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'avatar_url' => $user->avatar_url,
+                'role' => $user->role ?? $user->primaryRoleName(),
+            ];
+        }
+        return false;
     }
 
     // External client user
@@ -76,12 +111,64 @@ Broadcast::channel('projects.{projectId}', function (User $user, int $projectId)
         return false;
     }
 
-    if ($project->client && $project->client->user_id === $user->id) {
-        return true;
+    $isClient = ($project->client && $project->client->user_id === $user->id)
+        || ClientContact::where('client_id', $project->client_id)->where('user_id', $user->id)->where('is_active', true)->exists();
+
+    if ($isClient) {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'avatar_url' => $user->avatar_url,
+            'role' => 'client',
+        ];
     }
 
-    return ClientContact::where('client_id', $project->client_id)
-        ->where('user_id', $user->id)
-        ->where('is_active', true)
-        ->exists();
+    return false;
+});
+
+/**
+ * 5. Client Task Channel (Client-visible tasks and client comments)
+ */
+Broadcast::channel('client-tasks.{taskId}', function (User $user, int $taskId) {
+    if ($user->status === 'inactive' || $user->status === 'suspended') {
+        return false;
+    }
+
+    $task = KanbanTask::find($taskId);
+    if (!$task || !$task->is_client_visible) {
+        return false;
+    }
+
+    // Internal staff
+    if (!$user->isClientUser() && $user->primaryRoleName() !== 'external_user') {
+        if ($user->isSuperAdmin() || $user->can('view', $task)) {
+            return [
+                'id' => $user->id,
+                'name' => $user->name,
+                'avatar_url' => $user->avatar_url,
+                'role' => $user->role ?? $user->primaryRoleName(),
+            ];
+        }
+        return false;
+    }
+
+    // Client user
+    $clientId = $task->client_id;
+    if (!$clientId) {
+        return false;
+    }
+
+    $isClient = ($task->client && $task->client->user_id === $user->id)
+        || ClientContact::where('client_id', $clientId)->where('user_id', $user->id)->where('is_active', true)->exists();
+
+    if ($isClient) {
+        return [
+            'id' => $user->id,
+            'name' => $user->name,
+            'avatar_url' => $user->avatar_url,
+            'role' => 'client',
+        ];
+    }
+
+    return false;
 });
